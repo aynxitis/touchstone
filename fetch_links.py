@@ -1,11 +1,10 @@
 """Touchstone step 1: fetch every link in a report and check which return readable text."""
+import asyncio
 import ipaddress
 import json
 import re
 import socket
 import sys
-import time
-from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -13,7 +12,7 @@ import trafilatura
 
 URL_RE = re.compile(r"https?://[^\s<>\"'\)\]]+")
 TIMEOUT = 15            # seconds per request (connect/read)
-MAX_SECONDS = 30        # wall clock per URL, all redirect hops included
+MAX_SECONDS = 30        # hard wall clock per URL: DNS, all redirect hops, body
 MAX_BYTES = 3_000_000   # stop reading a page beyond this
 MAX_REDIRECTS = 5
 MIN_TEXT_CHARS = 200    # less than this = no usable text
@@ -45,16 +44,17 @@ def is_public(ip):
     return ip.is_global
 
 
-def check_url(url):
+async def check_url(url):
     """SSRF protection: only allow http(s) URLs that resolve to public IPs.
     Known gap: DNS can change between this check and the request (DNS rebinding).
-    fetch() re-checks the IP it actually connected to before reading the body, but the
+    fetch_one() re-checks the IP it actually connected to before reading the body, but the
     GET itself is already sent by then. Pin the resolved IP before deploying."""
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https") or not parsed.hostname:
         return False, "not http(s)"
     try:
-        infos = socket.getaddrinfo(parsed.hostname, parsed.port or 443)
+        loop = asyncio.get_running_loop()
+        infos = await loop.getaddrinfo(parsed.hostname, parsed.port or 443)
     except socket.gaierror:
         return False, "DNS failed"
     for info in infos:
@@ -79,30 +79,48 @@ def peer_ok(r):
         return False
 
 
-def read_capped(r, started):
-    """Read the body, stopping at MAX_BYTES or MAX_SECONDS."""
+async def read_capped(r):
+    """Read the body, stopping at MAX_BYTES."""
     body = bytearray()
-    for chunk in r.iter_bytes():
+    async for chunk in r.aiter_bytes():
         body += chunk
         if len(body) > MAX_BYTES:
             break
-        if time.monotonic() - started > MAX_SECONDS:
-            raise httpx.TimeoutException("page too slow")
     return bytes(body[:MAX_BYTES])
 
 
-def fetch(url):
-    """Fetch one URL, re-checking every redirect hop, and extract readable text."""
-    current, started = url, time.monotonic()
+async def fetch_one(url):
+    """Fetch one URL, re-checking every redirect hop, and extract readable text.
+    MAX_SECONDS is a hard wall clock: on expiry the task is cancelled and its socket
+    closed, so a server trickling bytes can't keep anything running."""
     try:
-        with httpx.Client(timeout=TIMEOUT, headers=HEADERS, follow_redirects=False) as client:
+        async with asyncio.timeout(MAX_SECONDS):
+            got = await _get(url)
+    except TimeoutError:
+        return {"url": url, "status": "TIMEOUT", "detail": ""}
+    if isinstance(got, dict):
+        return got
+    body, encoding = got
+    try:
+        html = body.decode(encoding, errors="replace")
+    except LookupError:
+        html = body.decode("utf-8", errors="replace")
+    text = trafilatura.extract(html) or ""
+    if len(text) < MIN_TEXT_CHARS:
+        return {"url": url, "status": "NO_TEXT", "detail": "JS page or blocked?"}
+    return {"url": url, "status": "OK", "detail": f"{len(text)} chars", "text": text}
+
+
+async def _get(url):
+    """(body bytes, encoding), or a result dict if the page can't be used."""
+    current = url
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT, headers=HEADERS, follow_redirects=False) as client:
             for _ in range(MAX_REDIRECTS + 1):
-                ok, reason = check_url(current)
+                ok, reason = await check_url(current)
                 if not ok:
                     return {"url": url, "status": "BLOCKED", "detail": reason}
-                if time.monotonic() - started > MAX_SECONDS:
-                    return {"url": url, "status": "TIMEOUT", "detail": ""}
-                with client.stream("GET", current) as r:
+                async with client.stream("GET", current) as r:
                     if not peer_ok(r):
                         return {"url": url, "status": "BLOCKED", "detail": "connected to a non-public IP"}
                     if r.is_redirect:
@@ -112,24 +130,31 @@ def fetch(url):
                         return {"url": url, "status": "HTTP_ERR", "detail": str(r.status_code)}
                     if "pdf" in r.headers.get("content-type", ""):
                         return {"url": url, "status": "PDF", "detail": "not handled yet"}
-                    body = read_capped(r, started)
-                    encoding = r.encoding or "utf-8"
-                break
-            else:
-                return {"url": url, "status": "ERROR", "detail": "too many redirects"}
+                    return await read_capped(r), r.encoding or "utf-8"
+            return {"url": url, "status": "ERROR", "detail": "too many redirects"}
     except httpx.TimeoutException:
         return {"url": url, "status": "TIMEOUT", "detail": ""}
     except httpx.HTTPError as e:
         return {"url": url, "status": "ERROR", "detail": type(e).__name__}
 
-    try:
-        html = body.decode(encoding, errors="replace")
-    except LookupError:
-        html = body.decode("utf-8", errors="replace")
-    text = trafilatura.extract(html) or ""
-    if len(text) < MIN_TEXT_CHARS:
-        return {"url": url, "status": "NO_TEXT", "detail": "JS page or blocked?"}
-    return {"url": url, "status": "OK", "detail": f"{len(text)} chars", "text": text}
+
+async def _fetch_all(urls):
+    sem = asyncio.Semaphore(8)
+
+    async def one(u):
+        async with sem:
+            return await fetch_one(u)
+    return await asyncio.gather(*(one(u) for u in urls))
+
+
+def fetch_many(urls):
+    """Fetch all URLs concurrently (8 at a time); results in the same order.
+    Each URL is bounded by MAX_SECONDS, so this returns within ~MAX_SECONDS * len/8."""
+    return asyncio.run(_fetch_all(urls)) if urls else []
+
+
+def fetch(url):
+    return fetch_many([url])[0]
 
 
 def main():
@@ -143,8 +168,7 @@ def main():
         return
 
     print(f"Found {len(urls)} links. Fetching...\n")
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        results = list(pool.map(fetch, urls))
+    results = fetch_many(urls)
 
     for r in results:
         print(f"{r['status']:<9} {r['url'][:80]}  {r['detail']}")

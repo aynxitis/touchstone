@@ -26,7 +26,7 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    style.css, no framework); POST /api/audit {report} streams NDJSON events; GET /api/example
    returns report2.txt. Limits: 20,000 chars, 15 cited claims (claims with numbers first),
    5 audits/IP/hour (in memory), one audit at a time (Groq TPM), 300 s per audit (later claims
-   -> NOT CHECKED), 30 s Groq timeout, 30 s + 3 MB per fetched page. Strict CSP header.
+   -> NOT CHECKED), 30 s Groq timeout, 30 s hard wall clock (async, cancelled on expiry) + 3 MB per fetched page. Strict CSP header.
    Frontend renders everything with textContent (never innerHTML); only http(s) URLs become
    links; every streamed field is type-checked, bad lines become a "could not be read" card.
 Dependencies: requirements.txt.
@@ -76,8 +76,7 @@ page names tax advantages and public procurement, not public funding.
    subject (no pronouns). Re-run 23-26.
 9. Before deploying: pin the resolved IP in fetch() (today a rebinding check runs after connect,
    so the GET is already sent); rate limit must read X-Forwarded-For behind a proxy; the
-   in-memory rate limit and busy lock assume a single process. Fetches still running after
-   FETCH_SECONDS (60 s) are abandoned, not killed: their threads linger until httpx gives up.
+   in-memory rate limit and busy lock assume a single process.
 After each fix: re-run the affected claims, compare with labels2.json, commit.
 
 ## Working style
