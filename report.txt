@@ -1,0 +1,6 @@
+For most student projects, Google AI Studio’s Gemini API is the best all-rounder: it’s free without a credit card, supports text, code, and images, and some models offer up to a 1-million-token context window. Limits vary by model and can range from about 20 to 1,500 requests per day; free-tier prompts and outputs may be used to improve Google’s products, so don’t send sensitive data. [edenai](https://www.edenai.co/post/top-free-generative-ai-apis-and-open-source-models)
+
+- **Groq:** Good for fast inference and an OpenAI-compatible API; one comparison lists 30 requests per minute and 1,000 per day, with a 128K context window. [openrouter](https://openrouter.ai/blog/tutorials/free-llm-apis-compared/)
+- **OpenRouter:** Handy for trying many providers through one API; its free models are listed at 20 requests per minute and 50 per day, with higher daily limits after a $10 top-up. [openrouter](https://openrouter.ai/blog/tutorials/free-llm-apis-compared/)
+
+Treat these as indicative rather than guaranteed quotas: limits can differ by model, project, and provider policy. [openrouter](https://openrouter.ai/blog/tutorials/free-llm-apis-compared/)

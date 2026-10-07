@@ -1,0 +1,38 @@
+[
+  {
+    "claim": 1,
+    "text": "For most student projects, Google AI Studio’s Gemini API is the best all-rounder: it’s free without a credit card, supports text, code, and images, and some models offer up to a 1-million-token context window. Limits vary by model and can range from about 20 to 1,500 requests per day; free-tier prompts and outputs may be used to improve Google’s products, so don’t send sensitive data.",
+    "url": "https://www.edenai.co/post/top-free-generative-ai-apis-and-open-source-models",
+    "label": "PARTIAL",
+    "quote": "1,500 daily text requests from Google AI Studio",
+    "reason": "Excerpts confirm free tier, long context and request limits, but do not mention credit‑card‑free sign‑up, code support, or a 1‑million‑token context window. Numbers not on page: 20.",
+    "tokens": 1219
+  },
+  {
+    "claim": 2,
+    "text": "Groq:** Good for fast inference and an OpenAI-compatible API; one comparison lists 30 requests per minute and 1,000 per day, with a 128K context window.",
+    "url": "https://openrouter.ai/blog/tutorials/free-llm-apis-compared/",
+    "label": "SOURCED",
+    "quote": "| Groq | Llama 3.3 70B, Mixtral, others | 30 | 1,000/day | 128K | Yes | No | No |",
+    "reason": "The excerpts list Groq with 30 requests per minute, 1,000 per day, a 128K context window, and note its OpenAI‑compatible API and fast inference.",
+    "tokens": 1306
+  },
+  {
+    "claim": 3,
+    "text": "OpenRouter:** Handy for trying many providers through one API; its free models are listed at 20 requests per minute and 50 per day, with higher daily limits after a $10 top-up.",
+    "url": "https://openrouter.ai/blog/tutorials/free-llm-apis-compared/",
+    "label": "SOURCED",
+    "quote": "| OpenRouter | 20 | 50 (1,000 with $10 top-up) | Variable | Experimentation, routing across models |",
+    "reason": "The excerpts state the free tier limits of 20 requests per minute and 50 per day, with a higher daily limit after a $10 top‑up.",
+    "tokens": 1216
+  },
+  {
+    "claim": 4,
+    "text": "Treat these as indicative rather than guaranteed quotas: limits can differ by model, project, and provider policy.",
+    "url": "https://openrouter.ai/blog/tutorials/free-llm-apis-compared/",
+    "label": "SOURCED",
+    "quote": "Rate limits on free tiers change frequently; verify current numbers before committing.",
+    "reason": "The excerpts state that limits vary and are not guaranteed, matching the claim.",
+    "tokens": 1035
+  }
+]

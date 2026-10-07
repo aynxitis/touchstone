@@ -1,0 +1,10 @@
+[
+  {"report": "report.txt", "claim": 1, "label": "PARTIAL",
+   "note": "1,500/day is in the cited Eden AI page; 20/day is not. Source is a vendor pitching its own API router."},
+  {"report": "report.txt", "claim": 2, "label": "PENDING",
+   "note": "Numbers 30/1000/128 found in OpenRouter page; context not yet checked by hand."},
+  {"report": "report.txt", "claim": 3, "label": "PENDING",
+   "note": "Numbers 20/50/10 found in OpenRouter page; context not yet checked by hand."},
+  {"report": "report.txt", "claim": 4, "label": "OPINION",
+   "note": "Advice, not a factual claim."}
+]
