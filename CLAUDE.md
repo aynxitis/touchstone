@@ -18,8 +18,20 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    the label: any contradicted -> CONTRADICTED, all stated -> SOURCED, some -> PARTIAL,
    none -> UNSUPPORTED. Framing never affects the label. Optional 2nd arg
    re-runs only those claim numbers. Writes audit.json.
+4. touchstone.py: audit(report, client, pages=None, max_claims=None, only=None, deadline=None)
+   is the importable pipeline. Yields events: start {cited, checked, uncited}, claim (one per
+   segment, uncited ones with claim: null), skipped, done {tokens}. pages=None fetches live.
+   quote_check.py's CLI is a thin wrapper over it (uses cached fetch_results.json).
+5. app.py (FastAPI, run: .venv/bin/uvicorn app:app): GET / serves static/ (index.html, app.js,
+   style.css, no framework); POST /api/audit {report} streams NDJSON events; GET /api/example
+   returns report2.txt. Limits: 20,000 chars, 15 cited claims (claims with numbers first),
+   5 audits/IP/hour (in memory), one audit at a time (Groq TPM), 300 s per audit (later claims
+   -> NOT CHECKED), 30 s Groq timeout, 30 s + 3 MB per fetched page. Strict CSP header.
+   Frontend renders everything with textContent (never innerHTML); only http(s) URLs become
+   links; every streamed field is type-checked, bad lines become a "could not be read" card.
+Dependencies: requirements.txt.
 Labels: SOURCED / PARTIAL / UNSUPPORTED / CONTRADICTED / UNVERIFIED / OPINION / SOURCE UNREACHABLE /
-NO SOURCE GIVEN. Verdicts judge factual parts only; editorial framing is noted, not penalized.
+NO SOURCE GIVEN / NOT CHECKED / ERROR. Verdicts judge factual parts only; editorial framing is noted, not penalized.
 
 ## Rules
 - GROQ_API_KEY lives in .env only. Never in code, prompts, logs, or git.
@@ -57,6 +69,14 @@ page names tax advantages and public procurement, not public funding.
 7. DONE: Framing duplicated as facts. The model returns one list of parts marked fact|framing,
    so nothing is listed twice; fuzzy dedup removed. Tested on 1, 3, 22, 23 only: full re-run
    still pending (do it twice, see Scoring).
+8. Subject dropped from facts: in the 2026-10-07 web test, claim 26 (VOLZ IPO, really Moustachir's)
+   came back SOURCED because the model wrote the fact as "It was the first Algerian startup to
+   list...", so the quote verified without checking WHO. The previous CLI run got CONTRADICTED
+   only because it happened to split out "Volz listed". Fix: require each fact to name its
+   subject (no pronouns). Re-run 23-26.
+9. Before deploying: pin the resolved IP in fetch() (today a rebinding check runs after connect,
+   so the GET is already sent); rate limit must read X-Forwarded-For behind a proxy; the
+   in-memory rate limit and busy lock assume a single process.
 After each fix: re-run the affected claims, compare with labels2.json, commit.
 
 ## Working style

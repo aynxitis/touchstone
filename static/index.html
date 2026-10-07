@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Touchstone</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+<main>
+  <header class="top">
+    <h1>Touchstone</h1>
+    <p class="tagline">Touchstone checks whether each claim's cited source actually says it. It does not check whether the source itself is right.</p>
+  </header>
+
+  <section class="input">
+    <label for="report">Paste an AI research report with its source links (Perplexity, ChatGPT, Gemini)</label>
+    <textarea id="report" spellcheck="false" placeholder="Paste the report here, links included."></textarea>
+    <div class="controls">
+      <button id="audit" type="button" class="primary">Audit</button>
+      <button id="example" type="button" class="secondary">Try an example</button>
+      <span id="count" class="meta"></span>
+    </div>
+    <p class="meta">Up to 15 cited claims per audit, claims with numbers first. 5 audits per hour.</p>
+  </section>
+
+  <section class="results" aria-live="polite">
+    <p id="status" class="status"></p>
+    <p id="summary" class="summary"></p>
+    <p id="scope" class="meta"></p>
+    <div id="cards"></div>
+    <details id="uncited" hidden>
+      <summary></summary>
+      <ul></ul>
+    </details>
+  </section>
+</main>
+</body>
+</html>

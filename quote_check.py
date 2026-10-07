@@ -118,13 +118,20 @@ def check(client, claim, page):
     except json.JSONDecodeError:
         out = {}
 
-    if out.get("opinion"):
+    if not isinstance(out, dict):
+        out = {}
+    if out.get("opinion") is True:
         tokens = resp.usage.total_tokens if resp.usage else 0
         return {"label": "OPINION", "quote": "", "reason": "Advice or opinion, not a checkable fact.",
                 "facts": [], "framing": [], "tokens": tokens}
 
-    parts_in = [dict(x, text=(x.get("text") or "").strip().rstrip(".;,"))
-                for x in (out.get("parts") or []) if isinstance(x, dict)]
+    # Model output is untrusted too: anything that isn't the expected shape is dropped
+    # or coerced to a string, never trusted.
+    s = lambda v: v if isinstance(v, str) else ""
+    parts = out.get("parts") if isinstance(out.get("parts"), list) else []
+    parts_in = [{"text": s(x.get("text")).strip().rstrip(".;,"), "kind": s(x.get("kind")),
+                 "status": s(x.get("status")), "quote": s(x.get("quote"))}
+                for x in parts if isinstance(x, dict)]
     parts_in = [x for x in parts_in if x["text"]]
     # Numbers are facts: a part with a number is checked even if the model calls it framing.
     framing = [x["text"] for x in parts_in if x.get("kind") == "framing" and not NUM_RE.search(x["text"])]
@@ -133,9 +140,9 @@ def check(client, claim, page):
 
     facts, demoted = [], False
     for f in raw_facts[:5]:
-        status = f.get("status") if f.get("status") in ("stated", "missing", "contradicted") else "missing"
-        quote = (f.get("quote") or "") if status != "missing" else ""
-        fact = {"fact": f.get("fact") or "", "status": status, "quote": quote}
+        status = f["status"] if f["status"] in ("stated", "missing", "contradicted") else "missing"
+        quote = f["quote"] if status != "missing" else ""
+        fact = {"fact": f["fact"], "status": status, "quote": quote}
         if status != "missing" and not (quote and quote_on_page(quote, page)):
             # no verified quote, no credit: the fact counts as missing
             fact.update(status="missing", quote="", rejected_quote=quote)
@@ -198,34 +205,29 @@ def main():
     with open(sys.argv[1], encoding="utf-8") as f:
         report = f.read()
     with open("fetch_results.json", encoding="utf-8") as f:
-        pages = {r["url"]: r.get("text", "") for r in json.load(f)}
+        pages = {r["url"]: r for r in json.load(f)}
 
     previous = {}
     if only and os.path.exists("audit.json"):
         with open("audit.json", encoding="utf-8") as f:
             previous = {r["claim"]: r for r in json.load(f) if r["claim"]}
 
-    results, total_tokens, i = [], 0, 0
-    for claim, url in segments(report):
-        if url is None:   # uncited text: nothing to check, costs no tokens
-            results.append({"claim": None, "text": claim, "url": None, "label": "NO SOURCE GIVEN",
-                            "quote": "", "reason": "The report gives no source for this.", "tokens": 0})
+    from touchstone import audit
+    results, total_tokens = [], 0
+    for ev in audit(report, client, pages=pages, only=only):
+        if ev["type"] == "skipped":
+            if ev["claim"] in previous:
+                results.append(previous[ev["claim"]])   # keep the earlier result untouched
             continue
-        i += 1
-        if only and i not in only:
-            if i in previous:
-                results.append(previous[i])   # keep the earlier result untouched
+        if ev["type"] != "claim":
             continue
-        page = pages.get(url, "")
-        if not page:
-            r = {"label": "SOURCE UNREACHABLE", "quote": "", "reason": "", "tokens": 0}
-        else:
-            r = check(client, claim, page)
+        r = {k: v for k, v in ev.items() if k not in ("type", "index")}
+        results.append(r)
+        if r["claim"] is None:
+            continue
         total_tokens += r["tokens"]
-        results.append({"claim": i, "text": claim, "url": url, **r})
-
-        print(f"\n[{i}] {r['label']}")
-        print(f"    claim:  {claim[:120]}{'...' if len(claim) > 120 else ''}")
+        print(f"\n[{r['claim']}] {r['label']}")
+        print(f"    claim:  {r['text'][:120]}{'...' if len(r['text']) > 120 else ''}")
         if r["quote"]:
             print(f"    quote:  \"{r['quote'][:160]}\"")
         for f in r.get("facts", []):

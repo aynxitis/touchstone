@@ -4,6 +4,7 @@ import json
 import re
 import socket
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urljoin, urlparse
 
@@ -11,7 +12,9 @@ import httpx
 import trafilatura
 
 URL_RE = re.compile(r"https?://[^\s<>\"'\)\]]+")
-TIMEOUT = 15            # seconds per request
+TIMEOUT = 15            # seconds per request (connect/read)
+MAX_SECONDS = 30        # wall clock per URL, all redirect hops included
+MAX_BYTES = 3_000_000   # stop reading a page beyond this
 MAX_REDIRECTS = 5
 MIN_TEXT_CHARS = 200    # less than this = no usable text
 HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Touchstone/0.1"}
@@ -30,7 +33,8 @@ def extract_urls(text):
 def check_url(url):
     """SSRF protection: only allow http(s) URLs that resolve to public IPs.
     Known gap: DNS can change between this check and the request (DNS rebinding).
-    Fine for a local test; the server version needs to pin the resolved IP."""
+    fetch() re-checks the IP it actually connected to before reading the body, but the
+    GET itself is already sent by then. Pin the resolved IP before deploying."""
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https") or not parsed.hostname:
         return False, "not http(s)"
@@ -48,19 +52,53 @@ def check_url(url):
     return True, ""
 
 
+def peer_ok(r):
+    """The IP we actually connected to must be public (catches DNS rebinding)."""
+    stream = r.extensions.get("network_stream")
+    addr = stream.get_extra_info("server_addr") if stream else None
+    if not addr:
+        return False
+    try:
+        return ipaddress.ip_address(addr[0]).is_global
+    except ValueError:
+        return False
+
+
+def read_capped(r, started):
+    """Read the body, stopping at MAX_BYTES or MAX_SECONDS."""
+    body = bytearray()
+    for chunk in r.iter_bytes():
+        body += chunk
+        if len(body) > MAX_BYTES:
+            break
+        if time.monotonic() - started > MAX_SECONDS:
+            raise httpx.TimeoutException("page too slow")
+    return bytes(body[:MAX_BYTES])
+
+
 def fetch(url):
     """Fetch one URL, re-checking every redirect hop, and extract readable text."""
-    current = url
+    current, started = url, time.monotonic()
     try:
         with httpx.Client(timeout=TIMEOUT, headers=HEADERS, follow_redirects=False) as client:
             for _ in range(MAX_REDIRECTS + 1):
                 ok, reason = check_url(current)
                 if not ok:
                     return {"url": url, "status": "BLOCKED", "detail": reason}
-                r = client.get(current)
-                if r.is_redirect:
-                    current = urljoin(current, r.headers.get("location", ""))
-                    continue
+                if time.monotonic() - started > MAX_SECONDS:
+                    return {"url": url, "status": "TIMEOUT", "detail": ""}
+                with client.stream("GET", current) as r:
+                    if not peer_ok(r):
+                        return {"url": url, "status": "BLOCKED", "detail": "connected to a non-public IP"}
+                    if r.is_redirect:
+                        current = urljoin(current, r.headers.get("location", ""))
+                        continue
+                    if r.status_code >= 400:
+                        return {"url": url, "status": "HTTP_ERR", "detail": str(r.status_code)}
+                    if "pdf" in r.headers.get("content-type", ""):
+                        return {"url": url, "status": "PDF", "detail": "not handled yet"}
+                    body = read_capped(r, started)
+                    encoding = r.encoding or "utf-8"
                 break
             else:
                 return {"url": url, "status": "ERROR", "detail": "too many redirects"}
@@ -69,12 +107,11 @@ def fetch(url):
     except httpx.HTTPError as e:
         return {"url": url, "status": "ERROR", "detail": type(e).__name__}
 
-    if r.status_code >= 400:
-        return {"url": url, "status": "HTTP_ERR", "detail": str(r.status_code)}
-    if "pdf" in r.headers.get("content-type", ""):
-        return {"url": url, "status": "PDF", "detail": "not handled yet"}
-
-    text = trafilatura.extract(r.text) or ""
+    try:
+        html = body.decode(encoding, errors="replace")
+    except LookupError:
+        html = body.decode("utf-8", errors="replace")
+    text = trafilatura.extract(html) or ""
     if len(text) < MIN_TEXT_CHARS:
         return {"url": url, "status": "NO_TEXT", "detail": "JS page or blocked?"}
     return {"url": url, "status": "OK", "detail": f"{len(text)} chars", "text": text}

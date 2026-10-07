@@ -1,0 +1,8 @@
+fastapi==0.142.2
+groq==1.7.0
+httpx==0.28.1
+pydantic==2.13.5
+python-dotenv==1.2.4
+RapidFuzz==3.14.6
+trafilatura==2.3.0
+uvicorn==0.54.0
