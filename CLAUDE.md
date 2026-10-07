@@ -11,10 +11,13 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    (a ':' lead-in + its bullets form one block); uncited text -> NO SOURCE GIVEN;
    code-only check that numbers in a claim appear on the cited page.
 3. quote_check.py REPORT [4,9]: code picks top paragraphs by keyword overlap (max 3000
-   chars), Groq openai/gpt-oss-120b returns {verdict, quote, reason}, code confirms the
-   quote is on the page (exact, else rapidfuzz partial_ratio >= 92). Optional 2nd arg
+   chars), Groq openai/gpt-oss-120b splits the claim into <=5 facts (stated/missing/
+   contradicted, each with its own quote) + framing. Code verifies every quote (exact, else
+   rapidfuzz partial_ratio >= 92 with identical numbers; unverified -> missing) and derives
+   the label: any contradicted -> CONTRADICTED, all stated -> SOURCED, some -> PARTIAL,
+   none -> UNSUPPORTED. Framing never affects the label. Optional 2nd arg
    re-runs only those claim numbers. Writes audit.json.
-Labels: SOURCED / PARTIAL / UNSUPPORTED / UNVERIFIED / OPINION / SOURCE UNREACHABLE /
+Labels: SOURCED / PARTIAL / UNSUPPORTED / CONTRADICTED / UNVERIFIED / OPINION / SOURCE UNREACHABLE /
 NO SOURCE GIVEN. Verdicts judge factual parts only; editorial framing is noted, not penalized.
 
 ## Rules
@@ -32,7 +35,8 @@ Touchstone caught 3/3 real problems (3, 8, 26: all real numbers attributed to th
 source; 26 = Moustachir's IPO credited to VOLZ).
 labels2.json is now the TUNING SET (issues 1-2 were fixed against it). The next eval must
 use a fresh report with fresh labels, or the score is overfitted.
-Latest full run: 10/13. Misses: 2 (issue 4), 8 and 23 (issue 7).
+Latest run: 9/13 (CONTRADICTED counts as UNSUPPORTED). Misses: 2 (issue 4), 1, 22, 23 (issue 7).
+Runs vary by 1-2 labels from model randomness alone; don't tune to single runs.
 
 ## Open issues, in order
 1. DONE: Claims 4 and 9 false rejections. Cause: U+2011 hyphens and '...'-shortened quotes; fixed in
@@ -46,10 +50,12 @@ Latest full run: 10/13. Misses: 2 (issue 4), 8 and 23 (issue 7).
    "not on the page".
 6. (Low priority) Weak excerpt selection: claim 4 picks unrelated quotes (VOLZ/forex) for a
    list-of-verticals claim; keyword overlap ranks the wrong paragraphs.
-7. Verdict calibration: the model ignores the prompt rules. Claim 8 gets DOES_NOT_SUPPORT with
-   2.4B and 100+ in its excerpts (should be PARTIAL); claim 23 is downgraded to PARTIAL for
-   framing alone (should be SOURCED). Candidate fix: model judges each factual part separately,
-   code derives the verdict.
+7. Framing duplicated as facts: the model lists framing AND repeats it (often rephrased) as a
+   "missing" fact, which lowers the label (1, 22, 23). Code drops facts that fuzzy-match a
+   framing phrase covering >= 45% of the fact (dropped_as_framing in audit.json), but it
+   misses rephrasings. Planned fix: one list of parts, each with kind fact|framing, so
+   nothing can be listed twice; then remove the fuzzy dedup.
+   Watch: the model also files real facts as framing (claim 3: "concentrated around Algiers").
 After each fix: re-run the affected claims, compare with labels2.json, commit.
 
 ## Working style
