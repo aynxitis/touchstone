@@ -49,12 +49,16 @@ async def check_url(url):
     Known gap: DNS can change between this check and the request (DNS rebinding).
     fetch_one() re-checks the IP it actually connected to before reading the body, but the
     GET itself is already sent by then. Pin the resolved IP before deploying."""
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+    try:
+        parsed = urlparse(url)
+        host, port = parsed.hostname, parsed.port
+    except ValueError:            # e.g. unclosed IPv6 bracket, port out of range
+        return False, "malformed URL"
+    if parsed.scheme not in ("http", "https") or not host:
         return False, "not http(s)"
     try:
         loop = asyncio.get_running_loop()
-        infos = await loop.getaddrinfo(parsed.hostname, parsed.port or 443)
+        infos = await loop.getaddrinfo(host, port or 443)
     except socket.gaierror:
         return False, "DNS failed"
     for info in infos:
@@ -98,6 +102,8 @@ async def fetch_one(url):
             got = await _get(url)
     except TimeoutError:
         return {"url": url, "status": "TIMEOUT", "detail": ""}
+    except Exception as e:        # one bad link must never end the whole audit
+        return {"url": url, "status": "ERROR", "detail": type(e).__name__}
     if isinstance(got, dict):
         return got
     body, encoding = got
