@@ -39,8 +39,8 @@ use a fresh report with fresh labels, or the score is overfitted.
 Scoring: CONTRADICTED counts as UNSUPPORTED. Single runs vary by 1-2 labels from model
 randomness alone: compare scores across at least 2 runs, never one.
 The next real eval is a FRESH report with fresh labels (labels2.json is the tuning set).
-Known disagreement: claim 1 = PARTIAL ("label unlocks the regime" not in the checked
-passages); labels2.json says SOURCED, which is lenient.
+Claim 1 label corrected SOURCED -> PARTIAL (2026-10-07) after re-checking the source: the
+page names tax advantages and public procurement, not public funding.
 
 ## Open issues, in order
 1. DONE: Claims 4 and 9 false rejections. Cause: U+2011 hyphens and '...'-shortened quotes; fixed in
