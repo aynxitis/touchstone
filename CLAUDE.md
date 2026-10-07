@@ -11,8 +11,9 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    (a ':' lead-in + its bullets form one block); uncited text -> NO SOURCE GIVEN;
    code-only check that numbers in a claim appear on the cited page.
 3. quote_check.py REPORT [4,9]: code picks top paragraphs by keyword overlap (max 3000
-   chars), Groq openai/gpt-oss-120b splits the claim into <=5 facts (stated/missing/
-   contradicted, each with its own quote) + framing. Code verifies every quote (exact, else
+   chars), Groq openai/gpt-oss-120b splits the claim into one list of parts, each marked
+   fact or framing (<=5 facts: stated/missing/contradicted, each with its own quote; a part
+   with a number is always a fact). Code verifies every quote (exact, else
    rapidfuzz partial_ratio >= 92 with identical numbers; unverified -> missing) and derives
    the label: any contradicted -> CONTRADICTED, all stated -> SOURCED, some -> PARTIAL,
    none -> UNSUPPORTED. Framing never affects the label. Optional 2nd arg
@@ -35,8 +36,11 @@ Touchstone caught 3/3 real problems (3, 8, 26: all real numbers attributed to th
 source; 26 = Moustachir's IPO credited to VOLZ).
 labels2.json is now the TUNING SET (issues 1-2 were fixed against it). The next eval must
 use a fresh report with fresh labels, or the score is overfitted.
-Latest run: 9/13 (CONTRADICTED counts as UNSUPPORTED). Misses: 2 (issue 4), 1, 22, 23 (issue 7).
-Runs vary by 1-2 labels from model randomness alone; don't tune to single runs.
+Scoring: CONTRADICTED counts as UNSUPPORTED. Single runs vary by 1-2 labels from model
+randomness alone: compare scores across at least 2 runs, never one.
+The next real eval is a FRESH report with fresh labels (labels2.json is the tuning set).
+Known disagreement: claim 1 = PARTIAL ("label unlocks the regime" not in the checked
+passages); labels2.json says SOURCED, which is lenient.
 
 ## Open issues, in order
 1. DONE: Claims 4 and 9 false rejections. Cause: U+2011 hyphens and '...'-shortened quotes; fixed in
@@ -50,12 +54,9 @@ Runs vary by 1-2 labels from model randomness alone; don't tune to single runs.
    "not on the page".
 6. (Low priority) Weak excerpt selection: claim 4 picks unrelated quotes (VOLZ/forex) for a
    list-of-verticals claim; keyword overlap ranks the wrong paragraphs.
-7. Framing duplicated as facts: the model lists framing AND repeats it (often rephrased) as a
-   "missing" fact, which lowers the label (1, 22, 23). Code drops facts that fuzzy-match a
-   framing phrase covering >= 45% of the fact (dropped_as_framing in audit.json), but it
-   misses rephrasings. Planned fix: one list of parts, each with kind fact|framing, so
-   nothing can be listed twice; then remove the fuzzy dedup.
-   Watch: the model also files real facts as framing (claim 3: "concentrated around Algiers").
+7. DONE: Framing duplicated as facts. The model returns one list of parts marked fact|framing,
+   so nothing is listed twice; fuzzy dedup removed. Tested on 1, 3, 22, 23 only: full re-run
+   still pending (do it twice, see Scoring).
 After each fix: re-run the affected claims, compare with labels2.json, commit.
 
 ## Working style

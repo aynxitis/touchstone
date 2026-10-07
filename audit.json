@@ -13,38 +13,34 @@
     "text": "More than 7,800 ventures are registered on the national startup portal, startup.dz; approximately 2,300 hold the official “Startup” label as of early 2026—about 29% of registered entities. The label is the important figure here: it is the formal qualification that unlocks the dedicated startup regime, including access to public funding and incentives.",
     "url": "https://www.magstartup.com/en/10-algerian-startups-to-watch-in-2026-beyond-the-noise/",
     "label": "PARTIAL",
-    "quote": "On startup.dz, over 7,800 entities are registered and roughly 2,300 have obtained the official label — a 29% conversion rate.",
-    "reason": "Stated: More than 7,800 ventures are registered on the national startup portal, startup.dz; Approximately 2,300 hold the official “Startup” label; About 29% of registered entities have the label. Not in the checked passages: The data are as of early 2026. Framing not checked: the important figure here; formal qualification that unlocks the dedicated startup regime.",
+    "quote": "over 7,800 entities are registered",
+    "reason": "Stated: More than 7,800 ventures are registered on the national startup portal, startup.dz; approximately 2,300 hold the official “Startup” label as of early 2026; about 29% of registered entities. Not in the checked passages: The label is the formal qualification that unlocks the dedicated startup regime, including access to public funding and incentives. Framing not checked: The label is the important figure here.",
     "facts": [
       {
         "fact": "More than 7,800 ventures are registered on the national startup portal, startup.dz",
         "status": "stated",
-        "quote": "On startup.dz, over 7,800 entities are registered and roughly 2,300 have obtained the official label — a 29% conversion rate."
+        "quote": "over 7,800 entities are registered"
       },
       {
-        "fact": "Approximately 2,300 hold the official “Startup” label",
+        "fact": "approximately 2,300 hold the official “Startup” label as of early 2026",
         "status": "stated",
-        "quote": "On startup.dz, over 7,800 entities are registered and roughly 2,300 have obtained the official label — a 29% conversion rate."
+        "quote": "roughly 2,300 have obtained the official label"
       },
       {
-        "fact": "About 29% of registered entities have the label",
+        "fact": "about 29% of registered entities",
         "status": "stated",
-        "quote": "On startup.dz, over 7,800 entities are registered and roughly 2,300 have obtained the official label — a 29% conversion rate."
+        "quote": "a 29% conversion rate"
       },
       {
-        "fact": "The data are as of early 2026",
+        "fact": "The label is the formal qualification that unlocks the dedicated startup regime, including access to public funding and incentives",
         "status": "missing",
         "quote": ""
       }
     ],
     "framing": [
-      "the important figure here",
-      "formal qualification that unlocks the dedicated startup regime"
+      "The label is the important figure here"
     ],
-    "dropped_as_framing": [
-      "The label is the formal qualification that unlocks the dedicated startup regime, including access to public funding and incentives"
-    ],
-    "tokens": 1722
+    "tokens": 1834
   },
   {
     "claim": 2,
@@ -60,13 +56,23 @@
     "text": "The ecosystem is concentrated around Algiers but has become more geographically distributed through public programs. ASF reporting indicates it has backed companies in 41 of Algeria’s 58 wilayas, though earlier figures cited 22 provinces—an indication that coverage has widened as the program matured.",
     "url": "https://algeriatech.news/algeria-asf-100-startups-portfolio-sectors-2026/",
     "label": "PARTIAL",
-    "quote": "funded over 100 companies across 20+ business sectors and 41 of Algeria’s 58 wilayas.",
-    "reason": "Stated: ASF has backed companies in 41 of Algeria’s 58 wilayas. Not in the checked passages: earlier figures cited 22 provinces. Numbers not on page: 22. Framing not checked: concentrated around Algiers; more geographically distributed through public programs; an indication that coverage has widened as the program matured.",
+    "quote": "The geographic spread to 41 wilayas is significant: it means the ASF is not a fund for Algiers startups.",
+    "reason": "Stated: has become more geographically distributed through public programs; ASF reporting indicates it has backed companies in 41 of Algeria’s 58 wilayas. Not in the checked passages: The ecosystem is concentrated around Algiers; earlier figures cited 22 provinces. Numbers not on page: 22. Framing not checked: an indication that coverage has widened as the program matured.",
     "facts": [
       {
-        "fact": "ASF has backed companies in 41 of Algeria’s 58 wilayas",
+        "fact": "The ecosystem is concentrated around Algiers",
+        "status": "missing",
+        "quote": ""
+      },
+      {
+        "fact": "has become more geographically distributed through public programs",
         "status": "stated",
-        "quote": "funded over 100 companies across 20+ business sectors and 41 of Algeria’s 58 wilayas."
+        "quote": "The geographic spread to 41 wilayas is significant: it means the ASF is not a fund for Algiers startups."
+      },
+      {
+        "fact": "ASF reporting indicates it has backed companies in 41 of Algeria’s 58 wilayas",
+        "status": "stated",
+        "quote": "Since then, it has received 963 startup applications, processed 445 funding requests, and funded over 100 companies across 20+ business sectors and 41 of Algeria’s 58 wilayas."
       },
       {
         "fact": "earlier figures cited 22 provinces",
@@ -75,16 +81,9 @@
       }
     ],
     "framing": [
-      "concentrated around Algiers",
-      "more geographically distributed through public programs",
       "an indication that coverage has widened as the program matured"
     ],
-    "dropped_as_framing": [
-      "the ecosystem is concentrated around Algiers",
-      "the ecosystem has become more geographically distributed through public programs",
-      "coverage has widened as the program matured"
-    ],
-    "tokens": 1473
+    "tokens": 1690
   },
   {
     "claim": 4,
@@ -629,71 +628,42 @@
     "claim": 22,
     "text": "The ecosystem directory compiled by UpGrowth lists 360 incubators and accelerators and 680 coworking spaces across 21 wilayas. That is a broad directory count, not a guarantee that every listed organization operates a full-time, investment-ready accelerator program; in practice, Algeria Venture, Leancubator, Sylabs and the university/public-incubation network are the most consequential anchors.",
     "url": "https://www.upgrowth.dz/ecosystem",
-    "label": "PARTIAL",
+    "label": "SOURCED",
     "quote": "This directory lists over 2,500 startups, 360 incubators and accelerators and 680 coworking spaces across 21 wilayas, alongside investors, associations and public institutions.",
-    "reason": "Stated: The ecosystem directory compiled by UpGrowth lists 360 incubators and accelerators; The directory lists 680 coworking spaces; The directory covers 21 wilayas. Not in the checked passages: Algeria Venture, Leancubator, Sylabs and the university/public-incubation network are the most consequential anchors. Framing not checked: broad directory count, not a guarantee that every listed organization operates a full-time, investment-ready accelerator program; in practice, ... are the most consequential anchors.",
+    "reason": "Stated: The ecosystem directory compiled by UpGrowth lists 360 incubators and accelerators and 680 coworking spaces across 21 wilayas.. Framing not checked: That is a broad directory count, not a guarantee that every listed organization operates a full-time, investment-ready accelerator program;; in practice, Algeria Venture, Leancubator, Sylabs and the university/public-incubation network are the most consequential anchors..",
     "facts": [
       {
-        "fact": "The ecosystem directory compiled by UpGrowth lists 360 incubators and accelerators",
+        "fact": "The ecosystem directory compiled by UpGrowth lists 360 incubators and accelerators and 680 coworking spaces across 21 wilayas.",
         "status": "stated",
         "quote": "This directory lists over 2,500 startups, 360 incubators and accelerators and 680 coworking spaces across 21 wilayas, alongside investors, associations and public institutions."
-      },
-      {
-        "fact": "The directory lists 680 coworking spaces",
-        "status": "stated",
-        "quote": "This directory lists over 2,500 startups, 360 incubators and accelerators and 680 coworking spaces across 21 wilayas, alongside investors, associations and public institutions."
-      },
-      {
-        "fact": "The directory covers 21 wilayas",
-        "status": "stated",
-        "quote": "This directory lists over 2,500 startups, 360 incubators and accelerators and 680 coworking spaces across 21 wilayas, alongside investors, associations and public institutions."
-      },
-      {
-        "fact": "Algeria Venture, Leancubator, Sylabs and the university/public-incubation network are the most consequential anchors",
-        "status": "missing",
-        "quote": ""
       }
     ],
     "framing": [
-      "broad directory count, not a guarantee that every listed organization operates a full-time, investment-ready accelerator program",
-      "in practice, ... are the most consequential anchors"
+      "That is a broad directory count, not a guarantee that every listed organization operates a full-time, investment-ready accelerator program;",
+      "in practice, Algeria Venture, Leancubator, Sylabs and the university/public-incubation network are the most consequential anchors."
     ],
-    "dropped_as_framing": [],
-    "tokens": 1170
+    "tokens": 1005
   },
   {
     "claim": 23,
     "text": "Yassir — $150 million Series B: Algeria’s most internationally significant startup financing remains the super-app Yassir’s $150 million Series B, led by BOND with participation from other investors. It is the outlier that demonstrates Algeria can produce venture-scale companies, although Yassir’s financing should not be mistaken for typical local deal size.",
     "url": "https://www.wamda.com/country/algeria",
-    "label": "PARTIAL",
-    "quote": "Algeria Algeria’s super app Yassir raises $150 million Series B funding Algeria-based super app Yassir, has raised $150 million in Series B funding, led by BOND, with participation from DN... News • 07 November, 2022 Yassir super app BOND",
-    "reason": "Stated: Yassir raised $150 million in a Series B funding round; The Series B round was led by BOND. Not in the checked passages: Yassir’s financing is not typical of local deal size. Framing not checked: most internationally significant; outlier; should not be mistaken for typical local deal size.",
+    "label": "SOURCED",
+    "quote": "Algeria’s super app Yassir raises $150 million Series B funding Algeria-based super app Yassir, has raised $150 million in Series B funding, led by BOND, with participation from DN...",
+    "reason": "Stated: Yassir raised $150 million in Series B financing, led by BOND with participation from other investors.. Framing not checked: Algeria’s most internationally significant startup financing; It is the outlier that demonstrates Algeria can produce venture-scale companies; Yassir’s financing should not be mistaken for typical local deal size.",
     "facts": [
       {
-        "fact": "Yassir raised $150 million in a Series B funding round",
+        "fact": "Yassir raised $150 million in Series B financing, led by BOND with participation from other investors.",
         "status": "stated",
-        "quote": "Algeria Algeria’s super app Yassir raises $150 million Series B funding Algeria-based super app Yassir, has raised $150 million in Series B funding, led by BOND, with participation from DN... News • 07 November, 2022 Yassir super app BOND"
-      },
-      {
-        "fact": "The Series B round was led by BOND",
-        "status": "stated",
-        "quote": "Algeria Algeria’s super app Yassir raises $150 million Series B funding Algeria-based super app Yassir, has raised $150 million in Series B funding, led by BOND, with participation from DN... News • 07 November, 2022 Yassir super app BOND"
-      },
-      {
-        "fact": "Yassir’s financing is not typical of local deal size",
-        "status": "missing",
-        "quote": ""
+        "quote": "Algeria’s super app Yassir raises $150 million Series B funding Algeria-based super app Yassir, has raised $150 million in Series B funding, led by BOND, with participation from DN..."
       }
     ],
     "framing": [
-      "most internationally significant",
-      "outlier",
-      "should not be mistaken for typical local deal size"
+      "Algeria’s most internationally significant startup financing",
+      "It is the outlier that demonstrates Algeria can produce venture-scale companies",
+      "Yassir’s financing should not be mistaken for typical local deal size"
     ],
-    "dropped_as_framing": [
-      "It is Algeria’s most internationally significant startup financing"
-    ],
-    "tokens": 1655
+    "tokens": 1770
   },
   {
     "claim": 24,
