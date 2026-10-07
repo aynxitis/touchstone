@@ -1,11 +1,13 @@
 """Touchstone as a library: audit(report) yields one result per claim, in report order.
 Used by the CLI (quote_check.py) and the web app (app.py)."""
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 
 from check_numbers import NUM_RE, segments
 from fetch_links import fetch
 from quote_check import check
+
+FETCH_SECONDS = 60   # wall clock for fetching all pages of one audit
 
 
 def select(cited, max_claims):
@@ -37,9 +39,15 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None)
            "uncited": len(segs) - len(cited)}
 
     if pages is None:
+        # A server that trickles its headers can outlast fetch()'s own limits, so the audit
+        # stops waiting after FETCH_SECONDS; unfinished fetches are abandoned as TIMEOUT.
         urls = list(dict.fromkeys(cited[i][1] for i in sorted(chosen)))
-        with ThreadPoolExecutor(max_workers=8) as pool:
-            pages = dict(zip(urls, pool.map(fetch, urls)))
+        pool = ThreadPoolExecutor(max_workers=8)
+        futures = {pool.submit(fetch, u): u for u in urls}
+        wait(futures, timeout=FETCH_SECONDS)
+        pages = {u: f.result() if f.done() else {"url": u, "status": "TIMEOUT", "detail": ""}
+                 for f, u in futures.items()}
+        pool.shutdown(wait=False, cancel_futures=True)
 
     tokens, n, index = 0, 0, 0
     for text, url in segs:

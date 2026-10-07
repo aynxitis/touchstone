@@ -30,6 +30,21 @@ def extract_urls(text):
     return urls
 
 
+BLOCKED_V6 = [ipaddress.ip_network(n) for n in ("::/96", "64:ff9b::/96", "64:ff9b:1::/48")]
+
+
+def is_public(ip):
+    """True only for public IPs, including IPv4 hidden inside IPv6 (mapped, 6to4,
+    IPv4-compatible, NAT64), which is_global alone lets through."""
+    if ip.version == 6:
+        if any(ip in n for n in BLOCKED_V6):
+            return False
+        inner = ip.ipv4_mapped or ip.sixtofour
+        if inner:
+            return inner.is_global
+    return ip.is_global
+
+
 def check_url(url):
     """SSRF protection: only allow http(s) URLs that resolve to public IPs.
     Known gap: DNS can change between this check and the request (DNS rebinding).
@@ -47,7 +62,7 @@ def check_url(url):
             ip = ipaddress.ip_address(info[4][0])
         except ValueError:
             return False, "bad IP"
-        if not ip.is_global:
+        if not is_public(ip):
             return False, f"private IP {ip}"
     return True, ""
 
@@ -59,7 +74,7 @@ def peer_ok(r):
     if not addr:
         return False
     try:
-        return ipaddress.ip_address(addr[0]).is_global
+        return is_public(ipaddress.ip_address(addr[0]))
     except ValueError:
         return False
 

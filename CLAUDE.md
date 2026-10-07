@@ -76,7 +76,8 @@ page names tax advantages and public procurement, not public funding.
    subject (no pronouns). Re-run 23-26.
 9. Before deploying: pin the resolved IP in fetch() (today a rebinding check runs after connect,
    so the GET is already sent); rate limit must read X-Forwarded-For behind a proxy; the
-   in-memory rate limit and busy lock assume a single process.
+   in-memory rate limit and busy lock assume a single process. Fetches still running after
+   FETCH_SECONDS (60 s) are abandoned, not killed: their threads linger until httpx gives up.
 After each fix: re-run the affected claims, compare with labels2.json, commit.
 
 ## Working style

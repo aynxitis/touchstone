@@ -12,7 +12,6 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from groq import Groq
-from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
 from touchstone import audit
@@ -62,10 +61,6 @@ def rate_limited(ip):
     return 0
 
 
-class AuditRequest(BaseModel):
-    report: str
-
-
 @app.get("/")
 def index():
     return FileResponse(HERE / "static" / "index.html")
@@ -76,9 +71,26 @@ def example():
     return PlainTextResponse((HERE / "report2.txt").read_text(encoding="utf-8"))
 
 
+async def read_report(request):
+    """Read the body with a hard cap: the Content-Length check in guard() can be skipped
+    with chunked encoding, so the bytes are counted as they arrive."""
+    body = bytearray()
+    async for chunk in request.stream():
+        body += chunk
+        if len(body) > MAX_BODY_BYTES:
+            return None
+    try:
+        report = json.loads(body).get("report")
+    except (ValueError, AttributeError):
+        return ""
+    return report if isinstance(report, str) else ""
+
+
 @app.post("/api/audit")
-def run_audit(body: AuditRequest, request: Request):
-    report = body.report
+async def run_audit(request: Request):
+    report = await read_report(request)
+    if report is None:
+        return JSONResponse({"error": "Request too large."}, status_code=413)
     if not report.strip():
         return JSONResponse({"error": "The report is empty."}, status_code=400)
     if len(report) > MAX_REPORT_CHARS:
