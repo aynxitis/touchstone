@@ -1,0 +1,15 @@
+[
+  {"claim": 1,  "label": "SOURCED", "note": "7,800 / 2,300 / 29% all on page"},
+  {"claim": 2,  "label": "SOURCED", "note": "Only in meta description; page body is JS-rendered. Fetcher sees empty page."},
+  {"claim": 3,  "label": "PARTIAL", "note": "41 of 58 found; 'earlier 22 provinces' not on this page (appears in the wilaya-funds article)"},
+  {"claim": 7,  "label": "SOURCED", "note": "Decree 25-311 / Dec 2025 / 20% / 3% all found"},
+  {"claim": 8,  "label": "PARTIAL", "note": "2.4B and 100+ found; 963 and 445 not on page (they're in the ASF-100 article). Source dated Apr 2025, cited for 2026."},
+  {"claim": 9,  "label": "SOURCED", "note": "58B / 1B per wilaya / 150M found"},
+  {"claim": 10, "label": "SOURCED", "note": "1.5B DZD / Feb 2025 / ~$11M found"},
+  {"claim": 22, "label": "SOURCED", "note": "360 / 680 / 21 in static text; rest of page JS"},
+  {"claim": 23, "label": "SOURCED", "note": "Yassir $150M Series B led by BOND"},
+  {"claim": 24, "label": "SOURCED", "note": "VOLZ $5M Series A Dec 2025 / 600M DZD"},
+  {"claim": 25, "label": "SOURCED", "note": "First ASF exit, 3.35x"},
+  {"claim": 26, "label": "UNSUPPORTED", "note": "IPO 94M DZD / $724K / 119% belongs to Moustachir, not VOLZ"},
+  {"claim": 29, "label": "SOURCED", "note": "$8M across four deals in 2025"}
+]

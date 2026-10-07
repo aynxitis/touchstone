@@ -1,0 +1,61 @@
+kAlgeria’s startup ecosystem in 2026 is **state-led, expanding, and still early in private-capital depth**. The country has built a broad policy and support infrastructure around formal startup labels, public investment vehicles and nationwide incubation, but venture funding remains highly concentrated in a few standout companies and modest relative to larger African and MENA markets.
+
+## Snapshot
+
+- More than **7,800 ventures** are registered on the national startup portal, startup.dz; approximately **2,300 hold the official “Startup” label** as of early 2026—about 29% of registered entities. The label is the important figure here: it is the formal qualification that unlocks the dedicated startup regime, including access to public funding and incentives. [magstartup](https://www.magstartup.com/en/10-algerian-startups-to-watch-in-2026-beyond-the-noise/)
+- StartupBlink lists a much smaller **52 startups** because it tracks publicly visible, data-verified startups rather than Algeria’s administrative registry. It reports total tracked funding of roughly **$14.71 million** and a global ecosystem rank of #109. These numbers should not be treated as a count of all Algerian startups. [startupblink](https://www.startupblink.com/startup-ecosystem/algeria)
+- The ecosystem is concentrated around Algiers but has become more geographically distributed through public programs. ASF reporting indicates it has backed companies in **41 of Algeria’s 58 wilayas**, though earlier figures cited 22 provinces—an indication that coverage has widened as the program matured. [algeriatech](https://algeriatech.news/algeria-asf-100-startups-portfolio-sectors-2026/)
+- Active verticals include mobility and logistics, fintech, e-commerce, agritech/foodtech, AI, cybersecurity, robotics, edtech, legaltech, and sustainability. The market is attractive because of Algeria’s large, young domestic population, but founders still face foreign-exchange constraints, shallow local follow-on capital, regulatory friction, and a limited number of institutional private investors. [berkati](https://berkati.xyz/en/blog/algeria-startup-ecosystem-2026/)
+
+## Labels and policy framework
+
+The Startup Label is an official designation administered through the national system under Executive Decree No. 20-254. It distinguishes innovative, scalable ventures from conventional small businesses and is effectively the gateway into the state’s startup-support architecture. [algeria20](https://algeria20.com/en/blog/how-to-get-startup-label-in-algeria)
+
+Labelled companies can benefit from:
+
+- Eligibility to apply to the Algerian Startup Fund.
+- Tax exemptions, generally described as four years for corporate and personal income taxes under the startup regime.
+- Preferential or dedicated public-procurement opportunities.
+- Reduced or waived fees for intellectual-property filings.
+- Access to incubation, acceleration and specialized public programs. [berkati](https://berkati.xyz/en/blog/algeria-startup-ecosystem-2026/)
+
+A newer **Scale-up label** was introduced through Executive Decree No. 25-311 in December 2025. It is intended for more mature companies and requires, among other tests, at least 20% revenue growth over three years and R&D expenditure equivalent to 3% of revenue. Its introduction signals an effort to create support beyond the initial startup phase rather than treating all innovative companies as pre-seed ventures indefinitely. [berkati](https://berkati.xyz/en/blog/algeria-startup-ecosystem-2026/)
+
+## Government funding programs
+
+| Program | What it provides | 2026 scale/status |
+|---|---|---|
+| Algeria Startup Fund (ASF) | State-backed equity and quasi-equity funding for labelled startups | Capital base of about **DZD 2.4 billion**; more than **100 funded startups** across 20+ sectors. Reports cite 963 applications and 445 processed funding requests since launch.  [leancubator](https://leancubator.co/article/les-6-mecanismes-les-plus-importants-que-toute-startup-algerienne-devrait-connaitre-en-2025-2) |
+| ASF wilaya funding envelope | Territorial investment capacity intended to widen startup finance beyond Algiers | A reported **DZD 58 billion** envelope—DZD 1 billion per wilaya—with possible tickets up to **DZD 150 million** per labelled startup. This should be seen as an announced/deployment capacity rather than capital already invested.  [algeriatech](https://algeriatech.news/algeria-wilaya-investment-funds-58-billion-dinars-asf-startup-rollout-2026/) |
+| Algérie Télécom AI Fund | Targeted support for AI, robotics and cybersecurity startups | **DZD 1.5 billion**, launched in February 2025; roughly $11 million at cited exchange rates.  [algeriatech](https://algeriatech.news/algeria-10-startups-to-watch-2026-sectors-profiles/) |
+| Algeria Venture programs | National public acceleration, incubation and open-innovation support | Algeria Venture is the country’s first state-owned startup accelerator and supports regional incubators with programs, tools and training.  [aventure](https://www.aventure.dz/) |
+| NESDA/ANADE support | Entrepreneurship finance and support beyond the startup-label system | Public entrepreneurship agency support, including loans and business-creation programs; more relevant to SMEs and early entrepreneurship than conventional venture capital.  [upgrowth](https://www.upgrowth.dz/ecosystem) |
+| Stock-market incentives | Lowering the cost of public-market fundraising | Algeria waived stock-listing and related fees for labelled startups, with the policy reported to run through 2028.  [algeriatech](https://algeriatech.news/algeria-10-startups-to-watch-2026-sectors-profiles/) |
+
+The key caveat is that public commitments are much larger than recorded venture deployment. ASF is tangible—over 100 companies funded—but it remains relatively small compared with the needs of companies attempting regional expansion or later-stage growth. [algeriatech](https://algeriatech.news/algeria-asf-100-startups-portfolio-sectors-2026/)
+
+## Main incubators and accelerators
+
+- **Algeria Venture (A-Venture):** The flagship state-owned accelerator and public open-innovation platform. It supports founders directly and helps regional incubators deploy standardized startup programs. [aventure](https://www.aventure.dz/)
+- **Leancubator:** A prominent private innovation hub and incubator with a strong sustainability, blue/green economy, foodtech and fintech orientation. It operates the Algeria Startup Challenge, launched in 2018 and described as the country’s largest startup program. It also implements the national **Kick-Start** incubation program for Algeria Venture and the Ministry. [leancubator](https://leancubator.co/)
+- **Algeria Startup Challenge:** More than a single cohort accelerator, it functions as a major national challenge-and-innovation platform connecting founders, researchers, corporates, ministries and investors. The 2026 edition is its eighth and focuses on cross-sector innovation and scaling impact. [leancubator](https://leancubator.co/article/algeria-startup-challenge-2026-lancement-du-programme-phare-de-l-innovation-dans-sa-8e-edition)
+- **Sylabs:** A well-known entrepreneurship and technology hub in Algiers, particularly associated with helping young founders and technology projects enter the formal business ecosystem. [upgrowth](https://www.upgrowth.dz/ecosystem)
+- **INTTIC Incubator:** A visible technology and ICT-oriented incubator included among Algeria’s leading support organizations. [upgrowth](https://www.upgrowth.dz/ecosystem)
+- **ESG Incubator:** Another established incubator in the national directory, associated with entrepreneurship support and business development. [upgrowth](https://www.upgrowth.dz/ecosystem)
+- **NaqlTech:** A thematic incubator focused on transportation and logistics, located at the ETUSA training centre—an example of increasing vertical specialization. [berkati](https://berkati.xyz/en/blog/algeria-startup-ecosystem-2026/)
+
+The ecosystem directory compiled by UpGrowth lists **360 incubators and accelerators** and **680 coworking spaces** across 21 wilayas. That is a broad directory count, not a guarantee that every listed organization operates a full-time, investment-ready accelerator program; in practice, Algeria Venture, Leancubator, Sylabs and the university/public-incubation network are the most consequential anchors. [upgrowth](https://www.upgrowth.dz/ecosystem)
+
+## Notable funding and exits
+
+- **Yassir — $150 million Series B:** Algeria’s most internationally significant startup financing remains the super-app Yassir’s $150 million Series B, led by BOND with participation from other investors. It is the outlier that demonstrates Algeria can produce venture-scale companies, although Yassir’s financing should not be mistaken for typical local deal size. [wamda](https://www.wamda.com/country/algeria)
+- **VOLZ — $5 million Series A:** Algerian traveltech VOLZ raised **$5 million** in a Series A in December 2025, reported as the largest local-currency funding round in Algeria at the time, equivalent to DZD 600 million. [algeriatech](https://algeriatech.news/algeria-10-startups-to-watch-2026-sectors-profiles/)
+- **VOLZ — ASF’s first exit:** VOLZ also became the Algerian Startup Fund’s first reported exit, delivering a **3.35× return** to ASF. That is important institutionally: it gives the public fund a proof point for recycling capital and validating an equity-investment model rather than relying only on grants or subsidized loans. [magstartup](https://www.magstartup.com/en/10-algerian-startups-to-watch-in-2026-beyond-the-noise/)
+- **VOLZ — Algiers Stock Exchange listing:** The company was reported as the first Algerian startup to list on the Algiers Stock Exchange. Its IPO raised approximately **DZD 94 million**—about $724,000—and was reportedly oversubscribed by 119%. [algeriatech](https://algeriatech.news/algeria-10-startups-to-watch-2026-sectors-profiles/)
+- **Algeria Venture–Algeria Investment Fund VC vehicle:** Algeria Venture and the Algeria Investment Fund have announced a **$10 million VC fund** aimed at startup investing, adding another institutional capital channel. [wamda](https://www.wamda.com/country/algeria)
+
+## Bottom line
+
+Algeria in 2026 has moved beyond a purely nascent ecosystem: it has a national labeling regime, around **2,300 labelled startups**, a public fund with a portfolio above 100 companies, sector-specific capital such as the AI fund, and a maturing support network. [algeriatech](https://algeriatech.news/algeria-asf-100-startups-portfolio-sectors-2026/)
+
+Its constraint is not a lack of founders or public ambition; it is the conversion of that infrastructure into consistent private seed and Series A financing, international investor access, hard-currency flexibility, and repeatable exits. Yassir and VOLZ show what is possible, but they remain exceptions in a market where annual equity activity is still relatively thin. One 2026 ecosystem analysis estimated just **$8 million across four equity deals in 2025**, excluding the kind of exceptional capital raised by Yassir. [algeriatech](https://algeriatech.news/algeria-10-startups-to-watch-2026-sectors-profiles/)
