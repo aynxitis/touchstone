@@ -5,8 +5,8 @@
     "url": "https://www.magstartup.com/en/10-algerian-startups-to-watch-in-2026-beyond-the-noise/",
     "label": "UNSUPPORTED",
     "quote": "",
-    "reason": "The excerpts provide registration numbers and some startup examples but do not mention state-led support or the depth of private capital",
-    "tokens": 1201
+    "reason": "The excerpts provide registration numbers and some company details but do not mention state-led support or the relative modestness of venture funding",
+    "tokens": 1200
   },
   {
     "claim": 2,
@@ -23,26 +23,26 @@
     "url": "https://algeriatech.news/algeria-asf-100-startups-portfolio-sectors-2026/",
     "label": "PARTIAL",
     "quote": "funded over 100 companies across 20+ business sectors and 41 of Algeria’s 58 wilayas.",
-    "reason": "The excerpts confirm the 41 wilayas figure but do not mention the earlier 22 provinces, so the claim’s reference to widened coverage is only partially supported. Numbers not on page: 22.",
-    "tokens": 1118
+    "reason": "The excerpt confirms backing in 41 wilayas but does not mention the earlier figure of 22 provinces. Numbers not on page: 22.",
+    "tokens": 1140
   },
   {
     "claim": 4,
     "text": "Active verticals include mobility and logistics, fintech, e-commerce, agritech/foodtech, AI, cybersecurity, robotics, edtech, legaltech, and sustainability. The market is attractive because of Algeria’s large, young domestic population, but founders still face foreign-exchange constraints, shallow local follow-on capital, regulatory friction, and a limited number of institutional private investors.",
     "url": "https://berkati.xyz/en/blog/algeria-startup-ecosystem-2026/",
     "label": "PARTIAL",
-    "quote": "VOLZ's entire business model, flight bookings in DZD with cash-on-delivery, would make zero sense in a freely convertible economy, but in Algeria it captures demand that no international competitor can serve.",
-    "reason": "The excerpts mention fintech, logistics, AI, and legaltech but do not cover all the claimed verticals such as e‑commerce, agritech/foodtech, cybersecurity, robotics, edtech, and sustainability.",
-    "tokens": 1227
+    "quote": "VOLZ's entire business model, flight bookings in DZD with cash‑on‑delivery, would make zero sense in a freely convertible economy, but in Algeria it captures demand that no international competitor can serve.",
+    "reason": "The excerpts mention fintech, logistics and legaltech/AI but do not cover all the claimed verticals such as e‑commerce, agritech, cybersecurity, robotics, edtech, and sustainability.",
+    "tokens": 1226
   },
   {
     "claim": 5,
     "text": "## Labels and policy framework\n\nThe Startup Label is an official designation administered through the national system under Executive Decree No. 20-254. It distinguishes innovative, scalable ventures from conventional small businesses and is effectively the gateway into the state’s startup-support architecture.",
     "url": "https://algeria20.com/en/blog/how-to-get-startup-label-in-algeria",
-    "label": "UNVERIFIED",
-    "quote": "",
-    "reason": "Model's quote is NOT on the page. The excerpts confirm the label’s official status, basis in Decree 20‑254, its distinction of innovative ventures, and its role as a gateway to support.",
-    "tokens": 1053
+    "label": "SOURCED",
+    "quote": "The Startup Label is an official recognition granted by the Algerian State, through the National Labeling Committee (established by Executive Decree No. 20-254), to any company meeting the criteria of innovation and growth potential. It distinguishes startups from traditional businesses and gives them access to dedicated financing and facilitation mechanisms.",
+    "reason": "The excerpts confirm the label’s official status, its basis in Executive Decree No. 20-254, and its role in distinguishing innovative ventures and providing access to support.",
+    "tokens": 1052
   },
   {
     "claim": 6,
@@ -75,10 +75,10 @@
     "claim": 9,
     "text": "|\n| ASF wilaya funding envelope | Territorial investment capacity intended to widen startup finance beyond Algiers | A reported **DZD 58 billion** envelope—DZD 1 billion per wilaya—with possible tickets up to **DZD 150 million** per labelled startup. This should be seen as an announced/deployment capacity rather than capital already invested.",
     "url": "https://algeriatech.news/algeria-wilaya-investment-funds-58-billion-dinars-asf-startup-rollout-2026/",
-    "label": "UNVERIFIED",
-    "quote": "",
-    "reason": "Model's quote is NOT on the page. The excerpts confirm the 58 billion‑dinar envelope, 1 billion per wilaya and a 150 million ticket cap, describing it as deployment capacity rather than already invested capital.",
-    "tokens": 1259
+    "label": "SOURCED",
+    "quote": "The 58-billion-dinar pool is not a new announcement. It is the operational deployment of a convention ... structured as one billion dinars allocated per wilaya across all 58 Algerian provinces, with a ceiling of 150 million dinars per individual startup project.",
+    "reason": "The excerpts confirm the 58 billion‑dinar envelope of 1 billion per wilaya and a 150 million ticket cap, describing it as deployment capacity rather than already invested capital.",
+    "tokens": 1224
   },
   {
     "claim": 10,
@@ -86,8 +86,8 @@
     "url": "https://algeriatech.news/algeria-10-startups-to-watch-2026-sectors-profiles/",
     "label": "SOURCED",
     "quote": "The Algerie Telecom AI Fund — launched in February 2025 with 1.5 billion DZD (~$11 million) — specifically targets startups in AI, robotics, and cybersecurity.",
-    "reason": "The excerpts directly state the fund’s amount, launch date, and target sectors matching the claim.",
-    "tokens": 1115
+    "reason": "The excerpt directly states the fund’s amount, launch date, and target sectors matching the claim.",
+    "tokens": 1073
   },
   {
     "claim": 11,
@@ -121,9 +121,9 @@
     "text": "|\n\nThe key caveat is that public commitments are much larger than recorded venture deployment. ASF is tangible—over 100 companies funded—but it remains relatively small compared with the needs of companies attempting regional expansion or later-stage growth.",
     "url": "https://algeriatech.news/algeria-asf-100-startups-portfolio-sectors-2026/",
     "label": "PARTIAL",
-    "quote": "funded over 100 companies across 20+ business sectors and 41 of Algeria’s 58 wilayas.",
-    "reason": "The excerpt confirms ASF funded over 100 companies, but does not address the claim that public commitments are much larger than recorded venture deployment.",
-    "tokens": 1193
+    "quote": "funded over 100 companies across 20+ business sectors and 41 of Algeria’s 58 wilayas",
+    "reason": "The excerpt confirms ASF funded over 100 companies but does not address the claim about public commitments being larger than venture deployment",
+    "tokens": 1133
   },
   {
     "claim": 15,
@@ -140,17 +140,17 @@
     "url": "https://leancubator.co/",
     "label": "PARTIAL",
     "quote": "Leancubator Secures Contract to Implement the Kick-Start National Incubation Program",
-    "reason": "Excerpts confirm the Kick-Start program implementation but do not verify the 2018 launch or that the Algeria Startup Challenge is the country’s largest startup program Numbers not on page: 2018.",
-    "tokens": 1135
+    "reason": "Excerpts confirm the Kick-Start program implementation but do not verify the 2018 launch or that it is the country's largest startup program Numbers not on page: 2018.",
+    "tokens": 1087
   },
   {
     "claim": 17,
     "text": "Algeria Startup Challenge:** More than a single cohort accelerator, it functions as a major national challenge-and-innovation platform connecting founders, researchers, corporates, ministries and investors. The 2026 edition is its eighth and focuses on cross-sector innovation and scaling impact.",
     "url": "https://leancubator.co/article/algeria-startup-challenge-2026-lancement-du-programme-phare-de-l-innovation-dans-sa-8e-edition",
     "label": "SOURCED",
-    "quote": "Launched in 2018, Algeria Startup Challenge (ASC) has become Algeria's leading startup program, connecting startups, researchers, corporates, public institutions, investors, and ecosystem enablers around strategic innovation priorities.",
-    "reason": "The excerpts confirm it is a national platform linking founders, researchers, corporates, ministries and investors, and state the 2026 edition is the 8th and focuses on cross‑sector innovation and scaling impact.",
-    "tokens": 1114
+    "quote": "The 2026 edition runs under the theme \"Innovating Across Sectors. Scaling Impact,\" and carries the patronage of three ministries: the Ministry of the Knowledge Economy, Startups and Micro-enterprises, the Ministry of Vocational Training, and the Ministry of Agriculture and Rural developement.",
+    "reason": "The excerpts confirm it is the eighth edition and focuses on cross‑sector innovation and scaling impact, matching the claim.",
+    "tokens": 1204
   },
   {
     "claim": 18,
@@ -158,8 +158,8 @@
     "url": "https://www.upgrowth.dz/ecosystem",
     "label": "UNSUPPORTED",
     "quote": "",
-    "reason": "The excerpts contain no mention of Sylabs or its role as a hub for young founders in Algiers.",
-    "tokens": 500
+    "reason": "The excerpts do not mention Sylabs or its role in Algiers.",
+    "tokens": 498
   },
   {
     "claim": 19,
@@ -177,7 +177,7 @@
     "label": "UNSUPPORTED",
     "quote": "",
     "reason": "The excerpts do not mention ESG Incubator or its role.",
-    "tokens": 442
+    "tokens": 440
   },
   {
     "claim": 21,
@@ -203,8 +203,8 @@
     "url": "https://www.wamda.com/country/algeria",
     "label": "SOURCED",
     "quote": "Algeria’s super app Yassir raises $150 million Series B funding Algeria-based super app Yassir, has raised $150 million in Series B funding, led by BOND, with participation from DN...",
-    "reason": "The excerpt confirms Yassir raised a $150 million Series B led by BOND, matching the claim.",
-    "tokens": 1217
+    "reason": "The excerpt confirms Yassir raised $150 million in a Series B led by BOND, matching the claim.",
+    "tokens": 1218
   },
   {
     "claim": 24,
@@ -222,7 +222,7 @@
     "label": "SOURCED",
     "quote": "Volz became in December 2025 the first successful exit from the Algerian Startup Fund, with a reported 3.35× return.",
     "reason": "The excerpts confirm Volz was ASF's first exit and the 3.35× return.",
-    "tokens": 1133
+    "tokens": 1110
   },
   {
     "claim": 26,
@@ -248,8 +248,8 @@
     "url": "https://algeriatech.news/algeria-asf-100-startups-portfolio-sectors-2026/",
     "label": "PARTIAL",
     "quote": "Algeria counts approximately 2,300 labeled startups out of 7,800+ registered companies.",
-    "reason": "Excerpts confirm the labeling regime and 2,300 startups and a fund with >100 companies, but do not mention sector‑specific capital such as an AI fund.",
-    "tokens": 1182
+    "reason": "Excerpts confirm the labeling regime and 2,300 startups and a fund with 100+ portfolio companies, but do not mention sector‑specific capital such as an AI fund.",
+    "tokens": 1162
   },
   {
     "claim": 29,

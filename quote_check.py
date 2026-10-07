@@ -7,6 +7,7 @@ import sys
 
 from dotenv import load_dotenv
 from groq import Groq
+from rapidfuzz import fuzz
 
 from check_numbers import NUM_RE, claims_with_sources, norm
 
@@ -35,10 +36,35 @@ reason: one short sentence. For PARTIAL, say which part is missing."""
 def normalize(s):
     """Make quote matching survive curly quotes, dashes, spacing and case."""
     for a, b in (("\u2019", "'"), ("\u2018", "'"), ("\u201c", '"'), ("\u201d", '"'),
-                 ("\u2013", "-"), ("\u2014", "-")):
+                 ("\u2010", "-"), ("\u2011", "-"), ("\u2012", "-"), ("\u2013", "-"),
+                 ("\u2014", "-"), ("\u2212", "-"), ("\u00a0", " "), ("\u202f", " ")):
         s = s.replace(a, b)
     return re.sub(r"\s+", " ", s).strip().lower()
 
+QUOTE_MATCH_MIN = 92   # % similarity: tolerates small slips, not invented quotes
+
+
+def quote_on_page(quote, page):
+    """True if the quote is on the page. The model sometimes shortens a quote with '...';
+    then each piece must be on the page on its own."""
+    pieces = [x for x in re.split(r"\.\.\.|\u2026", quote) if x.strip(" .,;:")]
+    return bool(pieces) and all(piece_on_page(x, page) for x in pieces)
+
+
+def piece_on_page(quote, page):
+    """Exact match first; otherwise near-exact (survives a typo or changed punctuation)."""
+    q, p = normalize(quote), normalize(page)
+    if len(q) < 20:          # short quotes must match exactly, or they'd match anything
+        return q in p
+    if q in p:
+        return True
+    m = fuzz.partial_ratio_alignment(q, p)
+    if m.score < QUOTE_MATCH_MIN:
+        return False
+    # A fuzzy match may forgive a typo, never a changed figure: the quote's numbers must
+    # equal those in the matched passage (compared after norm(), so 1,500 == 1500).
+    nums = lambda t: sorted(norm(n).rstrip(".") for n in NUM_RE.findall(t))
+    return nums(q) == nums(p[m.dest_start:m.dest_end])
 
 def keywords(text):
     words = re.findall(r"[a-zA-Z][a-zA-Z\-]{2,}", text.lower())
@@ -90,7 +116,7 @@ def check(client, claim, page):
     verdict = out.get("verdict", "ERROR")
     quote = out.get("quote") or ""
     reason = out.get("reason") or raw[:200]
-    quote_ok = bool(quote) and normalize(quote) in normalize(page)
+    quote_ok = bool(quote) and quote_on_page(quote, page)
     missing = missing_numbers(claim, page)
 
     if verdict == "OPINION":
@@ -110,13 +136,17 @@ def check(client, claim, page):
         reason += f" Numbers not on page: {', '.join(missing)}."
 
     tokens = resp.usage.total_tokens if resp.usage else 0
-    return {"label": label, "quote": quote if quote_ok else "", "reason": reason, "tokens": tokens}
+    result = {"label": label, "quote": quote if quote_ok else "", "reason": reason, "tokens": tokens}
+    if quote and not quote_ok:
+        result["rejected_quote"] = quote   # kept for debugging the matcher
+    return result
 
 
 def main():
-    if len(sys.argv) != 2:
-        print("usage: python quote_check.py report.txt")
+    if len(sys.argv) not in (2, 3):
+        print("usage: python quote_check.py report.txt [claim numbers, e.g. 4,9]")
         sys.exit(1)
+    only = {int(n) for n in sys.argv[2].split(",")} if len(sys.argv) == 3 else None
     load_dotenv()
     key = os.environ.get("GROQ_API_KEY")
     if not key:
@@ -129,8 +159,17 @@ def main():
     with open("fetch_results.json", encoding="utf-8") as f:
         pages = {r["url"]: r.get("text", "") for r in json.load(f)}
 
+    previous = {}
+    if only and os.path.exists("audit.json"):
+        with open("audit.json", encoding="utf-8") as f:
+            previous = {r["claim"]: r for r in json.load(f)}
+
     results, total_tokens = [], 0
     for i, (claim, url) in enumerate(claims_with_sources(report), 1):
+        if only and i not in only:
+            if i in previous:
+                results.append(previous[i])   # keep the earlier result untouched
+            continue
         page = pages.get(url, "")
         if not page:
             r = {"label": "SOURCE UNREACHABLE", "quote": "", "reason": "", "tokens": 0}
@@ -143,6 +182,8 @@ def main():
         print(f"    claim:  {claim[:120]}{'...' if len(claim) > 120 else ''}")
         if r["quote"]:
             print(f"    quote:  \"{r['quote'][:160]}\"")
+        if r.get("rejected_quote"):
+            print(f"    REJECTED quote: \"{r['rejected_quote']}\"")
         print(f"    why:    {r['reason']}")
 
     print(f"\nTokens used: {total_tokens}  (free daily limit: 200,000)")
