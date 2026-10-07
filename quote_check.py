@@ -24,10 +24,13 @@ Given a CLAIM and EXCERPTS from the page the claim cites, reply with JSON only:
 {"verdict": "...", "quote": "...", "reason": "..."}
 
 verdict is one of:
-- SUPPORTS: the excerpts state what the claim says
-- PARTIAL: the excerpts support part of the claim, but not all of it
-- DOES_NOT_SUPPORT: the excerpts say something different, or nothing relevant
+- SUPPORTS: the excerpts state the claim's factual content
+- PARTIAL: the excerpts state some of the claim's factual content, but not all of it
+- DOES_NOT_SUPPORT: the excerpts contradict the claim, or state none of its factual content
 - OPINION: the claim is advice or opinion, not a checkable fact
+
+If the excerpts state any factual part of the claim, the verdict is PARTIAL or SUPPORTS, never DOES_NOT_SUPPORT.
+Judge only the factual parts (numbers, names, dates, events). Editorial framing such as "the most significant", "the outlier" or "an important signal" does not count: if it is not in the excerpts, mention that in the reason, but do not lower the verdict for it.
 
 quote: the single sentence from the excerpts that best supports the claim, copied EXACTLY character for character. Empty string if none.
 reason: one short sentence. For PARTIAL, say which part is missing."""

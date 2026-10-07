@@ -23,27 +23,51 @@ def clean(text):
     return re.sub(r"\s+", " ", text).strip(" -*()[]|")
 
 
+LIST_ITEM = re.compile(r"^\s*(?:[-*+]|\d+\.)\s+")
+
+
 def segments(report):
     """Split the report into (text, url) in document order; url is None for uncited text.
     A link only owns the text on its own line (paragraph, bullet or table row) since the
-    previous link, so uncited paragraphs never get merged into the next claim."""
-    out = []
+    previous link, so uncited paragraphs never get merged into the next claim.
+    Exception: a lead-in line ending in ':' plus the bullets right after it form one block,
+    owned by the link that ends the block."""
+    out, block = [], []          # block: uncited lead-in + bullets waiting for a link
+
+    def flush():                 # block ended without a link: each line is uncited
+        out.extend((t, None) for t in block)
+        block.clear()
+
     for line in report.split("\n"):
         s = line.strip()
-        if not s or s.startswith("#") or re.fullmatch(r"\|?[\s:\-|]*", s):
-            continue                                   # blank, heading, table separator
-        last = 0
+        if not s:
+            continue                                   # blank lines don't end a block
+        if s.startswith("#") or re.fullmatch(r"\|?[\s:\-|]*", s):
+            flush()
+            continue                                   # heading, table separator
         links = list(URL_RE.finditer(line))
         if not links and s.startswith("|"):
+            flush()
             continue                                   # uncited table row = header
+        if block and not LIST_ITEM.match(line):
+            flush()                                    # a non-bullet line ends the block
+        last = 0
         for m in links:
             text = clean(line[last:m.start()])
             last = m.end()
+            if block:
+                text = " ".join(block + [text]).strip()
+                block.clear()
             if text:
                 out.append((text, m.group().rstrip(".,;:!?")))
         tail = clean(line[last:])
-        if tail:
+        if not tail:
+            continue
+        if links or not (block or tail.endswith(":")):
             out.append((tail, None))
+        else:
+            block.append(tail)                         # start or extend a list block
+    flush()
     return out
 
 
