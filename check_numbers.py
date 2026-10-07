@@ -13,18 +13,43 @@ def norm(n):
     return n.replace(",", "")
 
 
+def clean(text):
+    """Strip markdown: table pipes, list markers, bold, '[label](' before a link."""
+    text = re.sub(r"\[[^\]]*\]\($", "", text)
+    if text.lstrip().startswith("|"):
+        text = " — ".join(c.strip() for c in text.split("|") if c.strip())
+    text = re.sub(r"^\s*(?:[-*+]|\d+\.)\s+", "", text)
+    text = text.replace("**", "")
+    return re.sub(r"\s+", " ", text).strip(" -*()[]|")
+
+
+def segments(report):
+    """Split the report into (text, url) in document order; url is None for uncited text.
+    A link only owns the text on its own line (paragraph, bullet or table row) since the
+    previous link, so uncited paragraphs never get merged into the next claim."""
+    out = []
+    for line in report.split("\n"):
+        s = line.strip()
+        if not s or s.startswith("#") or re.fullmatch(r"\|?[\s:\-|]*", s):
+            continue                                   # blank, heading, table separator
+        last = 0
+        links = list(URL_RE.finditer(line))
+        if not links and s.startswith("|"):
+            continue                                   # uncited table row = header
+        for m in links:
+            text = clean(line[last:m.start()])
+            last = m.end()
+            if text:
+                out.append((text, m.group().rstrip(".,;:!?")))
+        tail = clean(line[last:])
+        if tail:
+            out.append((tail, None))
+    return out
+
+
 def claims_with_sources(report):
-    """Pair each chunk of text with the link that follows it."""
-    pairs, last = [], 0
-    for m in URL_RE.finditer(report):
-        url = m.group().rstrip(".,;:!?")
-        claim = report[last:m.start()]
-        claim = re.sub(r"\[[^\]]*\]\($", "", claim)   # drop "[label](" before the link
-        claim = claim.strip(" -*\n()[]")
-        last = m.end()
-        if claim:
-            pairs.append((claim, url))
-    return pairs
+    """Pair each chunk of cited text with the link that follows it."""
+    return [(t, u) for t, u in segments(report) if u]
 
 
 def main():

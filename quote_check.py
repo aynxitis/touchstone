@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from groq import Groq
 from rapidfuzz import fuzz
 
-from check_numbers import NUM_RE, claims_with_sources, norm
+from check_numbers import NUM_RE, norm, segments
 
 MODEL = "openai/gpt-oss-120b"
 MAX_EXCERPT_CHARS = 3000   # keeps each call well under Groq's 8K tokens/minute
@@ -162,10 +162,15 @@ def main():
     previous = {}
     if only and os.path.exists("audit.json"):
         with open("audit.json", encoding="utf-8") as f:
-            previous = {r["claim"]: r for r in json.load(f)}
+            previous = {r["claim"]: r for r in json.load(f) if r["claim"]}
 
-    results, total_tokens = [], 0
-    for i, (claim, url) in enumerate(claims_with_sources(report), 1):
+    results, total_tokens, i = [], 0, 0
+    for claim, url in segments(report):
+        if url is None:   # uncited text: nothing to check, costs no tokens
+            results.append({"claim": None, "text": claim, "url": None, "label": "NO SOURCE GIVEN",
+                            "quote": "", "reason": "The report gives no source for this.", "tokens": 0})
+            continue
+        i += 1
         if only and i not in only:
             if i in previous:
                 results.append(previous[i])   # keep the earlier result untouched
