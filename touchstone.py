@@ -64,6 +64,9 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None)
             except Exception as e:   # model timeout, API error: report it, keep going
                 r = {"label": "ERROR", "quote": "", "tokens": 0,
                      "reason": f"Model call failed ({type(e).__name__})."}
+        if page.get("meta_only") and page.get("text"):
+            r["reason"] = (r.get("reason", "") + " Judged from the page's meta description only "
+                           "(the page body loads with JavaScript).").strip()
         tokens += r["tokens"]
         yield {"type": "claim", "index": index, "claim": n, "text": text, "url": url, **r}
     yield {"type": "done", "tokens": tokens}

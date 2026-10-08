@@ -16,6 +16,7 @@ MAX_SECONDS = 30        # hard wall clock per URL: DNS, all redirect hops, body
 MAX_BYTES = 3_000_000   # stop reading a page beyond this
 MAX_REDIRECTS = 5
 MIN_TEXT_CHARS = 200    # less than this = no usable text
+MIN_META_CHARS = 50     # a meta description shorter than this is useless
 HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Touchstone/0.1"}
 
 
@@ -113,6 +114,15 @@ async def fetch_one(url):
         html = body.decode("utf-8", errors="replace")
     text = trafilatura.extract(html) or ""
     if len(text) < MIN_TEXT_CHARS:
+        # JS-rendered pages often carry their key facts only in the meta description
+        # (StartupBlink). Use it, flagged, so verdicts can say how thin the evidence is.
+        meta = trafilatura.extract_metadata(html)
+        desc = (meta.description or "").strip() if meta else ""
+        if len(desc) >= MIN_META_CHARS:
+            title = (meta.title or "").strip()
+            text = "\n".join(x for x in (title, desc, text) if x)
+            return {"url": url, "status": "OK", "detail": f"meta description only, {len(text)} chars",
+                    "text": text, "meta_only": True}
         return {"url": url, "status": "NO_TEXT", "detail": "JS page or blocked?"}
     return {"url": url, "status": "OK", "detail": f"{len(text)} chars", "text": text}
 

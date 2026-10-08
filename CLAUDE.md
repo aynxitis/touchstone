@@ -66,7 +66,9 @@ page names tax advantages and public procurement, not public funding.
    uncited text -> NO SOURCE GIVEN (claim: null in audit.json; cited claims keep numbers 1-29).
 3. Thin pages: upgrowth.dz is ~700 chars of a JS page, so claims 18-20 get UNSUPPORTED.
    Pages under ~1500 chars should yield SOURCE INCOMPLETE instead.
-4. JS pages: read the meta description as a fallback (StartupBlink's data is only there).
+4. DONE (2026-10-08): JS pages. Body < 200 chars -> title + meta description (>= 50 chars) as
+   the page text, flagged meta_only; verdicts then say "Judged from the page's meta
+   description only". Fixes claim 2 (StartupBlink) and aventure.dz.
 5. Excerpt-only judgments: reasons should say "not in the checked passages", not
    "not on the page".
 6. (Low priority) Weak excerpt selection: claim 4 picks unrelated quotes (VOLZ/forex) for a
