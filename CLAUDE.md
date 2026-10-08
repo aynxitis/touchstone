@@ -38,7 +38,7 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
 5. app.py (FastAPI, run: .venv/bin/uvicorn app:app): GET / serves static/ (index.html, app.js,
    style.css, no framework); POST /api/audit {report} streams NDJSON events; GET /api/example
    returns report2.txt. Limits: 20,000 chars, 10 cited claims (claims with numbers first),
-   5 audits/IP/hour (IPv6: per /64) + GLOBAL_AUDITS_PER_DAY (7, UTC day, only audits that spent tokens; in memory), one audit at a time (Groq TPM), 300 s per audit (later claims
+   5 audits/IP/hour (IPv6: per /64) + GLOBAL_AUDITS_PER_DAY (7, UTC day, counted at an audit's first model call; in memory), one audit at a time (Groq TPM), 300 s per audit (later claims
    -> NOT CHECKED), 30 s Groq timeout, 30 s hard wall clock (async, cancelled on expiry) + 3 MB per fetched page. Strict CSP header.
    Frontend renders everything with textContent (never innerHTML); only http(s) URLs become
    links; every streamed field is type-checked, bad lines become a "could not be read" card.
@@ -116,8 +116,8 @@ page names tax advantages and public procurement, not public funding.
    CLIENT_IP_HEADER (Render: True-Client-IP), never X-Forwarded-For's spoofable leftmost
    entry (why uvicorn --forwarded-allow-ips='*' is not used); limits key IPv6 by /64
    (address rotation); GLOBAL_AUDITS_PER_DAY (7) caps audits across all visitors, refused up
-   front, counting only audits that spent Groq tokens (a count of starts let token-free audits
-   lock everyone out); --workers 1; rate-limit tables
+   front, counted at an audit's first model call attempt (a count of starts let token-free
+   audits lock everyone out; counting reported tokens failed open on errors); --workers 1; rate-limit tables
    pruned every 5 min; /healthz; "waking up" notice + Render loading page never parsed.
    Hosting: Render free, Frankfurt (render.yaml, DEPLOY.md). Not deployed yet. After the first
    deploy run DEPLOY.md's token-free checks (forged-header test decides CLIENT_IP_HEADER).

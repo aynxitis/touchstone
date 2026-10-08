@@ -98,7 +98,7 @@ def rate_key(ip):
     return str(addr)
 
 
-daily = {"day": None, "count": 0}   # UTC date -> audits that spent Groq tokens
+daily = {"day": None, "count": 0}   # UTC date -> audits that called the model
 
 
 def utc_today():
