@@ -51,10 +51,21 @@ Replace `URL` with the service URL (`https://touchstone-xxxx.onrender.com`).
 4. From Algeria: open the URL on an Algerian connection (mobile data and home internet) to
    confirm `*.onrender.com` is reachable.
 
+## If abuse happens
+Someone with several IPs can use up the 7 daily audits on purpose; IP-based limits can't stop
+that without blocking shared-IP pilot users. Fallback, not built yet: invite codes for pilot
+users (an audit needs a valid code; codes kept server-side, one per tester or class, each with
+its own daily quota). See CLAUDE.md open issue 10.
+
 ## Limits to know
 - Per visitor: 5 audits/hour (IPv6 counted per /64, so rotating addresses doesn't help).
-  Across everyone: `GLOBAL_AUDITS_PER_DAY` (7) audits per UTC day, counted only when an
-  audit spends Groq tokens. A 10-claim audit is up to ~20K tokens; 7 fit Groq's 200K/day free
+  Shared-IP risk for the pilot: Algerian campus Wi-Fi and mobile carriers (CGNAT) put many
+  users behind one IPv4 address, and they all share those 5 audits per hour. If pilot users
+  report "Limit of 5 audits per hour reached" without having run 5 themselves, raise
+  `RATE_LIMIT` in app.py; the daily cap below still protects the Groq budget. A per-IP daily
+  limit was rejected for the same reason.
+  Across everyone: `GLOBAL_AUDITS_PER_DAY` (7) audits per UTC day, counted at an audit's
+  first model call (audits whose pages are all unreachable don't count). A 10-claim audit is up to ~20K tokens; 7 fit Groq's 200K/day free
   tier with room to spare. Once used up, new audits are refused up front ("try again
   tomorrow"). The counter is in memory: it resets if Render restarts the service (sleep,
   redeploy), so Groq's own daily limit stays the hard ceiling.

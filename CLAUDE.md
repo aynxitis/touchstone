@@ -121,6 +121,11 @@ page names tax advantages and public procurement, not public funding.
    pruned every 5 min; /healthz; "waking up" notice + Render loading page never parsed.
    Hosting: Render free, Frankfurt (render.yaml, DEPLOY.md). Not deployed yet. After the first
    deploy run DEPLOY.md's token-free checks (forged-header test decides CLIENT_IP_HEADER).
+10. Fallback if abuse happens after launch: invite codes for pilot users (audit requires a
+   valid server-side code, per-code daily quota). Not built: IP limits can't stop a multi-IP
+   abuser, and a per-IP daily limit was rejected (2026-10-08) because Algerian campus Wi-Fi
+   and mobile carriers put many users behind one IP. Same risk for the 5/hour per-IP limit:
+   raise RATE_LIMIT if pilot users hit it without running 5 audits themselves.
 After each fix: re-run the affected claims, compare with labels2.json, commit.
 
 ## Working style
