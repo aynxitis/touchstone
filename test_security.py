@@ -79,4 +79,17 @@ assert A.daily_used_up()
 A.daily.update(day=A.utc_today() - __import__("datetime").timedelta(days=1))
 assert not A.daily_used_up() and A.daily["count"] == 0
 
+# 7. Fail-closed accounting: an audit counts at its first model call attempt, even if the
+#    call fails or reports no tokens; an audit that never calls the model doesn't count.
+A.daily.update(day=A.utc_today(), count=0)
+def failing(**k): raise TimeoutError("timed out")
+wrapped = A.CountingClient(__import__("types").SimpleNamespace(
+    chat=__import__("types").SimpleNamespace(completions=__import__("types").SimpleNamespace(create=failing))))
+for _ in range(3):
+    try: wrapped.chat.completions.create(model="x")
+    except TimeoutError: pass
+assert A.daily["count"] == 1
+A.CountingClient(None)
+assert A.daily["count"] == 1
+
 print("security checks passed")

@@ -5,6 +5,7 @@ import math
 import os
 import threading
 import time
+import types
 from datetime import datetime, timezone
 from collections import defaultdict, deque
 from pathlib import Path
@@ -33,8 +34,8 @@ CLIENT_IP_HEADER = os.environ.get("CLIENT_IP_HEADER", "").strip()
 PRUNE_EVERY = 300              # seconds between sweeps of the rate-limit tables
 # Daily cap across all visitors, matched to Groq's free budget (~200K tokens/day; a 10-claim
 # audit is up to ~20K). New audits are refused up front once it's reached, rather than failing
-# mid-audit when Groq runs out. Counts only audits that actually spent tokens: an audit whose
-# links are all unreachable costs nothing and must not use up the day for everyone.
+# mid-audit when Groq runs out. Counts audits that call the model at all (CountingClient): an
+# audit whose links are all unreachable costs nothing and must not use up the day for everyone.
 DAILY_LIMIT = int(os.environ.get("GLOBAL_AUDITS_PER_DAY", "7"))
 DAILY_FULL = "Touchstone's free daily capacity is used up, try again tomorrow."
 HERE = Path(__file__).parent
@@ -112,6 +113,24 @@ def daily_used_up():
 def count_daily_audit():
     daily_used_up()            # roll over to a new UTC day first
     daily["count"] += 1
+
+
+class CountingClient:
+    """Wraps the Groq client for one audit: the audit counts toward the daily cap at its first
+    model call ATTEMPT, before the request goes out. Counting reported tokens instead would
+    fail open: a call that errors, times out, or returns no usage reports 0 tokens even
+    though Groq may have spent them."""
+
+    def __init__(self, inner):
+        self.counted = False
+        self.chat = types.SimpleNamespace(completions=types.SimpleNamespace(create=self._create))
+        self._inner = inner
+
+    def _create(self, **kwargs):
+        if not self.counted:
+            self.counted = True
+            count_daily_audit()
+        return self._inner.chat.completions.create(**kwargs)
 
 
 def prune(now):
@@ -214,11 +233,7 @@ async def run_audit(request: Request):
     def stream():
         try:
             deadline = time.monotonic() + AUDIT_SECONDS
-            counted = False
-            for ev in audit(report, client, max_claims=MAX_CLAIMS, deadline=deadline):
-                if not counted and ev["type"] == "claim" and ev.get("tokens"):
-                    count_daily_audit()          # first model call: this audit costs budget
-                    counted = True
+            for ev in audit(report, CountingClient(client), max_claims=MAX_CLAIMS, deadline=deadline):
                 if ev["type"] != "skipped":
                     yield json.dumps(ev, ensure_ascii=False) + "\n"
         except Exception as e:
