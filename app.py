@@ -5,6 +5,7 @@ import math
 import os
 import threading
 import time
+from datetime import datetime, timezone
 from collections import defaultdict, deque
 from pathlib import Path
 
@@ -20,7 +21,7 @@ from check_numbers import segments
 from touchstone import audit
 
 MAX_REPORT_CHARS = 20_000
-MAX_CLAIMS = 15
+MAX_CLAIMS = 10               # ~1.5-2K Groq tokens per claim
 MAX_BODY_BYTES = 200_000       # reject before parsing; 20K chars of UTF-8 + JSON fits easily
 RATE_LIMIT, RATE_WINDOW = 5, 3600   # audits per IP per hour
 FREE_LIMIT = 30                # per IP per hour: link-less reports (no fetch, no model call)
@@ -30,9 +31,12 @@ AUDIT_SECONDS = 300            # claims not started by then are marked NOT CHECK
 # leftmost X-Forwarded-For entry: the client can set it, which would dodge the rate limit.
 CLIENT_IP_HEADER = os.environ.get("CLIENT_IP_HEADER", "").strip()
 PRUNE_EVERY = 300              # seconds between sweeps of the rate-limit tables
-# Backstop across all visitors: even if the client-IP header turned out to be forgeable,
-# model-backed audits can't drain the Groq budget faster than this.
-GLOBAL_LIMIT = int(os.environ.get("GLOBAL_AUDITS_PER_HOUR", "10"))
+# Daily cap across all visitors, matched to Groq's free budget (~200K tokens/day; a 10-claim
+# audit is up to ~20K). New audits are refused up front once it's reached, rather than failing
+# mid-audit when Groq runs out. Counts only audits that actually spent tokens: an audit whose
+# links are all unreachable costs nothing and must not use up the day for everyone.
+DAILY_LIMIT = int(os.environ.get("GLOBAL_AUDITS_PER_DAY", "7"))
+DAILY_FULL = "Touchstone's free daily capacity is used up, try again tomorrow."
 HERE = Path(__file__).parent
 
 load_dotenv(HERE / ".env")
@@ -92,16 +96,22 @@ def rate_key(ip):
     return str(addr)
 
 
-global_hits = deque()          # start times of all model-backed audits
+daily = {"day": None, "count": 0}   # UTC date -> audits that spent Groq tokens
 
 
-def global_wait(now):
-    """Minutes until a global audit slot frees up, or 0. Does not take a slot."""
-    while global_hits and now - global_hits[0] > RATE_WINDOW:
-        global_hits.popleft()
-    if len(global_hits) >= GLOBAL_LIMIT:
-        return math.ceil((RATE_WINDOW - (now - global_hits[0])) / 60)
-    return 0
+def utc_today():
+    return datetime.now(timezone.utc).date()
+
+
+def daily_used_up():
+    if daily["day"] != utc_today():
+        daily.update(day=utc_today(), count=0)
+    return daily["count"] >= DAILY_LIMIT
+
+
+def count_daily_audit():
+    daily_used_up()            # roll over to a new UTC day first
+    daily["count"] += 1
 
 
 def prune(now):
@@ -186,16 +196,14 @@ async def run_audit(request: Request):
     if not busy.acquire(blocking=False):
         return JSONResponse({"error": "Another audit is running. Try again in a minute."},
                             status_code=503)
-    if wait := global_wait(time.time()):
+    if daily_used_up():        # checked under the busy lock: no audit can start in between
         busy.release()
-        return JSONResponse({"error": "Touchstone has reached its audit capacity for this hour. "
-                                      f"Try again in {wait} minute{'s' if wait > 1 else ''}."}, status_code=429)
+        return JSONResponse({"error": DAILY_FULL}, status_code=429)
     wait = rate_limited(ip)
     if wait:
         busy.release()
         return JSONResponse({"error": f"Limit of {RATE_LIMIT} audits per hour reached. "
                                       f"Try again in {wait} minute{'s' if wait > 1 else ''}."}, status_code=429)
-    global_hits.append(time.time())
 
     once = threading.Lock()
 
@@ -206,7 +214,11 @@ async def run_audit(request: Request):
     def stream():
         try:
             deadline = time.monotonic() + AUDIT_SECONDS
+            counted = False
             for ev in audit(report, client, max_claims=MAX_CLAIMS, deadline=deadline):
+                if not counted and ev["type"] == "claim" and ev.get("tokens"):
+                    count_daily_audit()          # first model call: this audit costs budget
+                    counted = True
                 if ev["type"] != "skipped":
                     yield json.dumps(ev, ensure_ascii=False) + "\n"
         except Exception as e:

@@ -73,12 +73,10 @@ assert A.rate_key("2001:db8:abcd:12::1") == A.rate_key("2001:db8:abcd:12::ffff")
 assert A.rate_key("2001:db8:abcd:13::1") != A.rate_key("2001:db8:abcd:12::1")
 assert A.rate_key("::ffff:203.0.113.7") == "203.0.113.7"
 
-# 6. Global backstop: past GLOBAL_LIMIT audits an hour, everyone waits, whatever their IP.
-A.global_hits.clear()
-now = time.time()
-A.global_hits.extend([now] * A.GLOBAL_LIMIT)
-assert A.global_wait(now) > 0
-A.global_hits.clear()
-assert A.global_wait(now) == 0
+# 6. Daily cap: full at GLOBAL_AUDITS_PER_DAY, and a new UTC day starts from zero.
+A.daily.update(day=A.utc_today(), count=A.DAILY_LIMIT)
+assert A.daily_used_up()
+A.daily.update(day=A.utc_today() - __import__("datetime").timedelta(days=1))
+assert not A.daily_used_up() and A.daily["count"] == 0
 
 print("security checks passed")
