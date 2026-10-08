@@ -58,9 +58,18 @@ Touchstone caught 3/3 real problems (3, 8, 26: all real numbers attributed to th
 source; 26 = Moustachir's IPO credited to VOLZ).
 labels2.json is now the TUNING SET (issues 1-2 were fixed against it). The next eval must
 use a fresh report with fresh labels, or the score is overfitted.
-Scoring: CONTRADICTED counts as UNSUPPORTED. Single runs vary by 1-2 labels from model
-randomness alone: compare scores across at least 2 runs, never one.
-The next real eval is a FRESH report with fresh labels (labels2.json is the tuning set).
+Scoring: CONTRADICTED counts as UNSUPPORTED. Always do 2 full runs and track BOTH metrics:
+- accuracy per run: labeled claims correct (out of 13 for report2)
+- run agreement: how many of the cited claims get the identical label in both runs
+Results on report2 (2 full runs each, ~41-44K tokens per run):
+- 2026-10-08, name check: accuracy 12/13 and 10/13; run agreement 24/29
+- 2026-10-08, + meta fallback, number key-term check, framing lexicon, seed=0:
+  accuracy 12/13 and 11/13; run agreement 27/29 (28/29 if CONTRADICTED = UNSUPPORTED).
+  Misses: claim 2 PARTIAL both runs (meta description has the figures, not the methodology
+  sentence; the label was made from the rendered page, so PARTIAL is honest for what we
+  fetch); claim 29 once (model called a long analytical sentence a fact).
+TUNING ON REPORT2 IS CLOSED (2026-10-08). Every number above is on the tuning set and
+optimistic. The next eval is a fresh report with fresh labels, scored with both metrics.
 Claim 1 label corrected SOURCED -> PARTIAL (2026-10-07) after re-checking the source: the
 page names tax advantages and public procurement, not public funding.
 

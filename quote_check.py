@@ -282,7 +282,7 @@ def main():
             if f.get("rejected_quote"):
                 print(f"        REJECTED quote: \"{f['rejected_quote']}\"")
             if f.get("note"):
-                print(f"        name check: {f['note']}")
+                print(f"        code check: {f['note']}")
         for x in r.get("framing", []):
             print(f"      - {'framing':<12} {x}")
         print(f"    why:    {r['reason']}")
