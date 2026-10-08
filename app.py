@@ -1,4 +1,5 @@
 """Touchstone web app. Run locally: .venv/bin/uvicorn app:app"""
+import ipaddress
 import json
 import math
 import os
@@ -24,6 +25,11 @@ MAX_BODY_BYTES = 200_000       # reject before parsing; 20K chars of UTF-8 + JSO
 RATE_LIMIT, RATE_WINDOW = 5, 3600   # audits per IP per hour
 FREE_LIMIT = 30                # per IP per hour: link-less reports (no fetch, no model call)
 AUDIT_SECONDS = 300            # claims not started by then are marked NOT CHECKED
+# Behind a proxy (Render), the socket peer is the proxy. CLIENT_IP_HEADER names the one header
+# the proxy overwrites with the real visitor IP (Render/Cloudflare: True-Client-IP). Never the
+# leftmost X-Forwarded-For entry: the client can set it, which would dodge the rate limit.
+CLIENT_IP_HEADER = os.environ.get("CLIENT_IP_HEADER", "").strip()
+PRUNE_EVERY = 300              # seconds between sweeps of the rate-limit tables
 HERE = Path(__file__).parent
 
 load_dotenv(HERE / ".env")
@@ -53,18 +59,52 @@ async def guard(request: Request, call_next):
 
 # One audit at a time: Groq's free tier (8K tokens/minute) can't serve two in parallel.
 busy = threading.Lock()
-hits = defaultdict(deque)      # ip -> start times of recent audits (in memory, local only)
+hits = defaultdict(deque)      # ip -> start times of recent audits (in memory: 1 worker only)
 free_hits = defaultdict(deque) # ip -> times of recent link-less requests
+last_prune = time.time()
+
+
+def client_ip(request):
+    """The visitor's IP: the trusted proxy header if configured and valid, else the socket."""
+    if CLIENT_IP_HEADER:
+        value = request.headers.get(CLIENT_IP_HEADER, "").strip()
+        try:
+            return str(ipaddress.ip_address(value))
+        except ValueError:
+            pass               # missing or malformed: fall back rather than trust junk
+    return request.client.host if request.client else "?"
+
+
+def prune(now):
+    """Drop IPs with no hits inside the window, so the tables don't grow with every visitor."""
+    global last_prune
+    if now - last_prune < PRUNE_EVERY:
+        return
+    last_prune = now
+    for table in (hits, free_hits):
+        for ip in list(table):
+            q = table[ip]
+            while q and now - q[0] > RATE_WINDOW:
+                q.popleft()
+            if not q:
+                del table[ip]
 
 
 def rate_limited(ip, table=hits, limit=RATE_LIMIT):
-    now, q = time.time(), table[ip]
+    now = time.time()
+    prune(now)
+    q = table[ip]
     while q and now - q[0] > RATE_WINDOW:
         q.popleft()
     if len(q) >= limit:
         return math.ceil((RATE_WINDOW - (now - q[0])) / 60)   # minutes to wait
     q.append(now)
     return 0
+
+
+@app.get("/healthz")
+def healthz():
+    return {"ok": True}       # Render health check: no fetch, no model call
 
 
 @app.get("/")
@@ -102,7 +142,7 @@ async def run_audit(request: Request):
     if len(report) > MAX_REPORT_CHARS:
         return JSONResponse({"error": f"Reports are limited to {MAX_REPORT_CHARS:,} characters "
                                       f"(this one has {len(report):,})."}, status_code=413)
-    ip = request.client.host if request.client else "?"
+    ip = client_ip(request)
     segs = await run_in_threadpool(segments, report)   # keep parsing off the event loop
     if not any(url for _, url in segs):
         # Nothing to fetch or check: answer at once, outside the 5-audit limit but under a

@@ -213,11 +213,12 @@ async function runAudit() {
   };
 
   try {
-    const resp = await fetch("/api/audit", {
+    const resp = await withWakeNotice(() => fetch("/api/audit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ report }),
-    });
+    }));
+    if (isWakePage(resp, "application/x-ndjson")) { setStatus(WAKE_RETRY, true); return; }
     if (!resp.ok || !resp.body) {
       let msg = `The server refused the audit (HTTP ${resp.status}).`;
       try { msg = str((await resp.json()).error) || msg; } catch {}
@@ -249,9 +250,27 @@ async function runAudit() {
   }
 }
 
+// Free hosting sleeps after 15 idle minutes; the first request then takes about a minute.
+const WAKE_AFTER_MS = 5000;
+const WAKE_RETRY = "The server is waking up after a quiet spell. Try again in a minute.";
+
+async function withWakeNotice(request) {
+  const timer = setTimeout(() => setStatus(
+    "Waking up the server: the first request after a quiet spell can take up to a minute\u2026"), WAKE_AFTER_MS);
+  try { return await request(); } finally { clearTimeout(timer); }
+}
+
+// While waking, the host may answer with its own HTML loading page instead of our data:
+// never parse that as results or load it into the textarea.
+function isWakePage(resp, expected) {
+  const type = (resp.headers.get("content-type") || "").toLowerCase();
+  return resp.ok && !type.startsWith(expected);
+}
+
 async function loadExample() {
   try {
-    const resp = await fetch("/api/example");
+    const resp = await withWakeNotice(() => fetch("/api/example"));
+    if (isWakePage(resp, "text/plain")) { setStatus(WAKE_RETRY, true); return; }
     if (!resp.ok) throw new Error();
     $("report").value = await resp.text();
     updateCount();

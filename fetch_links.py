@@ -5,7 +5,7 @@ import json
 import re
 import socket
 import sys
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, urlsplit, urlunsplit
 
 import httpx
 import trafilatura
@@ -46,30 +46,48 @@ def is_public(ip):
 
 
 async def check_url(url):
-    """SSRF protection: only allow http(s) URLs that resolve to public IPs.
-    Known gap: DNS can change between this check and the request (DNS rebinding).
-    fetch_one() re-checks the IP it actually connected to before reading the body, but the
-    GET itself is already sent by then. Pin the resolved IP before deploying."""
+    """SSRF protection: only allow http(s) URLs whose host resolves to public IPs only.
+    Returns (ok, reason, ip): the request is then sent to that exact IP (pinned_request),
+    so DNS can't change between this check and the connection (DNS rebinding)."""
     try:
         parsed = urlparse(url)
         host, port = parsed.hostname, parsed.port
     except ValueError:            # e.g. unclosed IPv6 bracket, port out of range
-        return False, "malformed URL"
+        return False, "malformed URL", None
     if parsed.scheme not in ("http", "https") or not host:
-        return False, "not http(s)"
+        return False, "not http(s)", None
     try:
         loop = asyncio.get_running_loop()
-        infos = await loop.getaddrinfo(host, port or 443)
+        infos = await loop.getaddrinfo(host, port or (443 if parsed.scheme == "https" else 80),
+                                       type=socket.SOCK_STREAM)
     except socket.gaierror:
-        return False, "DNS failed"
+        return False, "DNS failed", None
+    ips = []
     for info in infos:
         try:
-            ip = ipaddress.ip_address(info[4][0])
+            ip = ipaddress.ip_address(info[4][0].split("%")[0])
         except ValueError:
-            return False, "bad IP"
+            return False, "bad IP", None
         if not is_public(ip):
-            return False, f"private IP {ip}"
-    return True, ""
+            return False, f"private IP {ip}", None
+        ips.append(ip)
+    if not ips:
+        return False, "DNS failed", None
+    return True, "", ips[0]
+
+
+def pinned_request(url, ip):
+    """(url with the host replaced by the checked IP, headers, extensions). Host header and
+    TLS SNI keep the real hostname, so virtual hosting and certificate checks still work."""
+    parts = urlsplit(url)
+    literal = f"[{ip}]" if ip.version == 6 else str(ip)
+    netloc = literal + (f":{parts.port}" if parts.port else "")
+    host = parts.hostname + (f":{parts.port}" if parts.port else "")
+    if ":" in parts.hostname:     # an IPv6 literal in the URL itself
+        host = f"[{parts.hostname}]" + (f":{parts.port}" if parts.port else "")
+    pinned = urlunsplit((parts.scheme, netloc, parts.path or "/", parts.query, ""))
+    ext = {"sni_hostname": parts.hostname} if parts.scheme == "https" else {}
+    return pinned, {"Host": host}, ext
 
 
 def peer_ok(r):
@@ -133,13 +151,14 @@ async def _get(url):
     try:
         async with httpx.AsyncClient(timeout=TIMEOUT, headers=HEADERS, follow_redirects=False) as client:
             for _ in range(MAX_REDIRECTS + 1):
-                ok, reason = await check_url(current)
+                ok, reason, ip = await check_url(current)
                 if not ok:
                     return {"url": url, "status": "BLOCKED", "detail": reason}
-                async with client.stream("GET", current) as r:
+                target, host_header, ext = pinned_request(current, ip)
+                async with client.stream("GET", target, headers=host_header, extensions=ext) as r:
                     if not peer_ok(r):
                         return {"url": url, "status": "BLOCKED", "detail": "connected to a non-public IP"}
-                    if r.is_redirect:
+                    if r.is_redirect:   # resolve against the hostname URL, not the pinned IP
                         current = urljoin(current, r.headers.get("location", ""))
                         continue
                     if r.status_code >= 400:

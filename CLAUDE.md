@@ -50,7 +50,8 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
 Parsing regexes must stay linear: every repeated group starts with a literal, whitespace
 runs are capped (a nested \s* marker regex once hung the server on 20,000 spaces).
 Report parsing runs in a thread pool, never on the event loop.
-Dependencies: requirements.txt. Token-free parsing checks: .venv/bin/python test_parsing.py
+Dependencies: requirements.txt. Token-free checks: .venv/bin/python test_parsing.py and
+test_security.py (network: rebinding, TLS, SSRF blocks, client IP, table pruning).
 (samples/ holds hand-made reports: footnotes, names-only sources, no links).
 Labels: SOURCED / PARTIAL / UNSUPPORTED / CONTRADICTED / UNVERIFIED / OPINION / SOURCE UNREACHABLE /
 NO SOURCE GIVEN / NOT CHECKED / ERROR. Verdicts judge factual parts only; editorial framing is noted, not penalized.
@@ -106,9 +107,13 @@ page names tax advantages and public procurement, not public funding.
    Fixed by the name check in entities.py + prompt. 23-26 twice: 23-25 SOURCED, 26
    CONTRADICTED both runs. Known limit: a name on a multi-topic page that appears in 2+
    paragraphs passes as "page subject" unless the quoted paragraph opens with another name.
-9. Before deploying: pin the resolved IP in fetch() (today a rebinding check runs after connect,
-   so the GET is already sent); rate limit must read X-Forwarded-For behind a proxy; the
-   in-memory rate limit and busy lock assume a single process.
+9. DONE (2026-10-08): pre-deploy security. fetch connects to the IP check_url validated
+   (Host header + TLS SNI keep the hostname; certs still verified); client IP comes from
+   CLIENT_IP_HEADER (Render: True-Client-IP), never X-Forwarded-For's spoofable leftmost
+   entry (why uvicorn --forwarded-allow-ips='*' is not used); --workers 1; rate-limit tables
+   pruned every 5 min; /healthz; "waking up" notice + Render loading page never parsed.
+   Hosting: Render free, Frankfurt (render.yaml, DEPLOY.md). Not deployed yet. After the first
+   deploy run DEPLOY.md's token-free checks (forged-header test decides CLIENT_IP_HEADER).
 After each fix: re-run the affected claims, compare with labels2.json, commit.
 
 ## Working style
