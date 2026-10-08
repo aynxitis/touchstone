@@ -7,7 +7,10 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
 ## Pipeline (Python 3.14, venv in .venv)
 1. fetch_links.py REPORT: extract URLs, fetch pages (httpx + trafilatura), SSRF-safe
    (public IPs only, re-checked on every redirect). Writes fetch_results.json.
-2. check_numbers.py: segments() splits the report per line; a link owns its line's text
+2. check_numbers.py: resolve_footnotes() first turns footnote citations ([1], [1][2], [^1],
+   【1】 + a numbered/bracketed source list or Sources/References section) into inline URLs
+   and drops the source list; a run of markers gives the text its FIRST source only.
+   segments() splits the report per line; a link owns its line's text
    (a ':' lead-in + its bullets form one block); uncited text -> NO SOURCE GIVEN;
    code-only check that numbers in a claim appear on the cited page.
 3. quote_check.py REPORT [4,9]: code picks top paragraphs by keyword overlap (max 3000
@@ -39,7 +42,8 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    -> NOT CHECKED), 30 s Groq timeout, 30 s hard wall clock (async, cancelled on expiry) + 3 MB per fetched page. Strict CSP header.
    Frontend renders everything with textContent (never innerHTML); only http(s) URLs become
    links; every streamed field is type-checked, bad lines become a "could not be read" card.
-Dependencies: requirements.txt.
+Dependencies: requirements.txt. Token-free parsing checks: .venv/bin/python test_parsing.py
+(samples/ holds hand-made reports: footnotes, names-only sources, no links).
 Labels: SOURCED / PARTIAL / UNSUPPORTED / CONTRADICTED / UNVERIFIED / OPINION / SOURCE UNREACHABLE /
 NO SOURCE GIVEN / NOT CHECKED / ERROR. Verdicts judge factual parts only; editorial framing is noted, not penalized.
 

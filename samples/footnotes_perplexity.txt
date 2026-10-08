@@ -1,0 +1,16 @@
+Algeria's startup scene has grown quickly since 2020 [1]. More than 7,800 ventures are registered on startup.dz [1][2], and about 2,300 hold the official label [2].
+
+## Funding
+The Algeria Startup Fund holds DZD 2.4 billion [3]. VOLZ raised $5 million in December 2025 [4, 5].
+Key steps for founders:
+1. Register on startup.dz
+2. Apply for the label
+
+Analysts expect more exits in 2026.
+
+Sources:
+[1] Mag Startup – 10 Algerian startups to watch https://www.example.com/magstartup-10-startups
+[2] https://www.example.org/startup-dz-stats
+[3]: https://www.example.net/asf-capital
+[4] Algeria Tech News (https://www.example.com/volz-series-a).
+[5] Wamda https://www.example.org/volz

@@ -1,0 +1,8 @@
+The ASF has backed companies in 41 of 58 wilayas[^1]. Yassir raised $150 million in a Series B led by BOND【2】.
+
+1. Moustachir listed on the Algiers Stock Exchange[^3]
+2. Its IPO was oversubscribed by 119%
+
+[^1]: https://www.example.com/asf-portfolio
+【2】 https://www.example.org/yassir-series-b
+[^3]: Algeria Tech News, https://www.example.net/moustachir-ipo
