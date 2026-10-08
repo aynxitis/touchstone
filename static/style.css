@@ -81,6 +81,14 @@ blockquote { margin: 6px 0 0 calc(9.5em + 10px); padding-left: 12px; border-left
 .source:hover { text-decoration: underline; }
 .source-plain { font: 12px var(--mono); color: var(--muted); word-break: break-all; }
 
+.nolinks { margin-top: 8px; padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+.nolinks[hidden] { display: none; }
+.nolinks p { margin: 0 0 10px; }
+.nolinks-msg { font: 500 20px/1.35 var(--serif); color: var(--ink); letter-spacing: -0.01em; }
+.prompt-box { display: flex; gap: 12px; align-items: flex-start; margin-top: 14px; padding: 14px 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; }
+.prompt-text { flex: 1; margin: 0 !important; font: 13px/1.55 var(--mono); color: var(--text); }
+.prompt-box button { flex: none; }
+
 details { margin-top: 24px; border-bottom: 1px solid var(--border); }
 details summary { cursor: pointer; padding: 12px 0; font-size: 14px; color: var(--muted); list-style: none; }
 details summary::before { content: "+"; display: inline-block; width: 1.2em; font-family: var(--mono); }
@@ -93,4 +101,5 @@ details li { margin-bottom: 6px; }
   h1 { font-size: 36px; }
   .part-head { flex-direction: column; gap: 2px; }
   blockquote, .rejected { margin-left: 0; }
+  .prompt-box { flex-direction: column; }
 }

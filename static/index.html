@@ -29,6 +29,15 @@
     <p id="status" class="status"></p>
     <p id="summary" class="summary"></p>
     <p id="scope" class="meta"></p>
+    <div id="nolinks" class="nolinks" hidden>
+      <p id="nolinks-msg" class="nolinks-msg"></p>
+      <p>Use your AI tool's copy button, not download (downloads often drop the links).</p>
+      <p>Then send it this prompt and paste the new answer here:</p>
+      <div class="prompt-box">
+        <p id="fix-prompt" class="prompt-text">Rewrite your answer so every factual claim is followed by the full URL of its source, in markdown link format.</p>
+        <button id="copy-prompt" type="button" class="secondary">Copy</button>
+      </div>
+    </div>
     <div id="cards"></div>
     <details id="uncited" hidden>
       <summary></summary>

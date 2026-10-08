@@ -42,6 +42,11 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    -> NOT CHECKED), 30 s Groq timeout, 30 s hard wall clock (async, cancelled on expiry) + 3 MB per fetched page. Strict CSP header.
    Frontend renders everything with textContent (never innerHTML); only http(s) URLs become
    links; every streamed field is type-checked, bad lines become a "could not be read" card.
+   A report with zero cited claims (no links, names-only sources, or a Sources list without
+   markers) is answered at once without using the rate limit, and the page shows the
+   no-links screen ("cites no sources, so none of its N claims can be checked", N = sentences)
+   with copy-button advice and a one-click copy of the fix-your-links prompt.
+   Page and static files are sent with Cache-Control: no-cache so updates reach users at once.
 Dependencies: requirements.txt. Token-free parsing checks: .venv/bin/python test_parsing.py
 (samples/ holds hand-made reports: footnotes, names-only sources, no links).
 Labels: SOURCED / PARTIAL / UNSUPPORTED / CONTRADICTED / UNVERIFIED / OPINION / SOURCE UNREACHABLE /

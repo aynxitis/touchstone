@@ -127,6 +127,38 @@ function reset() {
   box.hidden = true;
   box.open = false;
   box.querySelector("ul").replaceChildren();
+  $("nolinks").hidden = true;
+  $("copy-prompt").textContent = "Copy";
+}
+
+// A passage can hold several claims: count sentences, not lines.
+function countSentences(text) {
+  return text.split(/(?<=[.!?])\s+(?=["\u201C(]?[A-Z0-9])/).filter((x) => /[A-Za-z0-9]/.test(x)).length;
+}
+
+// Shown instead of claim cards when the report has nothing Touchstone can check.
+function showNoLinks(claims) {
+  setStatus("");
+  $("nolinks-msg").textContent = claims === 1
+    ? "This report cites no sources, so its 1 claim can't be checked."
+    : `This report cites no sources, so none of its ${claims} claims can be checked.`;
+  $("nolinks").hidden = false;
+}
+
+async function copyPrompt() {
+  const text = $("fix-prompt").textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    $("copy-prompt").textContent = "Copied";
+  } catch {
+    // Clipboard blocked: select the text so Ctrl+C works.
+    const range = document.createRange();
+    range.selectNodeContents($("fix-prompt"));
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    $("copy-prompt").textContent = "Press Ctrl+C";
+  }
 }
 
 async function runAudit() {
@@ -140,7 +172,7 @@ async function runAudit() {
   $("audit").disabled = $("example").disabled = true;
   setStatus("Fetching sources…");
 
-  let total = 0, done = 0, finished = false;
+  let total = 0, done = 0, finished = false, noLinks = false, sentences = 0;
   const counts = {};
 
   const handle = (ev) => {
@@ -148,16 +180,17 @@ async function runAudit() {
     if (ev.type === "start") {
       total = int(ev.checked) ?? 0;
       const cited = int(ev.cited) ?? total;
-      if (cited === 0) {
-        setStatus("No cited claims found. Touchstone needs a report with source links.", true);
-        return;
-      }
+      if (cited === 0) { noLinks = true; return; }   // screen shown at "done"
       $("scope").textContent = cited > total
         ? `Checked ${total} of ${cited} cited claims (claims with numbers first).`
         : `Checked ${total} of ${cited} cited claims.`;
       setStatus(`Fetching ${total} source${total === 1 ? "" : "s"}…`);
     } else if (ev.type === "claim") {
-      if (ev.claim === null) { addUncited(str(ev.text)); return; }
+      if (ev.claim === null) {
+        if (noLinks) sentences += countSentences(str(ev.text));
+        else addUncited(str(ev.text));
+        return;
+      }
       done += 1;
       const label = str(ev.label) || "UNKNOWN";
       counts[label] = (counts[label] || 0) + 1;
@@ -165,6 +198,7 @@ async function runAudit() {
       setStatus(done < total ? `Claim ${done}/${total} done, checking the next…` : `Claim ${done}/${total} done`);
     } else if (ev.type === "done") {
       finished = true;
+      if (noLinks) { showNoLinks(sentences); return; }
       if (total) setStatus(`Done. Claim ${done}/${total}.`);
       if (done) $("summary").textContent = summaryLine(counts, done);
     } else if (ev.type === "error") {
@@ -230,4 +264,5 @@ async function loadExample() {
 $("report").addEventListener("input", updateCount);
 $("audit").addEventListener("click", runAudit);
 $("example").addEventListener("click", loadExample);
+$("copy-prompt").addEventListener("click", copyPrompt);
 updateCount();

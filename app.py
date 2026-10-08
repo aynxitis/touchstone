@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from groq import Groq
 from starlette.background import BackgroundTask
 
+from check_numbers import segments
 from touchstone import audit
 
 MAX_REPORT_CHARS = 20_000
@@ -43,6 +44,8 @@ async def guard(request: Request, call_next):
     response.headers["Content-Security-Policy"] = CSP
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
+    if request.url.path == "/" or request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-cache"   # revalidate: users get updates at once
     return response
 
 
@@ -96,6 +99,12 @@ async def run_audit(request: Request):
     if len(report) > MAX_REPORT_CHARS:
         return JSONResponse({"error": f"Reports are limited to {MAX_REPORT_CHARS:,} characters "
                                       f"(this one has {len(report):,})."}, status_code=413)
+    if not any(url for _, url in segments(report)):
+        # Nothing to fetch or check: answer at once, without using up the rate limit.
+        events = audit(report, client)
+        return StreamingResponse((json.dumps(ev, ensure_ascii=False) + "\n" for ev in events),
+                                 media_type="application/x-ndjson",
+                                 headers={"Cache-Control": "no-store"})
     if not busy.acquire(blocking=False):
         return JSONResponse({"error": "Another audit is running. Try again in a minute."},
                             status_code=503)
