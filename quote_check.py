@@ -10,7 +10,7 @@ from groq import Groq
 from rapidfuzz import fuzz
 
 from check_numbers import NUM_RE, norm, segments
-from entities import check_fact
+from entities import check_fact, paragraph_of
 
 MODEL = "openai/gpt-oss-120b"
 MAX_EXCERPT_CHARS = 3000   # keeps each call well under Groq's 8K tokens/minute
@@ -96,6 +96,32 @@ def best_excerpts(claim, page):
     return out
 
 
+# Evaluative wording: a part using it with no number and little else is framing.
+EVALUATIVE = re.compile(
+    r"\bthe (?:most|least)\b|\bmost \w+(?:al|ant|ent|ive|ous|ful|ic|able|ible)\b|"
+    r"\b(largest|biggest|smallest|leading|significant|notable|notably|well[- ]known|"
+    r"outlier|typical|typically|important|importance|key|prominent|remarkable|impressive|"
+    r"flagship|pioneer\w*|dominant|premier|best|unique|standout|consequential|crucial|major|"
+    r"strongest|fastest|influential|landmark|signal|proof point|matter\w*)\b", re.I)
+EVALUATIVE_MAX_WORDS = 8   # longer parts carry a statement besides the judgment: keep as facts
+
+
+def is_evaluative(text):
+    """Short part built around an evaluative word ('the largest local-currency round').
+    Clause-sized parts are not: they state something checkable besides the judgment."""
+    rest = [w for w in re.findall(r"[a-z][a-z\-]{3,}", EVALUATIVE.sub(" ", text.lower()))
+            if w not in STOPWORDS]
+    return bool(EVALUATIVE.search(text)) and len(rest) < EVALUATIVE_MAX_WORDS
+
+
+def numbers_not_in_passage(fact, quote, page):
+    """Numbers in the fact (2+ digits) that are neither in its quote nor the quote's paragraph."""
+    passage = quote + " " + paragraph_of(quote, page, quote_on_page)
+    have = {norm(n).rstrip(".") for n in NUM_RE.findall(passage)}
+    return [n for n in dict.fromkeys(norm(x).rstrip(".") for x in NUM_RE.findall(fact))
+            if len(n.replace(".", "")) >= 2 and n not in have]
+
+
 def missing_numbers(claim, page):
     """Numbers in the claim that never appear on the page (single digits ignored: too noisy)."""
     page_nums = {norm(n) for n in NUM_RE.findall(page)}
@@ -111,7 +137,7 @@ def check(client, claim, page, url=""):
 
     user = "CLAIM:\n" + claim + "\n\nEXCERPTS:\n<<<\n" + "\n\n".join(excerpts) + "\n>>>"
     resp = client.chat.completions.create(
-        model=MODEL, temperature=0, reasoning_effort="low",
+        model=MODEL, temperature=0, seed=0, reasoning_effort="low",   # seed: best-effort repeatability
         messages=[{"role": "system", "content": SYSTEM},
                   {"role": "user", "content": user}])
     raw = resp.choices[0].message.content or ""
@@ -137,7 +163,9 @@ def check(client, claim, page, url=""):
                 for x in parts if isinstance(x, dict)]
     parts_in = [x for x in parts_in if x["text"]]
     # Numbers are facts: a part with a number is checked even if the model calls it framing.
-    framing = [x["text"] for x in parts_in if x.get("kind") == "framing" and not NUM_RE.search(x["text"])]
+    # Short evaluative parts are framing even if the model calls them facts (lexicon, code).
+    framing = [x["text"] for x in parts_in if not NUM_RE.search(x["text"])
+               and (x.get("kind") == "framing" or is_evaluative(x["text"]))]
     raw_facts = [{"fact": x["text"], "status": x.get("status"), "quote": x.get("quote")}
                  for x in parts_in if x["text"] not in framing]
 
@@ -150,6 +178,10 @@ def check(client, claim, page, url=""):
             # no verified quote, no credit: the fact counts as missing
             fact.update(status="missing", quote="", rejected_quote=quote)
             demoted = True
+        elif status == "stated" and (gone := numbers_not_in_passage(fact["fact"], quote, page)):
+            # Key-term check: the fact's numbers must be in its quote or the quote's paragraph.
+            fact.update(status="missing", quote="", unmatched_quote=quote,
+                        note=f"Quote found, but {', '.join(gone)} not in its passage.")
         elif status == "stated":
             # Name check: a verified quote about someone else is not support (claim 26).
             hit = check_fact(fact["fact"], quote, claim, page, quote_on_page, url)

@@ -21,7 +21,12 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    name if the fact opens with It/The company or names none) must be in the quote's paragraph
    or be the page's subject (2+ paragraphs); publisher names (domain) skipped. Else missing,
    or contradicted if the paragraph/quote/previous sentence opens with another unclaimed
-   name ("about Moustachir, not Volz"). Prompt also requires facts to name their subject. Optional 2nd arg
+   name ("about Moustachir, not Volz"). Prompt also requires facts to name their subject.
+   Key-term check: a stated fact's numbers (2+ digits) must be in its quote or the quote's
+   paragraph, else missing. Framing lexicon (EVALUATIVE): a part with no number, an evaluative
+   word (largest, leading, the most...) and < 8 other content words is framing, whatever the
+   model says. No content-noun check and no framing->fact rule: on the saved runs both broke
+   correct claims (paraphrase; analytical sentences in 7/9/22/25/29). Groq call uses seed=0. Optional 2nd arg
    re-runs only those claim numbers. Writes audit.json.
 4. touchstone.py: audit(report, client, pages=None, max_claims=None, only=None, deadline=None)
    is the importable pipeline. Yields events: start {cited, checked, uncited}, claim (one per
