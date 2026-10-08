@@ -10,6 +10,7 @@ from groq import Groq
 from rapidfuzz import fuzz
 
 from check_numbers import NUM_RE, norm, segments
+from entities import check_fact
 
 MODEL = "openai/gpt-oss-120b"
 MAX_EXCERPT_CHARS = 3000   # keeps each call well under Groq's 8K tokens/minute
@@ -27,6 +28,8 @@ each part once, as either a fact or framing. Reply with JSON only:
 
 - kind "fact": anything that describes what is the case: who, what, where, when, how many,
   trends, concentration, causes. Vague wording is still a fact. At most 5 facts; merge small ones.
+  Each fact must be self-contained and name its subject: write "VOLZ raised $5 million",
+  never "It raised..." or "The company raised...".
 - kind "framing": only evaluative wording: superlatives and judgments of importance or quality
   ("the most significant", "the outlier", "well-known", "an important signal"). Each piece of
   the claim appears in exactly one part; never list the same idea as both fact and framing.
@@ -100,7 +103,7 @@ def missing_numbers(claim, page):
             if len(n) >= 2 and n not in page_nums]
 
 
-def check(client, claim, page):
+def check(client, claim, page, url=""):
     excerpts = best_excerpts(claim, page)
     if not excerpts:
         return {"label": "UNVERIFIED", "quote": "", "tokens": 0,
@@ -147,6 +150,17 @@ def check(client, claim, page):
             # no verified quote, no credit: the fact counts as missing
             fact.update(status="missing", quote="", rejected_quote=quote)
             demoted = True
+        elif status == "stated":
+            # Name check: a verified quote about someone else is not support (claim 26).
+            hit = check_fact(fact["fact"], quote, claim, page, quote_on_page, url)
+            if hit and hit[0] == "contradicted":
+                fact.update(status="contradicted",
+                            note=f"The quoted passage is about {hit[2].title()}, not "
+                                 f"{', '.join(n.title() for n in hit[1])}.")
+            elif hit:
+                fact.update(status="missing", quote="", unmatched_quote=quote,
+                            note=f"Quote found, but {', '.join(n.title() for n in hit[1])} "
+                                 f"not named in its passage.")
         facts.append(fact)
 
     statuses = [f["status"] for f in facts]
@@ -176,6 +190,7 @@ def check(client, claim, page):
         parts.append("Not in the checked passages: " + by("missing") + ".")
     if demoted:
         parts.append("Some quotes from the model are not on the page.")
+    parts.extend(dict.fromkeys(f["note"] for f in facts if f.get("note")))
     if missing and label in ("SOURCED", "PARTIAL"):
         parts.append(f"Numbers not on page: {', '.join(missing)}.")
     if framing:
@@ -234,6 +249,8 @@ def main():
             print(f"      - {f['status']:<12} {f['fact']}")
             if f.get("rejected_quote"):
                 print(f"        REJECTED quote: \"{f['rejected_quote']}\"")
+            if f.get("note"):
+                print(f"        name check: {f['note']}")
         for x in r.get("framing", []):
             print(f"      - {'framing':<12} {x}")
         print(f"    why:    {r['reason']}")

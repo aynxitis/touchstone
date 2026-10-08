@@ -73,6 +73,7 @@ function renderCard(ev) {
     if (str(f.rejected_quote)) {
       li.append(el("p", "rejected", `Quote given by the model, not found on the page: “${str(f.rejected_quote)}”`));
     }
+    if (str(f.note)) li.append(el("p", "rejected", str(f.note)));
     parts.append(li);
   }
   for (const x of arr(ev.framing)) {

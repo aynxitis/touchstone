@@ -60,7 +60,7 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None)
                  "reason": f"Could not read the page ({why})." if why else "", "tokens": 0}
         else:
             try:
-                r = check(client, text, page["text"])
+                r = check(client, text, page["text"], url)
             except Exception as e:   # model timeout, API error: report it, keep going
                 r = {"label": "ERROR", "quote": "", "tokens": 0,
                      "reason": f"Model call failed ({type(e).__name__})."}

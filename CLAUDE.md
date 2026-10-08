@@ -16,7 +16,12 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    with a number is always a fact). Code verifies every quote (exact, else
    rapidfuzz partial_ratio >= 92 with identical numbers; unverified -> missing) and derives
    the label: any contradicted -> CONTRADICTED, all stated -> SOURCED, some -> PARTIAL,
-   none -> UNSUPPORTED. Framing never affects the label. Optional 2nd arg
+   none -> UNSUPPORTED. Framing never affects the label. Name check (entities.py, code-only):
+   a "stated" fact's names (claim's capitalized names/acronyms in the fact; the claim's lead
+   name if the fact opens with It/The company or names none) must be in the quote's paragraph
+   or be the page's subject (2+ paragraphs); publisher names (domain) skipped. Else missing,
+   or contradicted if the paragraph/quote/previous sentence opens with another unclaimed
+   name ("about Moustachir, not Volz"). Prompt also requires facts to name their subject. Optional 2nd arg
    re-runs only those claim numbers. Writes audit.json.
 4. touchstone.py: audit(report, client, pages=None, max_claims=None, only=None, deadline=None)
    is the importable pipeline. Yields events: start {cited, checked, uncited}, claim (one per
@@ -69,11 +74,10 @@ page names tax advantages and public procurement, not public funding.
 7. DONE: Framing duplicated as facts. The model returns one list of parts marked fact|framing,
    so nothing is listed twice; fuzzy dedup removed. Tested on 1, 3, 22, 23 only: full re-run
    still pending (do it twice, see Scoring).
-8. Subject dropped from facts: in the 2026-10-07 web test, claim 26 (VOLZ IPO, really Moustachir's)
-   came back SOURCED because the model wrote the fact as "It was the first Algerian startup to
-   list...", so the quote verified without checking WHO. The previous CLI run got CONTRADICTED
-   only because it happened to split out "Volz listed". Fix: require each fact to name its
-   subject (no pronouns). Re-run 23-26.
+8. DONE (2026-10-08): Subject dropped from facts (claim 26 SOURCED via "It was the first...").
+   Fixed by the name check in entities.py + prompt. 23-26 twice: 23-25 SOURCED, 26
+   CONTRADICTED both runs. Known limit: a name on a multi-topic page that appears in 2+
+   paragraphs passes as "page subject" unless the quoted paragraph opens with another name.
 9. Before deploying: pin the resolved IP in fetch() (today a rebinding check runs after connect,
    so the GET is already sent); rate limit must read X-Forwarded-For behind a proxy; the
    in-memory rate limit and busy lock assume a single process.

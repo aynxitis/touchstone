@@ -1,7 +1,7 @@
 [
   {
     "claim": null,
-    "text": "kAlgeria’s startup ecosystem in 2026 is state-led, expanding, and still early in private-capital depth. The country has built a broad policy and support infrastructure around formal startup labels, public investment vehicles and nationwide incubation, but venture funding remains highly concentrated in a few standout companies and modest relative to larger African and MENA markets.",
+    "text": "Algeria’s startup ecosystem in 2026 is state-led, expanding, and still early in private-capital depth. The country has built a broad policy and support infrastructure around formal startup labels, public investment vehicles and nationwide incubation, but venture funding remains highly concentrated in a few standout companies and modest relative to larger African and MENA markets.",
     "url": null,
     "label": "NO SOURCE GIVEN",
     "quote": "",
@@ -649,79 +649,72 @@
     "text": "Yassir — $150 million Series B: Algeria’s most internationally significant startup financing remains the super-app Yassir’s $150 million Series B, led by BOND with participation from other investors. It is the outlier that demonstrates Algeria can produce venture-scale companies, although Yassir’s financing should not be mistaken for typical local deal size.",
     "url": "https://www.wamda.com/country/algeria",
     "label": "SOURCED",
-    "quote": "Algeria’s super app Yassir raises $150 million Series B funding Algeria-based super app Yassir, has raised $150 million in Series B funding, led by BOND, with participation from DN...",
-    "reason": "Stated: Yassir raised $150 million in Series B financing, led by BOND with participation from other investors.. Framing not checked: Algeria’s most internationally significant startup financing; It is the outlier that demonstrates Algeria can produce venture-scale companies; Yassir’s financing should not be mistaken for typical local deal size.",
+    "quote": "Algeria-based super app Yassir, has raised $150 million in Series B funding, led by BOND, with participation from DN...",
+    "reason": "Stated: Yassir raised $150 million Series B funding, led by BOND; Yassir is a super‑app. Framing not checked: Algeria’s most internationally significant startup financing; outlier that demonstrates Algeria can produce venture‑scale companies; Yassir’s financing should not be mistaken for typical local deal size.",
     "facts": [
       {
-        "fact": "Yassir raised $150 million in Series B financing, led by BOND with participation from other investors.",
+        "fact": "Yassir raised $150 million Series B funding, led by BOND",
         "status": "stated",
-        "quote": "Algeria’s super app Yassir raises $150 million Series B funding Algeria-based super app Yassir, has raised $150 million in Series B funding, led by BOND, with participation from DN..."
+        "quote": "Algeria-based super app Yassir, has raised $150 million in Series B funding, led by BOND, with participation from DN..."
+      },
+      {
+        "fact": "Yassir is a super‑app",
+        "status": "stated",
+        "quote": "Algeria’s super app Yassir raises $150 million Series B funding"
       }
     ],
     "framing": [
       "Algeria’s most internationally significant startup financing",
-      "It is the outlier that demonstrates Algeria can produce venture-scale companies",
+      "outlier that demonstrates Algeria can produce venture‑scale companies",
       "Yassir’s financing should not be mistaken for typical local deal size"
     ],
-    "tokens": 1770
+    "tokens": 1853
   },
   {
     "claim": 24,
     "text": "VOLZ — $5 million Series A: Algerian traveltech VOLZ raised $5 million in a Series A in December 2025, reported as the largest local-currency funding round in Algeria at the time, equivalent to DZD 600 million.",
     "url": "https://algeriatech.news/algeria-10-startups-to-watch-2026-sectors-profiles/",
     "label": "SOURCED",
-    "quote": "Volz closed a $5 million Series A round in December 2025 — the largest local-currency raise (600 million DZD) in Algeria’s startup history at the time",
-    "reason": "Stated: VOLZ raised $5 million in a Series A round in December 2025; It was the largest local‑currency funding round in Algeria at the time; The $5 million amount is equivalent to DZD 600 million.",
+    "quote": "Volz closed a $5 million Series A round in December 2025 — the largest local-currency raise (600 million DZD) in Algeria’s startup history at the time —",
+    "reason": "Stated: VOLZ raised $5 million in a Series A round in December 2025; The round was the largest local‑currency funding round in Algeria at the time; The $5 million amount was equivalent to DZD 600 million.",
     "facts": [
       {
         "fact": "VOLZ raised $5 million in a Series A round in December 2025",
         "status": "stated",
-        "quote": "Volz closed a $5 million Series A round in December 2025 — the largest local-currency raise (600 million DZD) in Algeria’s startup history at the time"
+        "quote": "Volz closed a $5 million Series A round in December 2025 — the largest local-currency raise (600 million DZD) in Algeria’s startup history at the time —"
       },
       {
-        "fact": "It was the largest local‑currency funding round in Algeria at the time",
+        "fact": "The round was the largest local‑currency funding round in Algeria at the time",
         "status": "stated",
-        "quote": "the largest local-currency raise (600 million DZD) in Algeria’s startup history at the time"
+        "quote": "Volz closed a $5 million Series A round in December 2025 — the largest local-currency raise (600 million DZD) in Algeria’s startup history at the time —"
       },
       {
-        "fact": "The $5 million amount is equivalent to DZD 600 million",
+        "fact": "The $5 million amount was equivalent to DZD 600 million",
         "status": "stated",
-        "quote": "the largest local-currency raise (600 million DZD) in Algeria’s startup history at the time"
+        "quote": "Volz closed a $5 million Series A round in December 2025 — the largest local-currency raise (600 million DZD) in Algeria’s startup history at the time —"
       }
     ],
     "framing": [],
-    "tokens": 1401
+    "tokens": 1616
   },
   {
     "claim": 25,
     "text": "VOLZ — ASF’s first exit: VOLZ also became the Algerian Startup Fund’s first reported exit, delivering a 3.35× return to ASF. That is important institutionally: it gives the public fund a proof point for recycling capital and validating an equity-investment model rather than relying only on grants or subsidized loans.",
     "url": "https://www.magstartup.com/en/10-algerian-startups-to-watch-in-2026-beyond-the-noise/",
     "label": "SOURCED",
-    "quote": "7. Volz — the traveltech shaking up the ASF. Founded in 2022 by Mohamed Abdelhadi Mezi, Volz became in December 2025 the first successful exit from the Algerian Startup Fund, with a reported 3.35× return.",
-    "reason": "Stated: Volz was the Algerian Startup Fund’s first reported exit; The exit delivered a 3.35× return; The exit occurred in December 2025. Framing not checked: important institutionally; gives the public fund a proof point for recycling capital and validating an equity-investment model rather than relying only on grants or subsidized loans.",
+    "quote": "Volz became in December 2025 the first successful exit from the Algerian Startup Fund, with a reported 3.35× return.",
+    "reason": "Stated: Volz became the Algerian Startup Fund’s first reported exit, delivering a 3.35× return to ASF. Framing not checked: That is important institutionally: it gives the public fund a proof point for recycling capital and validating an equity‑investment model rather than relying only on grants or subsidized loans.",
     "facts": [
       {
-        "fact": "Volz was the Algerian Startup Fund’s first reported exit",
+        "fact": "Volz became the Algerian Startup Fund’s first reported exit, delivering a 3.35× return to ASF",
         "status": "stated",
-        "quote": "7. Volz — the traveltech shaking up the ASF. Founded in 2022 by Mohamed Abdelhadi Mezi, Volz became in December 2025 the first successful exit from the Algerian Startup Fund, with a reported 3.35× return."
-      },
-      {
-        "fact": "The exit delivered a 3.35× return",
-        "status": "stated",
-        "quote": "7. Volz — the traveltech shaking up the ASF. Founded in 2022 by Mohamed Abdelhadi Mezi, Volz became in December 2025 the first successful exit from the Algerian Startup Fund, with a reported 3.35× return."
-      },
-      {
-        "fact": "The exit occurred in December 2025",
-        "status": "stated",
-        "quote": "7. Volz — the traveltech shaking up the ASF. Founded in 2022 by Mohamed Abdelhadi Mezi, Volz became in December 2025 the first successful exit from the Algerian Startup Fund, with a reported 3.35× return."
+        "quote": "Volz became in December 2025 the first successful exit from the Algerian Startup Fund, with a reported 3.35× return."
       }
     ],
     "framing": [
-      "important institutionally",
-      "gives the public fund a proof point for recycling capital and validating an equity-investment model rather than relying only on grants or subsidized loans"
+      "That is important institutionally: it gives the public fund a proof point for recycling capital and validating an equity‑investment model rather than relying only on grants or subsidized loans"
     ],
-    "dropped_as_framing": [],
-    "tokens": 1711
+    "tokens": 1648
   },
   {
     "claim": 26,
@@ -729,31 +722,26 @@
     "url": "https://algeriatech.news/algeria-10-startups-to-watch-2026-sectors-profiles/",
     "label": "CONTRADICTED",
     "quote": "it was the first Algerian startup to list on the Algiers Stock Exchange",
-    "reason": "Contradicted by the page: It was the first Algerian startup to list on the Algiers Stock Exchange. Stated: IPO raised approximately 94 million DZD (roughly $724,000); IPO was oversubscribed by 119%. Not in the checked passages: Volz listed on the Algiers Stock Exchange.",
+    "reason": "Contradicted by the page: VOLZ was the first Algerian startup to list on the Algiers Stock Exchange. Not in the checked passages: VOLZ's IPO raised approximately DZD 94 million (~$724,000); VOLZ's IPO was oversubscribed by 119%.",
     "facts": [
       {
-        "fact": "It was the first Algerian startup to list on the Algiers Stock Exchange",
+        "fact": "VOLZ was the first Algerian startup to list on the Algiers Stock Exchange",
         "status": "contradicted",
         "quote": "it was the first Algerian startup to list on the Algiers Stock Exchange"
       },
       {
-        "fact": "IPO raised approximately 94 million DZD (roughly $724,000)",
-        "status": "stated",
-        "quote": "raising approximately 94 million DZD (roughly $724,000)"
+        "fact": "VOLZ's IPO raised approximately DZD 94 million (~$724,000)",
+        "status": "missing",
+        "quote": ""
       },
       {
-        "fact": "IPO was oversubscribed by 119%",
-        "status": "stated",
-        "quote": "its IPO oversubscribed by 119%"
-      },
-      {
-        "fact": "Volz listed on the Algiers Stock Exchange",
+        "fact": "VOLZ's IPO was oversubscribed by 119%",
         "status": "missing",
         "quote": ""
       }
     ],
     "framing": [],
-    "tokens": 1690
+    "tokens": 1606
   },
   {
     "claim": 27,
