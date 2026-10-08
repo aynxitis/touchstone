@@ -18,5 +18,7 @@ services:
         value: 3.14.7
       - key: CLIENT_IP_HEADER
         value: True-Client-IP    # set by Render's Cloudflare edge; verify after deploy (DEPLOY.md)
+      - key: GLOBAL_AUDITS_PER_HOUR
+        value: "10"              # backstop across all visitors (Groq free tier: ~200K tokens/day)
       - key: GROQ_API_KEY
         sync: false              # secret: Render asks for it once, in the dashboard

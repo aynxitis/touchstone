@@ -20,6 +20,7 @@ and asks for `GROQ_API_KEY`. Paste the key there, never in the repo.
 | Health check path | `/healthz` |
 | Env `PYTHON_VERSION` | `3.14.7` |
 | Env `CLIENT_IP_HEADER` | `True-Client-IP` |
+| Env `GLOBAL_AUDITS_PER_HOUR` | `10` |
 | Env `GROQ_API_KEY` | your key (secret) |
 
 Keep `--workers 1`: the 5-audits/hour limit, the 30/hour link-less limit and the
@@ -51,6 +52,9 @@ Replace `URL` with the service URL (`https://touchstone-xxxx.onrender.com`).
    confirm `*.onrender.com` is reachable.
 
 ## Limits to know
+- Per visitor: 5 audits/hour (IPv6 counted per /64, so rotating addresses doesn't help).
+  Across everyone: `GLOBAL_AUDITS_PER_HOUR` (10) model-backed audits/hour. A full 15-claim
+  audit is ~20-25K Groq tokens, so Groq's 200K/day free tier is the real ceiling.
 - Free instance: 512 MB RAM (peak use measured locally: ~130 MB), 0.1 vCPU, sleeps after
   15 idle minutes. The rate-limit tables reset on every sleep.
 - Bandwidth: free workspaces now get 5 GB/month outbound (third-party report, April 2026).

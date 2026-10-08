@@ -30,6 +30,9 @@ AUDIT_SECONDS = 300            # claims not started by then are marked NOT CHECK
 # leftmost X-Forwarded-For entry: the client can set it, which would dodge the rate limit.
 CLIENT_IP_HEADER = os.environ.get("CLIENT_IP_HEADER", "").strip()
 PRUNE_EVERY = 300              # seconds between sweeps of the rate-limit tables
+# Backstop across all visitors: even if the client-IP header turned out to be forgeable,
+# model-backed audits can't drain the Groq budget faster than this.
+GLOBAL_LIMIT = int(os.environ.get("GLOBAL_AUDITS_PER_HOUR", "10"))
 HERE = Path(__file__).parent
 
 load_dotenv(HERE / ".env")
@@ -73,6 +76,32 @@ def client_ip(request):
         except ValueError:
             pass               # missing or malformed: fall back rather than trust junk
     return request.client.host if request.client else "?"
+
+
+def rate_key(ip):
+    """What a limit counts: an IPv4 address, or an IPv6 /64 (one subscriber usually holds a
+    whole /64, so per-address limits could be dodged by rotating addresses)."""
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return ip
+    if addr.version == 6 and addr.ipv4_mapped:
+        return str(addr.ipv4_mapped)
+    if addr.version == 6:
+        return str(ipaddress.ip_network(f"{addr}/64", strict=False))
+    return str(addr)
+
+
+global_hits = deque()          # start times of all model-backed audits
+
+
+def global_wait(now):
+    """Minutes until a global audit slot frees up, or 0. Does not take a slot."""
+    while global_hits and now - global_hits[0] > RATE_WINDOW:
+        global_hits.popleft()
+    if len(global_hits) >= GLOBAL_LIMIT:
+        return math.ceil((RATE_WINDOW - (now - global_hits[0])) / 60)
+    return 0
 
 
 def prune(now):
@@ -142,7 +171,7 @@ async def run_audit(request: Request):
     if len(report) > MAX_REPORT_CHARS:
         return JSONResponse({"error": f"Reports are limited to {MAX_REPORT_CHARS:,} characters "
                                       f"(this one has {len(report):,})."}, status_code=413)
-    ip = client_ip(request)
+    ip = rate_key(client_ip(request))
     segs = await run_in_threadpool(segments, report)   # keep parsing off the event loop
     if not any(url for _, url in segs):
         # Nothing to fetch or check: answer at once, outside the 5-audit limit but under a
@@ -157,11 +186,16 @@ async def run_audit(request: Request):
     if not busy.acquire(blocking=False):
         return JSONResponse({"error": "Another audit is running. Try again in a minute."},
                             status_code=503)
+    if wait := global_wait(time.time()):
+        busy.release()
+        return JSONResponse({"error": "Touchstone has reached its audit capacity for this hour. "
+                                      f"Try again in {wait} minute{'s' if wait > 1 else ''}."}, status_code=429)
     wait = rate_limited(ip)
     if wait:
         busy.release()
         return JSONResponse({"error": f"Limit of {RATE_LIMIT} audits per hour reached. "
                                       f"Try again in {wait} minute{'s' if wait > 1 else ''}."}, status_code=429)
+    global_hits.append(time.time())
 
     once = threading.Lock()
 

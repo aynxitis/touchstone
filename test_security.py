@@ -68,4 +68,17 @@ A.last_prune = time.time() - A.PRUNE_EVERY - 1
 A.rate_limited("192.0.2.1")
 assert "198.51.100.1" not in A.hits and "192.0.2.1" in A.hits
 
+# 5. IPv6: one /64 is one visitor, so rotating addresses inside it doesn't reset the limit.
+assert A.rate_key("2001:db8:abcd:12::1") == A.rate_key("2001:db8:abcd:12::ffff") == "2001:db8:abcd:12::/64"
+assert A.rate_key("2001:db8:abcd:13::1") != A.rate_key("2001:db8:abcd:12::1")
+assert A.rate_key("::ffff:203.0.113.7") == "203.0.113.7"
+
+# 6. Global backstop: past GLOBAL_LIMIT audits an hour, everyone waits, whatever their IP.
+A.global_hits.clear()
+now = time.time()
+A.global_hits.extend([now] * A.GLOBAL_LIMIT)
+assert A.global_wait(now) > 0
+A.global_hits.clear()
+assert A.global_wait(now) == 0
+
 print("security checks passed")

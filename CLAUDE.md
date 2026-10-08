@@ -38,7 +38,7 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
 5. app.py (FastAPI, run: .venv/bin/uvicorn app:app): GET / serves static/ (index.html, app.js,
    style.css, no framework); POST /api/audit {report} streams NDJSON events; GET /api/example
    returns report2.txt. Limits: 20,000 chars, 15 cited claims (claims with numbers first),
-   5 audits/IP/hour (in memory), one audit at a time (Groq TPM), 300 s per audit (later claims
+   5 audits/IP/hour (IPv6: per /64) + 10/hour globally (in memory), one audit at a time (Groq TPM), 300 s per audit (later claims
    -> NOT CHECKED), 30 s Groq timeout, 30 s hard wall clock (async, cancelled on expiry) + 3 MB per fetched page. Strict CSP header.
    Frontend renders everything with textContent (never innerHTML); only http(s) URLs become
    links; every streamed field is type-checked, bad lines become a "could not be read" card.
@@ -110,7 +110,9 @@ page names tax advantages and public procurement, not public funding.
 9. DONE (2026-10-08): pre-deploy security. fetch connects to the IP check_url validated
    (Host header + TLS SNI keep the hostname; certs still verified); client IP comes from
    CLIENT_IP_HEADER (Render: True-Client-IP), never X-Forwarded-For's spoofable leftmost
-   entry (why uvicorn --forwarded-allow-ips='*' is not used); --workers 1; rate-limit tables
+   entry (why uvicorn --forwarded-allow-ips='*' is not used); limits key IPv6 by /64
+   (address rotation); GLOBAL_AUDITS_PER_HOUR (10) caps model audits across all visitors in
+   case the IP header is ever forgeable; --workers 1; rate-limit tables
    pruned every 5 min; /healthz; "waking up" notice + Render loading page never parsed.
    Hosting: Render free, Frankfurt (render.yaml, DEPLOY.md). Not deployed yet. After the first
    deploy run DEPLOY.md's token-free checks (forged-header test decides CLIENT_IP_HEADER).
