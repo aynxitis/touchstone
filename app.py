@@ -38,6 +38,7 @@ PRUNE_EVERY = 300              # seconds between sweeps of the rate-limit tables
 # audit whose links are all unreachable costs nothing and must not use up the day for everyone.
 DAILY_LIMIT = int(os.environ.get("GLOBAL_AUDITS_PER_DAY", "7"))
 DAILY_FULL = "Touchstone's free daily capacity is used up, try again tomorrow."
+MINUTE_FULL = "Touchstone is at its per-minute capacity right now. Try again in a minute."
 HERE = Path(__file__).parent
 
 load_dotenv(HERE / ".env")
@@ -234,6 +235,11 @@ async def run_audit(request: Request):
         try:
             deadline = time.monotonic() + AUDIT_SECONDS
             for ev in audit(report, CountingClient(client), max_claims=MAX_CLAIMS, deadline=deadline):
+                if ev["type"] == "quota":
+                    if ev["scope"] == "day":    # Groq's daily budget is gone: refuse new audits up front
+                        daily_used_up()
+                        daily["count"] = max(daily["count"], DAILY_LIMIT)
+                    ev["message"] = DAILY_FULL if ev["scope"] == "day" else MINUTE_FULL
                 if ev["type"] != "skipped":
                     yield json.dumps(ev, ensure_ascii=False) + "\n"
         except Exception as e:

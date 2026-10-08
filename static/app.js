@@ -172,7 +172,7 @@ async function runAudit() {
   $("audit").disabled = $("example").disabled = true;
   setStatus("Fetching sources…");
 
-  let total = 0, done = 0, finished = false, noLinks = false, sentences = 0;
+  let total = 0, done = 0, finished = false, noLinks = false, sentences = 0, stopped = "";
   const counts = {};
 
   const handle = (ev) => {
@@ -196,9 +196,18 @@ async function runAudit() {
       counts[label] = (counts[label] || 0) + 1;
       $("cards").append(renderCard(ev));
       setStatus(done < total ? `Claim ${done}/${total} done, checking the next…` : `Claim ${done}/${total} done`);
+    } else if (ev.type === "quota") {
+      // Out of capacity mid-audit: keep the cards so far, say so once, no per-claim errors.
+      stopped = str(ev.message) || "Touchstone's free daily capacity is used up, try again tomorrow.";
+      $("scope").textContent = `Stopped after ${done} of ${total} claims. Results so far are kept.`;
     } else if (ev.type === "done") {
       finished = true;
       if (noLinks) { showNoLinks(sentences); return; }
+      if (stopped) {
+        setStatus(stopped, true);
+        if (done) $("summary").textContent = summaryLine(counts, done);
+        return;
+      }
       if (total) setStatus(`Done. Claim ${done}/${total}.`);
       if (done) $("summary").textContent = summaryLine(counts, done);
     } else if (ev.type === "error") {

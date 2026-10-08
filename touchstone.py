@@ -1,5 +1,6 @@
 """Touchstone as a library: audit(report) yields one result per claim, in report order.
 Used by the CLI (quote_check.py) and the web app (app.py)."""
+import re
 import time
 
 from check_numbers import NUM_RE, segments
@@ -15,12 +16,23 @@ def select(cited, max_claims):
     return set((with_nums + without)[:max_claims])
 
 
+def quota_scope(err):
+    """For a Groq rate-limit/quota error (HTTP 429): "minute" if it names a per-minute limit
+    (TPM/RPM), else "day" (TPD/RPD, or unclear: assume the budget is gone)."""
+    if getattr(err, "status_code", None) != 429:
+        return None
+    text = f"{err} {getattr(err, 'body', '')}"
+    return "minute" if re.search(r"per minute|\b[TR]PM\b", text, re.I) else "day"
+
+
 def audit(report, client, pages=None, max_claims=None, only=None, deadline=None):
     """Yield events as dicts:
       {"type": "start", "cited", "checked", "uncited"}
       {"type": "claim", "index", "claim", "text", "url", "label", ...}   index = 1..checked
          (uncited text comes as a claim event with claim None, index None)
       {"type": "skipped", "claim", "text", "url"}   cited but over the cap / not in `only`
+      {"type": "quota", "scope": "day"|"minute", "checked"}   Groq refused (429): audit stops,
+         claims already checked are kept, the rest are not sent; then "done"
       {"type": "done", "tokens"}
     pages: {url: fetch result dict}; if None, the selected claims' pages are fetched live.
     deadline: time.monotonic() value; claims not started by then are marked NOT CHECKED."""
@@ -62,6 +74,12 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None)
             try:
                 r = check(client, text, page["text"], url)
             except Exception as e:   # model timeout, API error: report it, keep going
+                if scope := quota_scope(e):
+                    # Out of Groq capacity: every later claim would fail the same way. Stop
+                    # cleanly instead of sending one error card per remaining claim.
+                    yield {"type": "quota", "scope": scope, "checked": index - 1}
+                    yield {"type": "done", "tokens": tokens}
+                    return
                 r = {"label": "ERROR", "quote": "", "tokens": 0,
                      "reason": f"Model call failed ({type(e).__name__})."}
         if page.get("meta_only") and page.get("text"):

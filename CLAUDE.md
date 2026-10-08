@@ -46,6 +46,10 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    markers) is answered at once outside the 5-audit limit (own limit: 30/IP/hour), and shows the
    no-links screen ("cites no sources, so none of its N claims can be checked", N = sentences)
    with copy-button advice and a one-click copy of the fix-your-links prompt.
+   Groq 429 mid-audit: audit() stops with a "quota" event (claims already checked are kept,
+   no per-claim error cards). Per-day or unclear limit -> "free daily capacity is used up,
+   try again tomorrow" and the daily cap is marked full; per-minute (TPM/RPM) -> "try again in
+   a minute", day not marked. The daily cap counts an audit at its first model call attempt.
    Page and static files are sent with Cache-Control: no-cache so updates reach users at once.
 Parsing regexes must stay linear: every repeated group starts with a literal, whitespace
 runs are capped (a nested \s* marker regex once hung the server on 20,000 spaces).

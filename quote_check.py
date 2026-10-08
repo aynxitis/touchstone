@@ -266,6 +266,10 @@ def main():
             if ev["claim"] in previous:
                 results.append(previous[ev["claim"]])   # keep the earlier result untouched
             continue
+        if ev["type"] == "quota":
+            print(f"\nGroq refused further calls ({ev['scope']} limit) after {ev['checked']} claims; "
+                  "stopping. Earlier results are kept.")
+            continue
         if ev["type"] != "claim":
             continue
         r = {k: v for k, v in ev.items() if k not in ("type", "index")}

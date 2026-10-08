@@ -92,4 +92,14 @@ assert A.daily["count"] == 1
 A.CountingClient(None)
 assert A.daily["count"] == 1
 
+# 8. Groq 429s: per-day (or unclear) means the day's capacity is gone; per-minute doesn't.
+import touchstone
+Err = lambda msg, code=429: type("E", (Exception,), {"status_code": code})(msg)
+assert touchstone.quota_scope(Err("on tokens per day (TPD): Limit 200000")) == "day"
+assert touchstone.quota_scope(Err("on requests per day (RPD)")) == "day"
+assert touchstone.quota_scope(Err("Too many requests")) == "day"
+assert touchstone.quota_scope(Err("on tokens per minute (TPM): Limit 8000")) == "minute"
+assert touchstone.quota_scope(Err("server error", 500)) is None
+assert touchstone.quota_scope(TimeoutError("x")) is None
+
 print("security checks passed")
