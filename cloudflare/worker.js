@@ -26,7 +26,14 @@ export default {
     }
 
     const incoming = new URL(request.url);
-    const target = new URL(incoming.pathname + incoming.search, `https://${env.ORIGIN_HOST}`);
+    // Pin the host and set path/query separately: resolving the path as a relative URL would
+    // turn "//evil.example/x" into https://evil.example/x and send it the secret.
+    const target = new URL(`https://${env.ORIGIN_HOST}`);
+    target.pathname = incoming.pathname;
+    target.search = incoming.search;
+    if (target.hostname !== env.ORIGIN_HOST) {
+      return new Response("Bad request", { status: 400 });
+    }
 
     const headers = new Headers(request.headers);
     headers.delete("X-Touchstone-Client-IP");
