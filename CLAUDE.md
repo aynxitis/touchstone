@@ -43,10 +43,13 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    Frontend renders everything with textContent (never innerHTML); only http(s) URLs become
    links; every streamed field is type-checked, bad lines become a "could not be read" card.
    A report with zero cited claims (no links, names-only sources, or a Sources list without
-   markers) is answered at once without using the rate limit, and the page shows the
+   markers) is answered at once outside the 5-audit limit (own limit: 30/IP/hour), and shows the
    no-links screen ("cites no sources, so none of its N claims can be checked", N = sentences)
    with copy-button advice and a one-click copy of the fix-your-links prompt.
    Page and static files are sent with Cache-Control: no-cache so updates reach users at once.
+Parsing regexes must stay linear: every repeated group starts with a literal, whitespace
+runs are capped (a nested \s* marker regex once hung the server on 20,000 spaces).
+Report parsing runs in a thread pool, never on the event loop.
 Dependencies: requirements.txt. Token-free parsing checks: .venv/bin/python test_parsing.py
 (samples/ holds hand-made reports: footnotes, names-only sources, no links).
 Labels: SOURCED / PARTIAL / UNSUPPORTED / CONTRADICTED / UNVERIFIED / OPINION / SOURCE UNREACHABLE /

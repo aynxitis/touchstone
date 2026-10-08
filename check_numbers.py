@@ -15,7 +15,7 @@ def norm(n):
 
 def clean(text):
     """Strip markdown: table pipes, list markers, bold, '[label](' before a link."""
-    text = re.sub(r"\[[^\]]*\]\($", "", text)
+    text = re.sub(r"\[[^\][]*\]\($", "", text)     # [^][]: no rescans on "[[[["
     if text.lstrip().startswith("|"):
         text = " — ".join(c.strip() for c in text.split("|") if c.strip())
     text = re.sub(r"^\s*(?:[-*+]|\d+\.)\s+", "", text)
@@ -28,8 +28,10 @@ LIST_ITEM = re.compile(r"^\s*(?:[-*+]|\d+\.)\s+")
 # Footnote citations: "[1]", "[1, 2]", "[^1]", "【1】" in the text, not followed by "(" or
 # ":" (that would be a markdown link or a definition). Trailing punctuation is captured so
 # it can move before the URL ("38% [1]." -> "38%. URL").
-ONE_MARKER = r"(?:\[\^?\d+(?:\s*,\s*\d+)*\]|\u3010\d+\u3011)(?![(:])"
-MARKER = re.compile(r"\s*((?:\s*" + ONE_MARKER + r")+)([.,;:!?]*)")   # a run: "[1][2]," 
+# Linear-time by construction: every repetition must start with "[" or "【", and whitespace
+# runs are capped (an earlier nested "\s*" version hung on 20,000 spaces).
+ONE_MARKER = r"(?:\[\^?\d{1,4}(?:[ \t]{0,3},[ \t]{0,3}\d{1,4}){0,20}\]|\u3010\d{1,4}\u3011)(?![(:])"
+MARKER = re.compile(r"[ \t]{0,8}(" + ONE_MARKER + r"(?:[ \t]{0,8}" + ONE_MARKER + r")*)([.,;:!?]{0,3})")
 SOURCES_HEADING = re.compile(r"^\W*(sources|references|citations|bibliography|works cited|links)\W*$", re.I)
 BRACKET_DEF = re.compile(r"^\s*(?:\[\^?(\d+)\]|【(\d+)】):?\s*(.*)$")   # [1] / [1]: / [^1]: / 【1】
 NUMBERED_DEF = re.compile(r"^\s*(\d+)[.)]\s+(.*)$")                           # 1. / 1)

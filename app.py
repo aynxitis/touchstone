@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Str
 from fastapi.staticfiles import StaticFiles
 from groq import Groq
 from starlette.background import BackgroundTask
+from starlette.concurrency import run_in_threadpool
 
 from check_numbers import segments
 from touchstone import audit
@@ -21,6 +22,7 @@ MAX_REPORT_CHARS = 20_000
 MAX_CLAIMS = 15
 MAX_BODY_BYTES = 200_000       # reject before parsing; 20K chars of UTF-8 + JSON fits easily
 RATE_LIMIT, RATE_WINDOW = 5, 3600   # audits per IP per hour
+FREE_LIMIT = 30                # per IP per hour: link-less reports (no fetch, no model call)
 AUDIT_SECONDS = 300            # claims not started by then are marked NOT CHECKED
 HERE = Path(__file__).parent
 
@@ -52,13 +54,14 @@ async def guard(request: Request, call_next):
 # One audit at a time: Groq's free tier (8K tokens/minute) can't serve two in parallel.
 busy = threading.Lock()
 hits = defaultdict(deque)      # ip -> start times of recent audits (in memory, local only)
+free_hits = defaultdict(deque) # ip -> times of recent link-less requests
 
 
-def rate_limited(ip):
-    now, q = time.time(), hits[ip]
+def rate_limited(ip, table=hits, limit=RATE_LIMIT):
+    now, q = time.time(), table[ip]
     while q and now - q[0] > RATE_WINDOW:
         q.popleft()
-    if len(q) >= RATE_LIMIT:
+    if len(q) >= limit:
         return math.ceil((RATE_WINDOW - (now - q[0])) / 60)   # minutes to wait
     q.append(now)
     return 0
@@ -99,8 +102,14 @@ async def run_audit(request: Request):
     if len(report) > MAX_REPORT_CHARS:
         return JSONResponse({"error": f"Reports are limited to {MAX_REPORT_CHARS:,} characters "
                                       f"(this one has {len(report):,})."}, status_code=413)
-    if not any(url for _, url in segments(report)):
-        # Nothing to fetch or check: answer at once, without using up the rate limit.
+    ip = request.client.host if request.client else "?"
+    segs = await run_in_threadpool(segments, report)   # keep parsing off the event loop
+    if not any(url for _, url in segs):
+        # Nothing to fetch or check: answer at once, outside the 5-audit limit but under a
+        # cheaper one of its own.
+        if wait := rate_limited(ip, free_hits, FREE_LIMIT):
+            return JSONResponse({"error": f"Too many requests. Try again in {wait} minute"
+                                          f"{'s' if wait > 1 else ''}."}, status_code=429)
         events = audit(report, client)
         return StreamingResponse((json.dumps(ev, ensure_ascii=False) + "\n" for ev in events),
                                  media_type="application/x-ndjson",
@@ -108,7 +117,7 @@ async def run_audit(request: Request):
     if not busy.acquire(blocking=False):
         return JSONResponse({"error": "Another audit is running. Try again in a minute."},
                             status_code=503)
-    wait = rate_limited(request.client.host if request.client else "?")
+    wait = rate_limited(ip)
     if wait:
         busy.release()
         return JSONResponse({"error": f"Limit of {RATE_LIMIT} audits per hour reached. "
