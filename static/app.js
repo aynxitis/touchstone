@@ -177,6 +177,7 @@ async function runAudit() {
 
   const handle = (ev) => {
     if (!ev || typeof ev !== "object") throw new Error("bad event");
+    if (ev.type === "heartbeat") return;   // keep-alive for proxies while a claim is slow
     if (ev.type === "start") {
       total = int(ev.checked) ?? 0;
       const cited = int(ev.cited) ?? total;

@@ -18,6 +18,40 @@ MAX_REDIRECTS = 5
 MIN_TEXT_CHARS = 200    # less than this = no usable text
 MIN_META_CHARS = 50     # a meta description shorter than this is useless
 HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Touchstone/0.1"}
+BOT_BLOCKED = "blocked the checker (bot protection)"
+BLOCK_STATUSES = (403, 429, 503)
+# Challenge/block pages must never reach the model as "page text". Titles of Cloudflare's own
+# interstitials count on any status; body markers only on a 403/429/503, because normal pages
+# behind Cloudflare load /cdn-cgi/challenge-platform/ scripts too, and articles can mention them.
+CF_TITLES = ("just a moment...", "attention required! | cloudflare")
+BLOCK_MARKERS = ("cf-chl", "challenge-platform", "cf-error-details",   # Cloudflare
+                 "captcha-delivery.com", "datadome",                    # DataDome
+                 "edgesuite",                # Akamai "Access Denied" (often errors&#46;edgesuite&#46;net)
+                 "px-captcha", "perimeterx", "_pxappid")                # PerimeterX
+TITLE_RE = re.compile(r"<title[^>]{0,200}>([^<]{0,200})", re.I)
+
+
+def bot_blocked(status, headers, html):
+    """True for a bot-protection challenge or block page."""
+    if headers.get("cf-mitigated", "").strip().lower() == "challenge":
+        return True
+    m = TITLE_RE.search(html[:100_000])
+    title = " ".join(m.group(1).split()).lower() if m else ""
+    if title.replace("\u2026", "...") in CF_TITLES:
+        return True
+    if status in BLOCK_STATUSES:
+        low = html[:200_000].lower()
+        server = headers.get("server", "").lower()
+        return (any(k in low for k in BLOCK_MARKERS) or "x-datadome" in headers
+                or "datadome" in server or ("akamaighost" in server and "access denied" in low))
+    return False
+
+
+def decode(body, encoding):
+    try:
+        return body.decode(encoding, errors="replace")
+    except LookupError:
+        return body.decode("utf-8", errors="replace")
 
 
 def extract_urls(text):
@@ -125,11 +159,7 @@ async def fetch_one(url):
         return {"url": url, "status": "ERROR", "detail": type(e).__name__}
     if isinstance(got, dict):
         return got
-    body, encoding = got
-    try:
-        html = body.decode(encoding, errors="replace")
-    except LookupError:
-        html = body.decode("utf-8", errors="replace")
+    html = got
     text = trafilatura.extract(html) or ""
     if len(text) < MIN_TEXT_CHARS:
         # JS-rendered pages often carry their key facts only in the meta description
@@ -146,7 +176,7 @@ async def fetch_one(url):
 
 
 async def _get(url):
-    """(body bytes, encoding), or a result dict if the page can't be used."""
+    """The page's HTML as a string, or a result dict if the page can't be used."""
     current = url
     try:
         async with httpx.AsyncClient(timeout=TIMEOUT, headers=HEADERS, follow_redirects=False) as client:
@@ -161,11 +191,19 @@ async def _get(url):
                     if r.is_redirect:   # resolve against the hostname URL, not the pinned IP
                         current = urljoin(current, r.headers.get("location", ""))
                         continue
+                    blocked = {"url": url, "status": "BLOCKED", "detail": BOT_BLOCKED}
+                    if bot_blocked(r.status_code, r.headers, ""):
+                        return blocked
                     if r.status_code >= 400:
+                        if r.status_code in BLOCK_STATUSES:
+                            html = decode(await read_capped(r), r.encoding or "utf-8")
+                            if bot_blocked(r.status_code, r.headers, html):
+                                return blocked
                         return {"url": url, "status": "HTTP_ERR", "detail": str(r.status_code)}
                     if "pdf" in r.headers.get("content-type", ""):
                         return {"url": url, "status": "PDF", "detail": "not handled yet"}
-                    return await read_capped(r), r.encoding or "utf-8"
+                    html = decode(await read_capped(r), r.encoding or "utf-8")
+                    return blocked if bot_blocked(r.status_code, r.headers, html) else html
             return {"url": url, "status": "ERROR", "detail": "too many redirects"}
     except httpx.TimeoutException:
         return {"url": url, "status": "TIMEOUT", "detail": ""}

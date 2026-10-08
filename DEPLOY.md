@@ -2,6 +2,44 @@
 
 Nothing here costs Groq tokens except an actual audit.
 
+## Architecture: user -> Cloudflare Worker -> Railway
+Ooredoo Algeria mobile data cannot reach Railway at all: `touchstone-project.up.railway.app`
+and a custom domain CNAMEd to Railway both time out on Ooredoo, even with clean DNS
+(1.1.1.1). A Cloudflare Worker that proxies to Railway (`cloudflare/worker.js`, at
+`touchstone.am-belamri-e87.workers.dev`) loads fine on Ooredoo. So all public traffic goes
+user -> Worker -> Railway, and **the railway.app URL is never shared publicly** (it stays
+reachable, but only for the checks below).
+
+Behind the Worker, Railway's `X-Real-IP` is the Worker's Cloudflare egress IP, so every user
+would share one rate-limit bucket. The Worker therefore sends the visitor's IP
+(`CF-Connecting-IP`) in `X-Touchstone-Client-IP`, plus a shared secret in
+`X-Touchstone-Proxy-Secret`. app.py trusts `X-Touchstone-Client-IP` only when the secret
+matches its `PROXY_SECRET` (constant-time compare); otherwise it ignores it and uses
+`X-Real-IP` as before. The Worker deletes any client-sent copies of both headers first.
+
+**The secret.** Generate it once: `openssl rand -hex 32`. The same value goes in the Railway
+variable `PROXY_SECRET` and in the Worker secret `PROXY_SECRET`. Never commit it, and never
+paste it into chats or prompts (including AI assistants); type it straight into the two
+dashboards. If it leaks, generate a new one and set it in both places.
+
+**Deploy order.** Set the Railway variable first (Railway redeploys), then deploy the Worker
+code. While only Railway has it, nothing changes (Railway traffic never carries the secret);
+a Worker deployed without `PROXY_SECRET` or `ORIGIN_HOST` answers 500 "misconfigured" and
+forwards nothing.
+
+**Worker setup** (dash.cloudflare.com -> Workers & Pages -> the worker): paste
+`cloudflare/worker.js` as the code, then Settings -> Variables and Secrets:
+
+| Name | Type | Value |
+|---|---|---|
+| `ORIGIN_HOST` | Text | `touchstone-project.up.railway.app` |
+| `PROXY_SECRET` | Secret (encrypted) | the generated value |
+
+The Worker allows GET, HEAD and POST only, forwards with `redirect: "manual"`, and returns
+Railway's response unbuffered so the NDJSON audit stream flows line by line. During an audit
+the app sends a `{"type":"heartbeat"}` line after 15 s without output, because Cloudflare
+drops idle connections at ~100 s (Railway at 5 min) and a slow model call can be silent.
+
 ## What's in the repo
 - `railpack.json`: Railpack (Railway's default builder) reads it from the repo root. It pins
   Python 3.14 and sets the start command:
@@ -40,6 +78,7 @@ New Project → Deploy from GitHub repo → this repo. Then in the service:
 | Variables | `GROQ_API_KEY` | your key (sealed variable) |
 | Variables | `GLOBAL_AUDITS_PER_DAY` | `7` |
 | Variables | `CLIENT_IP_HEADER` | `X-Real-IP` |
+| Variables | `PROXY_SECRET` | the shared Worker secret (sealed variable; see Architecture) |
 
 Keep 1 replica and `--workers 1`: the 5-audits/hour limit, the daily cap, the link-less
 limit and the one-audit-at-a-time lock are in process memory. More replicas or workers would
@@ -60,27 +99,43 @@ Replace `URL` with the generated domain (`https://touchstone-production-xxxx.up.
    Command (it then overrides `railpack.json`).
 2. Health: `curl URL/healthz` → `{"ok":true}`.
 3. Forged headers are ignored. Link-less reports are free (no fetch, no model) and limited to
-   30 per IP per hour. From one machine, send 31, each with different forged headers:
+   30 per IP per hour. Two tests, each from one machine, 31 requests each. Wait an hour
+   between (a) and (b), or run them from different networks: both count against your IP.
+
+   (a) Direct to Railway (`URL` = the railway.app domain), with a forged
+   `X-Touchstone-Client-IP` and a wrong secret. The secret check must reject them:
    ```sh
    for i in $(seq 1 31); do
      curl -s -o /dev/null -w "%{http_code} " -X POST URL/api/audit \
        -H "Content-Type: application/json" \
-       -H "X-Real-IP: 203.0.113.$i" -H "X-Forwarded-For: 198.51.100.$i" \
+       -H "X-Touchstone-Client-IP: 203.0.113.$i" -H "X-Touchstone-Proxy-Secret: wrong-$i" \
        -d '{"report":"Algeria has 7,800 startups."}'
    done; echo
    ```
-   Expected: thirty `200` then one `429`. If all 31 are `200`, Railway passed the forged
-   `X-Real-IP` through: stop and fix before launch (the per-IP limit is bypassable; the daily
-   cap still protects the Groq budget).
-4. Buckets are per visitor, not shared. Right after step 3, from a different network (phone
-   on mobile data, Wi-Fi off), send one more:
+   (b) Through the Worker (`WORKER` = `https://touchstone.am-belamri-e87.workers.dev`), with
+   every IP header forged. The Worker must overwrite them with the real visitor IP:
    ```sh
-   curl -s -w " %{http_code}\n" -X POST URL/api/audit -H "Content-Type: application/json" \
+   for i in $(seq 1 31); do
+     curl -s -o /dev/null -w "%{http_code} " -X POST WORKER/api/audit \
+       -H "Content-Type: application/json" \
+       -H "X-Real-IP: 203.0.113.$i" -H "X-Forwarded-For: 198.51.100.$i" \
+       -H "X-Touchstone-Client-IP: 192.0.2.$i" \
+       -d '{"report":"Algeria has 7,800 startups."}'
+   done; echo
+   ```
+   Expected for both: thirty `200` then one `429`. If all 31 are `200`, a forged header got
+   through: stop and fix before launch (the per-IP limit is bypassable; the daily cap still
+   protects the Groq budget). Verified on 2026-10-08 before the Worker existed: Railway
+   overwrites `X-Real-IP` (31 forged requests gave 30x200 then 429).
+4. Buckets are per visitor, not shared. Right after 3(b), from a different network (phone
+   on mobile data, Wi-Fi off), send one more through the Worker:
+   ```sh
+   curl -s -w " %{http_code}\n" -X POST WORKER/api/audit -H "Content-Type: application/json" \
      -d '{"report":"Algeria has 7,800 startups."}'
    ```
-   Expected `200`. A `429` means `X-Real-IP` carries a Railway edge IP, so all visitors share
-   one limit (the CDN bug above). Users would be blocked early but nothing is bypassable;
-   report it before launch.
+   Expected `200`. A `429` means all Worker traffic shares one bucket: `PROXY_SECRET`
+   differs between Railway and the Worker (or is unset), so app.py falls back to
+   `X-Real-IP`, the Worker's egress IP. Fix the secret before launch.
 5. Outbound network works (full trial), still without tokens. This claim shares no words with
    the cited page, so the page is fetched but the model is never called:
    ```sh
@@ -91,7 +146,9 @@ Replace `URL` with the generated domain (`https://touchstone-production-xxxx.up.
    page." `SOURCE UNREACHABLE` with `TIMEOUT` or `ERROR` means outbound traffic is restricted:
    the account is on the Limited Trial (step 1). This uses one of the 5 hourly audits for
    your IP but not the daily cap.
-6. From Algeria: open URL on an Algerian connection (mobile data and home internet).
+6. From Algeria: open the Worker URL (not the railway.app one) on Algerian mobile data, on
+   Ooredoo, Mobilis and Djezzy, with VPNs and DNS-changing apps (1.1.1.1/WARP, Intra, ...)
+   turned off, plus home internet. Load the page and run the example audit to the end.
 
 ## If abuse happens
 Someone with several IPs can use up the 7 daily audits on purpose; IP-based limits can't stop
@@ -100,6 +157,8 @@ users (an audit needs a valid code; codes kept server-side, one per tester or cl
 its own daily quota). See CLAUDE.md open issue 10.
 
 ## Limits to know
+- VPN users (e.g. Cloudflare WARP) can show up with rotating exit IPs and get extra buckets.
+  Accepted for the MVP: the daily cap below protects the Groq budget.
 - Per visitor: 5 audits/hour (IPv6 counted per /64, so rotating addresses doesn't help).
   Shared-IP risk for the pilot: Algerian campus Wi-Fi and mobile carriers (CGNAT) put many
   users behind one IPv4 address, and they all share those 5 audits per hour. If pilot users
@@ -112,6 +171,7 @@ its own daily quota). See CLAUDE.md open issue 10.
   audits are refused up front ("try again tomorrow"). The counter is in memory and resets on
   every redeploy or restart, so Groq's own daily limit stays the hard ceiling.
 - Railway HTTP limits: a request may run up to 15 minutes while data keeps flowing, and
-  closes after 5 minutes with no data. An audit streams a line per claim and is capped at
-  300 s, so it fits.
+  closes after 5 minutes with no data. An audit streams a line per claim (plus a heartbeat after
+  15 s of silence) and is capped at 300 s, so it fits. Cloudflare in front drops connections
+  idle for ~100 s; the heartbeat keeps the stream under that.
 - Every push to the connected branch redeploys (and resets the in-memory counters).

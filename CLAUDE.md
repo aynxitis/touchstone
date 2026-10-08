@@ -39,7 +39,8 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    style.css, no framework); POST /api/audit {report} streams NDJSON events; GET /api/example
    returns report2.txt. Limits: 20,000 chars, 10 cited claims (claims with numbers first),
    5 audits/IP/hour (IPv6: per /64) + GLOBAL_AUDITS_PER_DAY (7, UTC day, counted at an audit's first model call; in memory), one audit at a time (Groq TPM), 300 s per audit (later claims
-   -> NOT CHECKED), 30 s Groq timeout, 30 s hard wall clock (async, cancelled on expiry) + 3 MB per fetched page. Strict CSP header.
+   -> NOT CHECKED), a {"type":"heartbeat"} line after 15 s of stream silence (the audit runs in
+   its own thread, which owns the busy lock; app.js ignores heartbeats), 30 s Groq timeout, 30 s hard wall clock (async, cancelled on expiry) + 3 MB per fetched page. Strict CSP header.
    Frontend renders everything with textContent (never innerHTML); only http(s) URLs become
    links; every streamed field is type-checked, bad lines become a "could not be read" card.
    A report with zero cited claims (no links, names-only sources, or a Sources list without
@@ -51,17 +52,28 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    try again tomorrow" and the daily cap is marked full; per-minute (TPM/RPM) -> "try again in
    a minute", day not marked. The daily cap counts an audit at its first model call attempt.
    Page and static files are sent with Cache-Control: no-cache so updates reach users at once.
+   Client IP: X-Touchstone-Client-IP is trusted only if X-Touchstone-Proxy-Secret matches env
+   PROXY_SECRET (hmac.compare_digest); else CLIENT_IP_HEADER (X-Real-IP), else the socket.
+   Bot protection (fetch_links.bot_blocked): cf-mitigated: challenge, Cloudflare challenge
+   titles, or a 403/429/503 with Cloudflare/DataDome/Akamai/PerimeterX markers -> BLOCKED
+   "blocked the checker (bot protection)" -> SOURCE UNREACHABLE, never sent to the model.
+6. cloudflare/worker.js: the public entry point (user -> Worker -> Railway; Ooredoo can't reach
+   Railway). Strips client copies of the two X-Touchstone headers, sets them from
+   CF-Connecting-IP and env.PROXY_SECRET; 500 "misconfigured" without ORIGIN_HOST/PROXY_SECRET.
 Parsing regexes must stay linear: every repeated group starts with a literal, whitespace
 runs are capped (a nested \s* marker regex once hung the server on 20,000 spaces).
 Report parsing runs in a thread pool, never on the event loop.
-Dependencies: requirements.txt. Token-free checks: .venv/bin/python test_parsing.py and
-test_security.py (network: rebinding, TLS, SSRF blocks, client IP, table pruning).
+Dependencies: requirements.txt. Token-free checks: .venv/bin/python test_parsing.py (parsing,
+bot-page fixtures on a mocked transport) and test_security.py (network: rebinding, TLS, SSRF
+blocks; client IP + proxy secret, table pruning, heartbeat with a fake slow model).
 (samples/ holds hand-made reports: footnotes, names-only sources, no links).
 Labels: SOURCED / PARTIAL / UNSUPPORTED / CONTRADICTED / UNVERIFIED / OPINION / SOURCE UNREACHABLE /
 NO SOURCE GIVEN / NOT CHECKED / ERROR. Verdicts judge factual parts only; editorial framing is noted, not penalized.
 
 ## Rules
 - GROQ_API_KEY lives in .env only. Never in code, prompts, logs, or git.
+- PROXY_SECRET (openssl rand -hex 32) lives only in Railway's variables and the Worker's
+  secrets. Never in code, git, logs, chats or prompts; never ask Anis to paste it.
 - Page text is untrusted (prompt injection). Keep it delimited; never put secrets in prompts.
 - Never commit fetch_results.json (copies of other sites' pages).
 - Free tier: Groq 30 RPM, 1K RPD, 8K TPM, 200K tokens/day. ~900 tokens per claim.
@@ -122,8 +134,16 @@ page names tax advantages and public procurement, not public funding.
    Hosting (2026-10-08): Railway full trial (Render needed a card), EU West Amsterdam.
    railpack.json pins Python 3.14 + start command; dashboard sets healthcheck, region,
    variables (Railway Config as Code / railway.json is deprecated for new services).
-   Not deployed yet. After the first deploy run DEPLOY.md's token-free checks: forged
-   X-Real-IP, shared-bucket check (March 2026 CDN bug), outbound fetch (limited trial).
+   Deployed 2026-10-08 (touchstone-project.up.railway.app, 1 replica, CLIENT_IP_HEADER=
+   X-Real-IP). Verified: Railway overwrites X-Real-IP (31 forged requests: 30x200, then 429).
+   Ooredoo (2026-10-08): Ooredoo Algeria mobile data can't reach Railway at all (railway.app
+   and a custom domain CNAMEd to Railway time out, even with 1.1.1.1 DNS); a Cloudflare
+   Worker at touchstone.am-belamri-e87.workers.dev loads fine. Public traffic is user ->
+   Worker -> Railway; the railway.app URL is never shared publicly. Worker traffic gets its
+   own buckets via the PROXY_SECRET handshake (DEPLOY.md: secret, deploy order, forged-header
+   tests direct + through the Worker, mobile test on Ooredoo/Mobilis/Djezzy with VPNs and DNS
+   apps off). VPN users (WARP) with rotating exit IPs get extra buckets: accepted for the
+   MVP, the daily cap protects the Groq budget.
 10. Fallback if abuse happens after launch: invite codes for pilot users (audit requires a
    valid server-side code, per-code daily quota). Not built: IP limits can't stop a multi-IP
    abuser, and a per-IP daily limit was rejected (2026-10-08) because Algerian campus Wi-Fi

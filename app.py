@@ -1,6 +1,8 @@
 """Touchstone web app. Run locally: .venv/bin/uvicorn app:app"""
+import hmac
 import ipaddress
 import json
+import queue
 import math
 import os
 import threading
@@ -15,7 +17,6 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from groq import Groq
-from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 
 from check_numbers import segments
@@ -27,10 +28,15 @@ MAX_BODY_BYTES = 200_000       # reject before parsing; 20K chars of UTF-8 + JSO
 RATE_LIMIT, RATE_WINDOW = 5, 3600   # audits per IP per hour
 FREE_LIMIT = 30                # per IP per hour: link-less reports (no fetch, no model call)
 AUDIT_SECONDS = 300            # claims not started by then are marked NOT CHECKED
+HEARTBEAT_SECONDS = 15         # idle stream -> {"type":"heartbeat"} (Cloudflare cuts idle at ~100 s)
 # Behind a proxy (Railway), the socket peer is the proxy. CLIENT_IP_HEADER names the one header
 # the proxy sets to the real visitor IP (Railway: X-Real-IP; Cloudflare: CF-Connecting-IP). Never the
 # leftmost X-Forwarded-For entry: the client can set it, which would dodge the rate limit.
 CLIENT_IP_HEADER = os.environ.get("CLIENT_IP_HEADER", "").strip()
+# Public traffic goes through a Cloudflare Worker (Ooredoo can't reach Railway), so X-Real-IP is
+# the Worker's egress IP. The Worker sends the visitor's IP in X-Touchstone-Client-IP plus a
+# shared secret; that header is trusted only when the secret matches. Unset = header ignored.
+PROXY_SECRET = os.environ.get("PROXY_SECRET", "").strip()
 PRUNE_EVERY = 300              # seconds between sweeps of the rate-limit tables
 # Daily cap across all visitors, matched to Groq's free budget (~200K tokens/day; a 10-claim
 # audit is up to ~20K). New audits are refused up front once it's reached, rather than failing
@@ -39,6 +45,7 @@ PRUNE_EVERY = 300              # seconds between sweeps of the rate-limit tables
 DAILY_LIMIT = int(os.environ.get("GLOBAL_AUDITS_PER_DAY", "7"))
 DAILY_FULL = "Touchstone's free daily capacity is used up, try again tomorrow."
 MINUTE_FULL = "Touchstone is at its per-minute capacity right now. Try again in a minute."
+HEARTBEAT = json.dumps({"type": "heartbeat"}) + "\n"
 HERE = Path(__file__).parent
 
 load_dotenv(HERE / ".env")
@@ -73,14 +80,26 @@ free_hits = defaultdict(deque) # ip -> times of recent link-less requests
 last_prune = time.time()
 
 
+def valid_ip(value):
+    try:
+        return str(ipaddress.ip_address(value.strip()))
+    except ValueError:
+        return None            # missing or malformed: fall back rather than trust junk
+
+
+def from_worker(request):
+    sent = request.headers.get("x-touchstone-proxy-secret", "")
+    return bool(PROXY_SECRET) and hmac.compare_digest(sent.encode(), PROXY_SECRET.encode())
+
+
 def client_ip(request):
-    """The visitor's IP: the trusted proxy header if configured and valid, else the socket."""
+    """The visitor's IP: the Worker's header if it proved the secret, else the trusted proxy
+    header if configured and valid, else the socket."""
+    if from_worker(request) and (ip := valid_ip(request.headers.get("x-touchstone-client-ip", ""))):
+        return ip
     if CLIENT_IP_HEADER:
-        value = request.headers.get(CLIENT_IP_HEADER, "").strip()
-        try:
-            return str(ipaddress.ip_address(value))
-        except ValueError:
-            pass               # missing or malformed: fall back rather than trust junk
+        if ip := valid_ip(request.headers.get(CLIENT_IP_HEADER, "")):
+            return ip
     return request.client.host if request.client else "?"
 
 
@@ -225,28 +244,50 @@ async def run_audit(request: Request):
         return JSONResponse({"error": f"Limit of {RATE_LIMIT} audits per hour reached. "
                                       f"Try again in {wait} minute{'s' if wait > 1 else ''}."}, status_code=429)
 
-    once = threading.Lock()
+    out, stop, started = queue.Queue(), threading.Event(), threading.Event()
 
-    def release():             # runs when the stream ends, including client disconnects
-        if once.acquire(blocking=False):
-            busy.release()
-
-    def stream():
+    def work():
+        """Runs the audit in its own thread, so the stream can send heartbeats while a model
+        call or fetch is slow. Owns the busy lock: releases it when the audit really ends (not
+        when the client leaves mid-claim), or at once if the stream never starts. Stops after
+        the current claim if the client goes away."""
         try:
+            if not started.wait(30):
+                return
             deadline = time.monotonic() + AUDIT_SECONDS
-            for ev in audit(report, CountingClient(client), max_claims=MAX_CLAIMS, deadline=deadline):
+            events = audit(report, CountingClient(client), max_claims=MAX_CLAIMS, deadline=deadline)
+            for ev in events:
+                if stop.is_set():
+                    events.close()
+                    return
                 if ev["type"] == "quota":
                     if ev["scope"] == "day":    # Groq's daily budget is gone: refuse new audits up front
                         daily_used_up()
                         daily["count"] = max(daily["count"], DAILY_LIMIT)
                     ev["message"] = DAILY_FULL if ev["scope"] == "day" else MINUTE_FULL
                 if ev["type"] != "skipped":
-                    yield json.dumps(ev, ensure_ascii=False) + "\n"
+                    out.put(json.dumps(ev, ensure_ascii=False) + "\n")
         except Exception as e:
-            yield json.dumps({"type": "error", "error": f"Audit failed ({type(e).__name__})."}) + "\n"
+            out.put(json.dumps({"type": "error", "error": f"Audit failed ({type(e).__name__})."}) + "\n")
         finally:
-            release()
+            busy.release()
+            out.put(None)
 
+    def stream():
+        started.set()
+        try:
+            while True:
+                try:
+                    line = out.get(timeout=HEARTBEAT_SECONDS)
+                except queue.Empty:
+                    yield HEARTBEAT
+                    continue
+                if line is None:
+                    return
+                yield line
+        finally:
+            stop.set()
+
+    threading.Thread(target=work, daemon=True).start()
     return StreamingResponse(stream(), media_type="application/x-ndjson",
-                             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
-                             background=BackgroundTask(release))
+                             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})

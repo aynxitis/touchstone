@@ -29,4 +29,63 @@ assert all("Wamda" not in t for t, _ in segments(text))
 assert cited("samples/sources_no_markers.txt") == []
 assert cited("samples/no_links.txt") == []
 
+# Bot-protection pages are detected, never passed to the model as page text.
+import ipaddress, httpx
+import fetch_links as F
+from touchstone import audit
+
+CF_CHALLENGE = ('<!DOCTYPE html><html><head><title>Just a moment...</title></head><body>'
+                '<script src="/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1"></script>'
+                '<div id="cf-chl-widget"></div></body></html>')
+CF_BLOCKED = ('<html><head><title>Attention Required! | Cloudflare</title></head><body>'
+              '<div id="cf-error-details">Sorry, you have been blocked</div></body></html>')
+DATADOME = ('<html><head><title>example.com</title></head><body><script>var dd={"cid":"x"}</script>'
+            '<script src="https://ct.captcha-delivery.com/c.js"></script></body></html>')
+AKAMAI = ('<HTML><HEAD><TITLE>Access Denied</TITLE></HEAD><BODY><H1>Access Denied</H1>'
+          'Reference&#32;&#35;18.1 <P>https&#58;&#47;&#47;errors&#46;edgesuite&#46;net&#47;18.1</P></BODY></HTML>')
+PERIMETERX = ('<html><head><title>Access to this page has been denied</title></head><body>'
+              '<div id="px-captcha"></div><script>window._pxAppId="PXabc";</script></body></html>')
+ARTICLE = ('<html><head><title>How Cloudflare bot checks work</title>'
+           '<script src="/cdn-cgi/challenge-platform/scripts/jsd/main.js"></script></head><body><p>'
+           'Sites behind Cloudflare sometimes show a "Just a moment..." page; its scripts load from '
+           'challenge-platform and set cf-chl cookies. DataDome and PerimeterX do similar things. '
+           + 'Algeria counts more than 7,800 registered startups. ' * 10 + '</p></body></html>')
+NOT_FOUND = '<html><head><title>404 Not Found</title></head><body>Not Found</body></html>'
+
+assert F.bot_blocked(200, {"cf-mitigated": "challenge"}, "")
+assert F.bot_blocked(403, {}, CF_CHALLENGE) and F.bot_blocked(200, {}, CF_CHALLENGE)
+assert F.bot_blocked(403, {}, CF_BLOCKED)
+assert F.bot_blocked(403, {}, DATADOME) and F.bot_blocked(403, {"x-datadome": "protected"}, "")
+assert F.bot_blocked(403, {"server": "AkamaiGHost"}, AKAMAI) and F.bot_blocked(403, {}, AKAMAI)
+assert F.bot_blocked(403, {}, PERIMETERX)
+assert not F.bot_blocked(200, {}, ARTICLE)          # a normal page that only mentions them
+assert not F.bot_blocked(200, {}, DATADOME)         # markers alone need a 403/429/503
+assert not F.bot_blocked(403, {}, NOT_FOUND) and not F.bot_blocked(404, {}, CF_BLOCKED.replace("Attention Required! | Cloudflare", "x"))
+
+# Through the real fetch path (mocked transport, no network): status + headers + body.
+def fetch_fixture(status, html, headers=None):
+    async def ok(url): return True, "", ipaddress.ip_address("93.184.215.14")
+    real = (F.check_url, F.peer_ok, httpx.AsyncClient)
+    transport = httpx.MockTransport(lambda req: httpx.Response(status, headers=headers or {}, text=html))
+    F.check_url, F.peer_ok = ok, lambda r: True
+    F.httpx.AsyncClient = lambda **k: real[2](transport=transport, **k)
+    try:
+        return F.fetch("https://example.com/page")
+    finally:
+        F.check_url, F.peer_ok, F.httpx.AsyncClient = real
+
+for status, html, headers in ((403, CF_CHALLENGE, {"cf-mitigated": "challenge"}), (503, CF_CHALLENGE, None),
+                              (200, CF_CHALLENGE, None), (403, DATADOME, None), (429, PERIMETERX, None)):
+    r = fetch_fixture(status, html, headers)
+    assert (r["status"], r["detail"]) == ("BLOCKED", F.BOT_BLOCKED), (status, r)
+assert fetch_fixture(200, ARTICLE)["status"] == "OK"
+assert fetch_fixture(403, NOT_FOUND) == {"url": "https://example.com/page", "status": "HTTP_ERR", "detail": "403"}
+
+# A blocked page becomes SOURCE UNREACHABLE with the reason shown, and costs no model call.
+url = "https://example.com/page"
+ev = [e for e in audit(f"- Algeria has 7,800 startups {url}", None,
+                       pages={url: {"url": url, "status": "BLOCKED", "detail": F.BOT_BLOCKED}})
+      if e["type"] == "claim"][0]
+assert ev["label"] == "SOURCE UNREACHABLE" and ev["reason"] == "The site blocked the checker (bot protection).", ev
+
 print("parsing checks passed")

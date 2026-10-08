@@ -4,7 +4,7 @@ import re
 import time
 
 from check_numbers import NUM_RE, segments
-from fetch_links import fetch_many
+from fetch_links import BOT_BLOCKED, fetch_many
 from quote_check import check
 
 
@@ -68,8 +68,10 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None)
             r = {"label": "NOT CHECKED", "quote": "", "reason": "Audit time limit reached.", "tokens": 0}
         elif not page.get("text"):
             why = " ".join(x for x in (page.get("status"), page.get("detail")) if x)
-            r = {"label": "SOURCE UNREACHABLE", "quote": "",
-                 "reason": f"Could not read the page ({why})." if why else "", "tokens": 0}
+            reason = f"Could not read the page ({why})." if why else ""
+            if page.get("detail") == BOT_BLOCKED:
+                reason = f"The site {BOT_BLOCKED}."
+            r = {"label": "SOURCE UNREACHABLE", "quote": "", "reason": reason, "tokens": 0}
         else:
             try:
                 r = check(client, text, page["text"], url)
