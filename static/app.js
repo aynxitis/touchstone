@@ -259,7 +259,7 @@ async function runAudit() {
   }
 }
 
-// Free hosting sleeps after 15 idle minutes; the first request then takes about a minute.
+// A sleeping or cold-starting host can take up to a minute to answer the first request.
 const WAKE_AFTER_MS = 5000;
 const WAKE_RETRY = "The server is waking up after a quiet spell. Try again in a minute.";
 

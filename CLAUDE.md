@@ -113,14 +113,17 @@ page names tax advantages and public procurement, not public funding.
    paragraphs passes as "page subject" unless the quoted paragraph opens with another name.
 9. DONE (2026-10-08): pre-deploy security. fetch connects to the IP check_url validated
    (Host header + TLS SNI keep the hostname; certs still verified); client IP comes from
-   CLIENT_IP_HEADER (Render: True-Client-IP), never X-Forwarded-For's spoofable leftmost
+   CLIENT_IP_HEADER (Railway: X-Real-IP), never X-Forwarded-For's spoofable leftmost
    entry (why uvicorn --forwarded-allow-ips='*' is not used); limits key IPv6 by /64
    (address rotation); GLOBAL_AUDITS_PER_DAY (7) caps audits across all visitors, refused up
    front, counted at an audit's first model call attempt (a count of starts let token-free
    audits lock everyone out; counting reported tokens failed open on errors); --workers 1; rate-limit tables
-   pruned every 5 min; /healthz; "waking up" notice + Render loading page never parsed.
-   Hosting: Render free, Frankfurt (render.yaml, DEPLOY.md). Not deployed yet. After the first
-   deploy run DEPLOY.md's token-free checks (forged-header test decides CLIENT_IP_HEADER).
+   pruned every 5 min; /healthz; "waking up" notice + a host's HTML loading page never parsed.
+   Hosting (2026-10-08): Railway full trial (Render needed a card), EU West Amsterdam.
+   railpack.json pins Python 3.14 + start command; dashboard sets healthcheck, region,
+   variables (Railway Config as Code / railway.json is deprecated for new services).
+   Not deployed yet. After the first deploy run DEPLOY.md's token-free checks: forged
+   X-Real-IP, shared-bucket check (March 2026 CDN bug), outbound fetch (limited trial).
 10. Fallback if abuse happens after launch: invite codes for pilot users (audit requires a
    valid server-side code, per-code daily quota). Not built: IP limits can't stop a multi-IP
    abuser, and a per-IP daily limit was rejected (2026-10-08) because Algerian campus Wi-Fi

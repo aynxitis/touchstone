@@ -1,55 +1,97 @@
-# Deploying Touchstone on Render (free plan)
+# Deploying Touchstone on Railway (trial, no card)
 
 Nothing here costs Groq tokens except an actual audit.
 
-## Create the service
-Either way works; the Blueprint is less error-prone.
+## What's in the repo
+- `railpack.json`: Railpack (Railway's default builder) reads it from the repo root. It pins
+  Python 3.14 and sets the start command:
+  `uvicorn app:app --host 0.0.0.0 --port $PORT --workers 1 --no-proxy-headers`
+- `.python-version` (`3.14`): second source for the Python version.
+- No `railway.json`: Railway's Config as Code is deprecated and new services cannot opt into
+  it; its replacement (`.railway/railway.ts`) only applies through the Railway CLI. The
+  settings below are set once in the dashboard instead.
 
-**Blueprint:** Render dashboard → New → Blueprint → pick this repo. Render reads `render.yaml`
-and asks for `GROQ_API_KEY`. Paste the key there, never in the repo.
+## 1. Account: you need the FULL trial
+Railway gives unverified accounts a **Limited Trial** with restricted outbound network
+access. Touchstone fetches arbitrary pages and calls Groq, so on a limited trial every claim
+fails. Sign in with a GitHub account (verification is automated, mostly based on the GitHub
+account's age and activity) and check the plan shows the full trial, not "Limited Trial".
+If it stays limited: try railway.com/verify; Railway does not answer verification requests,
+and the only guaranteed way out is the Hobby plan (paid). Step 4 below detects a restricted
+network without spending tokens.
 
-**Manual:** New → Web Service → this repo, then:
+The trial is a one-time $5 credit for 30 days (no sleep by default: the service runs all the
+time; at ~130 MB of RAM it should stay well inside $5). When the trial ends the account drops
+to the Free plan ($1/month credit), which won't keep it running: plan the pilot inside the
+30 days.
 
-| Setting | Value |
-|---|---|
-| Runtime | Python |
-| Region | Frankfurt (can't be changed later) |
-| Instance type | Free |
-| Build command | `pip install -r requirements.txt` |
-| Start command | `uvicorn app:app --host 0.0.0.0 --port $PORT --workers 1 --no-proxy-headers` |
-| Health check path | `/healthz` |
-| Env `PYTHON_VERSION` | `3.14.7` |
-| Env `CLIENT_IP_HEADER` | `True-Client-IP` |
-| Env `GLOBAL_AUDITS_PER_DAY` | `7` |
-| Env `GROQ_API_KEY` | your key (secret) |
+## 2. Create the service
+New Project → Deploy from GitHub repo → this repo. Then in the service:
 
-Keep `--workers 1`: the 5-audits/hour limit, the 30/hour link-less limit and the
-one-audit-at-a-time lock are in process memory. More workers would multiply the limits and
-let audits run in parallel past Groq's 8K tokens/minute.
+| Where | Setting | Value |
+|---|---|---|
+| Settings → Build | Builder | Railpack (default) |
+| Settings → Deploy | Custom Start Command | leave empty (`railpack.json` sets it) |
+| Settings → Deploy | Healthcheck Path | `/healthz` |
+| Settings → Deploy | Regions | EU West Metal, Amsterdam (`europe-west4-drams3a`), closest to Algeria |
+| Settings → Deploy | Replicas | 1 |
+| Settings → Deploy | Serverless (app sleeping) | off |
+| Settings → Networking | Public Networking | Generate Domain |
+| Variables | `GROQ_API_KEY` | your key (sealed variable) |
+| Variables | `GLOBAL_AUDITS_PER_DAY` | `7` |
+| Variables | `CLIENT_IP_HEADER` | `X-Real-IP` |
 
-## After the first deploy (token-free checks)
-Replace `URL` with the service URL (`https://touchstone-xxxx.onrender.com`).
+Keep 1 replica and `--workers 1`: the 5-audits/hour limit, the daily cap, the link-less
+limit and the one-audit-at-a-time lock are in process memory. More replicas or workers would
+multiply the limits and let audits run in parallel past Groq's 8K tokens/minute.
 
-1. Health: `curl URL/healthz` → `{"ok":true}`.
-2. Client IP can't be forged. Link-less reports are free (no fetch, no model) and limited to
-   30 per IP per hour. Send 31, each with a different forged header:
+**Why `X-Real-IP`:** Railway's docs name it as the client's remote IP, and staff describe it
+as "a single source of truth for the connecting IP". The leftmost `X-Forwarded-For` entry is
+not used: reports conflict on whether Railway strips client-supplied values, and if it
+doesn't, anyone could dodge the rate limit. One known risk: in March 2026 staff reported a
+bug where `X-Real-IP` held the CDN edge IP instead of the visitor's. That fails safe (visitors
+share buckets, limits get stricter, never bypassable); step 3 detects it.
+
+## 3. After the first deploy (token-free checks)
+Replace `URL` with the generated domain (`https://touchstone-production-xxxx.up.railway.app`).
+
+1. Build log shows Python 3.14; deploy log shows `Uvicorn running on http://0.0.0.0:<port>`.
+   If the log shows another start command, paste the command above into Custom Start
+   Command (it then overrides `railpack.json`).
+2. Health: `curl URL/healthz` → `{"ok":true}`.
+3. Forged headers are ignored. Link-less reports are free (no fetch, no model) and limited to
+   30 per IP per hour. From one machine, send 31, each with different forged headers:
    ```sh
    for i in $(seq 1 31); do
      curl -s -o /dev/null -w "%{http_code} " -X POST URL/api/audit \
        -H "Content-Type: application/json" \
-       -H "True-Client-IP: 203.0.113.$i" -H "X-Forwarded-For: 198.51.100.$i" \
+       -H "X-Real-IP: 203.0.113.$i" -H "X-Forwarded-For: 198.51.100.$i" \
        -d '{"report":"Algeria has 7,800 startups."}'
    done; echo
    ```
-   Expected: thirty `200` then one `429`. If all 31 are `200`, Render passes the forged
-   header through: set `CLIENT_IP_HEADER` to `CF-Connecting-IP`, redeploy, and repeat. If you
-   get `429` from the very first request, the header is missing and everyone shares one IP:
-   check which header carries your IP and fix `CLIENT_IP_HEADER`.
-3. Cold start: leave the service idle for 15+ minutes, open the page. Render shows its own
-   loading page for about a minute. With the page already open, Audit/Example show
-   "Waking up the server…" after 5 seconds and never treat Render's loading page as results.
-4. From Algeria: open the URL on an Algerian connection (mobile data and home internet) to
-   confirm `*.onrender.com` is reachable.
+   Expected: thirty `200` then one `429`. If all 31 are `200`, Railway passed the forged
+   `X-Real-IP` through: stop and fix before launch (the per-IP limit is bypassable; the daily
+   cap still protects the Groq budget).
+4. Buckets are per visitor, not shared. Right after step 3, from a different network (phone
+   on mobile data, Wi-Fi off), send one more:
+   ```sh
+   curl -s -w " %{http_code}\n" -X POST URL/api/audit -H "Content-Type: application/json" \
+     -d '{"report":"Algeria has 7,800 startups."}'
+   ```
+   Expected `200`. A `429` means `X-Real-IP` carries a Railway edge IP, so all visitors share
+   one limit (the CDN bug above). Users would be blocked early but nothing is bypassable;
+   report it before launch.
+5. Outbound network works (full trial), still without tokens. This claim shares no words with
+   the cited page, so the page is fetched but the model is never called:
+   ```sh
+   curl -s -X POST URL/api/audit -H "Content-Type: application/json" \
+     -d '{"report":"- Zzqvx flarnbeck 4242 https://www.iana.org/help/example-domains"}'
+   ```
+   Expected: a claim with `"label": "UNVERIFIED"` and "No relevant passage found on the
+   page." `SOURCE UNREACHABLE` with `TIMEOUT` or `ERROR` means outbound traffic is restricted:
+   the account is on the Limited Trial (step 1). This uses one of the 5 hourly audits for
+   your IP but not the daily cap.
+6. From Algeria: open URL on an Algerian connection (mobile data and home internet).
 
 ## If abuse happens
 Someone with several IPs can use up the 7 daily audits on purpose; IP-based limits can't stop
@@ -65,12 +107,11 @@ its own daily quota). See CLAUDE.md open issue 10.
   `RATE_LIMIT` in app.py; the daily cap below still protects the Groq budget. A per-IP daily
   limit was rejected for the same reason.
   Across everyone: `GLOBAL_AUDITS_PER_DAY` (7) audits per UTC day, counted at an audit's
-  first model call (audits whose pages are all unreachable don't count). A 10-claim audit is up to ~20K tokens; 7 fit Groq's 200K/day free
-  tier with room to spare. Once used up, new audits are refused up front ("try again
-  tomorrow"). The counter is in memory: it resets if Render restarts the service (sleep,
-  redeploy), so Groq's own daily limit stays the hard ceiling.
-- Free instance: 512 MB RAM (peak use measured locally: ~130 MB), 0.1 vCPU, sleeps after
-  15 idle minutes. The rate-limit tables reset on every sleep.
-- Bandwidth: free workspaces now get 5 GB/month outbound (third-party report, April 2026).
-  With no card on file, Render suspends the service if it is exceeded.
-- `autoDeployTrigger: commit`: every push to `main` redeploys.
+  first model call (audits whose pages are all unreachable don't count). A 10-claim audit is
+  up to ~20K tokens; 7 fit Groq's 200K/day free tier with room to spare. Once used up, new
+  audits are refused up front ("try again tomorrow"). The counter is in memory and resets on
+  every redeploy or restart, so Groq's own daily limit stays the hard ceiling.
+- Railway HTTP limits: a request may run up to 15 minutes while data keeps flowing, and
+  closes after 5 minutes with no data. An audit streams a line per claim and is capped at
+  300 s, so it fits.
+- Every push to the connected branch redeploys (and resets the in-memory counters).

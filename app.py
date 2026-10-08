@@ -27,8 +27,8 @@ MAX_BODY_BYTES = 200_000       # reject before parsing; 20K chars of UTF-8 + JSO
 RATE_LIMIT, RATE_WINDOW = 5, 3600   # audits per IP per hour
 FREE_LIMIT = 30                # per IP per hour: link-less reports (no fetch, no model call)
 AUDIT_SECONDS = 300            # claims not started by then are marked NOT CHECKED
-# Behind a proxy (Render), the socket peer is the proxy. CLIENT_IP_HEADER names the one header
-# the proxy overwrites with the real visitor IP (Render/Cloudflare: True-Client-IP). Never the
+# Behind a proxy (Railway), the socket peer is the proxy. CLIENT_IP_HEADER names the one header
+# the proxy sets to the real visitor IP (Railway: X-Real-IP; Cloudflare: CF-Connecting-IP). Never the
 # leftmost X-Forwarded-For entry: the client can set it, which would dodge the rate limit.
 CLIENT_IP_HEADER = os.environ.get("CLIENT_IP_HEADER", "").strip()
 PRUNE_EVERY = 300              # seconds between sweeps of the rate-limit tables
@@ -163,7 +163,7 @@ def rate_limited(ip, table=hits, limit=RATE_LIMIT):
 
 @app.get("/healthz")
 def healthz():
-    return {"ok": True}       # Render health check: no fetch, no model call
+    return {"ok": True}       # platform health check: no fetch, no model call
 
 
 @app.get("/")
