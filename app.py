@@ -265,8 +265,7 @@ async def run_audit(request: Request):
                         daily_used_up()
                         daily["count"] = max(daily["count"], DAILY_LIMIT)
                     ev["message"] = DAILY_FULL if ev["scope"] == "day" else MINUTE_FULL
-                if ev["type"] != "skipped":
-                    out.put(json.dumps(ev, ensure_ascii=False) + "\n")
+                out.put(json.dumps(ev, ensure_ascii=False) + "\n")
         except Exception as e:
             out.put(json.dumps({"type": "error", "error": f"Audit failed ({type(e).__name__})."}) + "\n")
         finally:

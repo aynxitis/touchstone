@@ -1,0 +1,12 @@
+[
+  {"claim": 1,  "label": "SOURCED"},
+  {"claim": 2,  "label": "SOURCED"},
+  {"claim": 3,  "label": "SOURCED", "note": "False alarm in production: 'Pv not named in its passage' (whole-claim name scope; page writes 'solar photovoltaic')."},
+  {"claim": 4,  "label": "SOURCE UNREACHABLE", "note": "Unverified: the page could not be read, so not scored."},
+  {"claim": 6,  "label": "PARTIAL"},
+  {"claim": 7,  "label": "PARTIAL"},
+  {"claim": 8,  "label": "PARTIAL"},
+  {"claim": 9,  "label": "SOURCED"},
+  {"claim": 10, "label": "SOURCED"},
+  {"claim": 11, "label": "SOURCED"}
+]

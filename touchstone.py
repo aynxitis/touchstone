@@ -3,17 +3,16 @@ Used by the CLI (quote_check.py) and the web app (app.py)."""
 import re
 import time
 
-from check_numbers import NUM_RE, segments
+from check_numbers import segments
 from fetch_links import BOT_BLOCKED, fetch_many
 from quote_check import check
 
 
 def select(cited, max_claims):
-    """Indices (0-based) of the cited claims to check: claims with numbers first, then the
-    rest, in report order within each group, capped at max_claims."""
-    with_nums = [i for i, (t, _) in enumerate(cited) if NUM_RE.search(t)]
-    without = [i for i, (t, _) in enumerate(cited) if not NUM_RE.search(t)]
-    return set((with_nums + without)[:max_claims])
+    """Indices (0-based) of the cited claims to check: the first max_claims in report order,
+    so the unchecked ones are simply the end of the report. (Numbers-first used to skip a
+    no-number claim in the middle, which read as if it had been checked.)"""
+    return set(range(min(len(cited), max_claims)))
 
 
 def quota_scope(err):
@@ -27,10 +26,11 @@ def quota_scope(err):
 
 def audit(report, client, pages=None, max_claims=None, only=None, deadline=None):
     """Yield events as dicts:
-      {"type": "start", "cited", "checked", "uncited"}
+      {"type": "start", "cited", "checked", "uncited", "limit"}   limit = max_claims or None
       {"type": "claim", "index", "claim", "text", "url", "label", ...}   index = 1..checked
          (uncited text comes as a claim event with claim None, index None)
-      {"type": "skipped", "claim", "text", "url"}   cited but over the cap / not in `only`
+      {"type": "skipped", "claim", "text", "url", "label": "NOT CHECKED"}   cited but over
+         the cap / not in `only`; no fetch, no tokens
       {"type": "quota", "scope": "day"|"minute", "checked"}   Groq refused (429): audit stops,
          claims already checked are kept, the rest are not sent; then "done"
       {"type": "done", "tokens"}
@@ -45,7 +45,7 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None)
     else:
         chosen = set(range(len(cited)))
     yield {"type": "start", "cited": len(cited), "checked": len(chosen),
-           "uncited": len(segs) - len(cited)}
+           "uncited": len(segs) - len(cited), "limit": max_claims}
 
     if pages is None:
         urls = list(dict.fromkeys(cited[i][1] for i in sorted(chosen)))
@@ -60,7 +60,7 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None)
             continue
         n += 1
         if n - 1 not in chosen:
-            yield {"type": "skipped", "claim": n, "text": text, "url": url}
+            yield {"type": "skipped", "claim": n, "text": text, "url": url, "label": "NOT CHECKED"}
             continue
         index += 1
         page = pages.get(url) or {}

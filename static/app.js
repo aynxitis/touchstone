@@ -110,12 +110,29 @@ function addUncited(text) {
     `No source given (${n} passage${n === 1 ? "" : "s"}): the report cites nothing for these, so they were not checked`;
 }
 
-function summaryLine(counts, checked) {
+// Cited claims over the per-audit cap: listed (collapsed) so nobody reads the results as
+// an audit of the whole report.
+function addSkipped(ev, limit) {
+  const box = $("skipped");
+  box.hidden = false;
+  const li = el("li", "", `${int(ev.claim) !== null ? `Claim ${ev.claim}: ` : ""}${str(ev.text)}`);
+  if (str(ev.url)) li.append(el("span", "source-plain", ` ${str(ev.url)}`));
+  box.querySelector("ul").append(li);
+  const n = box.querySelector("ul").childElementCount;
+  box.querySelector("summary").textContent = limit
+    ? `Not checked (limit of ${limit} per audit): ${n} claim${n === 1 ? "" : "s"}`
+    : `Not checked: ${n} claim${n === 1 ? "" : "s"}`;
+}
+
+// "Checked 10 of 11 claims: ..." whenever some cited claims were left out.
+function summaryLine(counts, checked, cited) {
   const bits = SUMMARY.filter(([k]) => counts[k]).map(([k, w]) => `${counts[k]} ${w}`);
   for (const [k, v] of Object.entries(counts)) {
     if (!SUMMARY.some(([s]) => s === k)) bits.push(`${v} ${k.toLowerCase()}`);
   }
-  const head = `${checked} claim${checked === 1 ? "" : "s"} checked`;
+  const head = cited > checked
+    ? `Checked ${checked} of ${cited} claims`
+    : `${checked} claim${checked === 1 ? "" : "s"} checked`;
   return bits.length ? `${head}: ${bits.join(", ")}` : head;
 }
 
@@ -127,6 +144,10 @@ function reset() {
   box.hidden = true;
   box.open = false;
   box.querySelector("ul").replaceChildren();
+  const skipped = $("skipped");
+  skipped.hidden = true;
+  skipped.open = false;
+  skipped.querySelector("ul").replaceChildren();
   $("nolinks").hidden = true;
   $("copy-prompt").textContent = "Copy";
 }
@@ -172,7 +193,7 @@ async function runAudit() {
   $("audit").disabled = $("example").disabled = true;
   setStatus("Fetching sources…");
 
-  let total = 0, done = 0, finished = false, noLinks = false, sentences = 0, stopped = "";
+  let total = 0, cited = 0, limit = null, done = 0, finished = false, noLinks = false, sentences = 0, stopped = "";
   const counts = {};
 
   const handle = (ev) => {
@@ -180,10 +201,11 @@ async function runAudit() {
     if (ev.type === "heartbeat") return;   // keep-alive for proxies while a claim is slow
     if (ev.type === "start") {
       total = int(ev.checked) ?? 0;
-      const cited = int(ev.cited) ?? total;
+      cited = int(ev.cited) ?? total;
+      limit = int(ev.limit);
       if (cited === 0) { noLinks = true; return; }   // screen shown at "done"
       $("scope").textContent = cited > total
-        ? `Checked ${total} of ${cited} cited claims (claims with numbers first).`
+        ? `Checked the first ${total} of ${cited} cited claims, in report order. The rest are listed below as not checked.`
         : `Checked ${total} of ${cited} cited claims.`;
       setStatus(`Fetching ${total} source${total === 1 ? "" : "s"}…`);
     } else if (ev.type === "claim") {
@@ -197,6 +219,8 @@ async function runAudit() {
       counts[label] = (counts[label] || 0) + 1;
       $("cards").append(renderCard(ev));
       setStatus(done < total ? `Claim ${done}/${total} done, checking the next…` : `Claim ${done}/${total} done`);
+    } else if (ev.type === "skipped") {
+      addSkipped(ev, limit);
     } else if (ev.type === "quota") {
       // Out of capacity mid-audit: keep the cards so far, say so once, no per-claim errors.
       stopped = str(ev.message) || "Touchstone's free daily capacity is used up, try again tomorrow.";
@@ -206,11 +230,11 @@ async function runAudit() {
       if (noLinks) { showNoLinks(sentences); return; }
       if (stopped) {
         setStatus(stopped, true);
-        if (done) $("summary").textContent = summaryLine(counts, done);
+        if (done) $("summary").textContent = summaryLine(counts, done, cited);
         return;
       }
       if (total) setStatus(`Done. Claim ${done}/${total}.`);
-      if (done) $("summary").textContent = summaryLine(counts, done);
+      if (done) $("summary").textContent = summaryLine(counts, done, cited);
     } else if (ev.type === "error") {
       setStatus(str(ev.error) || "The audit failed.", true);
     }
@@ -251,7 +275,7 @@ async function runAudit() {
     }
     if (!finished && !$("status").classList.contains("error")) {
       setStatus(`The connection ended early. Claim ${done}/${total} done.`, true);
-      if (done) $("summary").textContent = summaryLine(counts, done);
+      if (done) $("summary").textContent = summaryLine(counts, done, cited);
     }
   } catch {
     setStatus("Could not reach the server.", true);

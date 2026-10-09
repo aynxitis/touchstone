@@ -11,6 +11,7 @@ from rapidfuzz import fuzz
 
 from check_numbers import NUM_RE, norm, segments
 from entities import check_fact, paragraph_of
+from units import unit_supported
 
 MODEL = "openai/gpt-oss-120b"
 MAX_EXCERPT_CHARS = 3000   # keeps each call well under Groq's 8K tokens/minute
@@ -114,19 +115,27 @@ def is_evaluative(text):
     return bool(EVALUATIVE.search(text)) and len(rest) < EVALUATIVE_MAX_WORDS
 
 
+def numbers_not_in(text, passage, min_digits=2):
+    """Numbers in text (min_digits+ digits) that are neither written in the passage nor a
+    unit-scaled form of a passage number (15.9 GW = 15,925 MW; see units.py)."""
+    have = {norm(n).rstrip(".") for n in NUM_RE.findall(passage)}
+    scaled = unit_supported(text, passage)
+    out = []
+    for m in NUM_RE.finditer(text):
+        n = norm(m.group()).rstrip(".")
+        if len(n.replace(".", "")) >= min_digits and n not in have and m.start() not in scaled:
+            out.append(n)
+    return list(dict.fromkeys(out))
+
+
 def numbers_not_in_passage(fact, quote, page):
     """Numbers in the fact (2+ digits) that are neither in its quote nor the quote's paragraph."""
-    passage = quote + " " + paragraph_of(quote, page, quote_on_page)
-    have = {norm(n).rstrip(".") for n in NUM_RE.findall(passage)}
-    return [n for n in dict.fromkeys(norm(x).rstrip(".") for x in NUM_RE.findall(fact))
-            if len(n.replace(".", "")) >= 2 and n not in have]
+    return numbers_not_in(fact, quote + " " + paragraph_of(quote, page, quote_on_page))
 
 
 def missing_numbers(claim, page):
     """Numbers in the claim that never appear on the page (single digits ignored: too noisy)."""
-    page_nums = {norm(n) for n in NUM_RE.findall(page)}
-    return [n for n in (norm(x) for x in NUM_RE.findall(claim))
-            if len(n) >= 2 and n not in page_nums]
+    return numbers_not_in(claim, page)
 
 
 def check(client, claim, page, url=""):
@@ -149,10 +158,17 @@ def check(client, claim, page, url=""):
 
     if not isinstance(out, dict):
         out = {}
+    r = judge(out, claim, page, url, raw)
+    r["tokens"] = resp.usage.total_tokens if resp.usage else 0
+    return r
+
+
+def judge(out, claim, page, url="", raw=""):
+    """Code-only half of check(): turn the model's parsed reply into facts, framing and a
+    label. No tokens, so saved runs can be re-scored after a change to the code checks."""
     if out.get("opinion") is True:
-        tokens = resp.usage.total_tokens if resp.usage else 0
         return {"label": "OPINION", "quote": "", "reason": "Advice or opinion, not a checkable fact.",
-                "facts": [], "framing": [], "tokens": tokens}
+                "facts": [], "framing": []}
 
     # Model output is untrusted too: anything that isn't the expected shape is dropped
     # or coerced to a string, never trusted.
@@ -187,12 +203,10 @@ def check(client, claim, page, url=""):
             hit = check_fact(fact["fact"], quote, claim, page, quote_on_page, url)
             if hit and hit[0] == "contradicted":
                 fact.update(status="contradicted",
-                            note=f"The quoted passage is about {hit[2].title()}, not "
-                                 f"{', '.join(n.title() for n in hit[1])}.")
+                            note=f"The quoted passage is about {hit[2]}, not {', '.join(hit[1])}.")
             elif hit:
                 fact.update(status="missing", quote="", unmatched_quote=quote,
-                            note=f"Quote found, but {', '.join(n.title() for n in hit[1])} "
-                                 f"not named in its passage.")
+                            note=f"Quote found, but {', '.join(hit[1])} not named in its passage.")
         facts.append(fact)
 
     statuses = [f["status"] for f in facts]
@@ -231,10 +245,7 @@ def check(client, claim, page, url=""):
         parts.insert(0, "No checkable fact identified in the claim.")
     reason = " ".join(parts) or raw[:200]
     quote = next((f["quote"] for f in facts if f["status"] in ("contradicted", "stated")), "")
-
-    tokens = resp.usage.total_tokens if resp.usage else 0
-    return {"label": label, "quote": quote, "reason": reason, "facts": facts,
-            "framing": framing, "tokens": tokens}
+    return {"label": label, "quote": quote, "reason": reason, "facts": facts, "framing": framing}
 
 
 def main():

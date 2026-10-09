@@ -1,7 +1,8 @@
 // Touchstone's public entry point: a Cloudflare Worker that proxies every request to Railway.
-// Why: Ooredoo Algeria mobile data cannot reach Railway at all (*.up.railway.app and custom
-// domains CNAMEd to Railway time out), while workers.dev loads fine. Traffic is
-// user -> this Worker -> Railway; the railway.app URL is never shared publicly.
+// Public URL: https://touchstone.aynx.dev (Worker custom domain; workers.dev and Preview
+// URLs are disabled). Why a Worker: Ooredoo Algeria mobile data reaches Railway only
+// intermittently (*.up.railway.app and custom domains CNAMEd to Railway), while the Worker
+// loads fine. Traffic is user -> this Worker -> Railway; the railway.app URL is never shared.
 //
 // Behind the Worker, Railway's X-Real-IP is Cloudflare's egress IP, so the Worker sends the
 // visitor's IP (CF-Connecting-IP) in X-Touchstone-Client-IP, plus a shared secret in

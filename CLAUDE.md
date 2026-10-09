@@ -19,25 +19,40 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    with a number is always a fact). Code verifies every quote (exact, else
    rapidfuzz partial_ratio >= 92 with identical numbers; unverified -> missing) and derives
    the label: any contradicted -> CONTRADICTED, all stated -> SOURCED, some -> PARTIAL,
-   none -> UNSUPPORTED. Framing never affects the label. Name check (entities.py, code-only):
-   a "stated" fact's names (claim's capitalized names/acronyms in the fact; the claim's lead
-   name if the fact opens with It/The company or names none) must be in the quote's paragraph
-   or be the page's subject (2+ paragraphs); publisher names (domain) skipped. Else missing,
-   or contradicted if the paragraph/quote/previous sentence opens with another unclaimed
-   name ("about Moustachir, not Volz"). Prompt also requires facts to name their subject.
+   none -> UNSUPPORTED. Framing never affects the label. judge() is the code-only half of
+   check() (model reply -> label), so saved runs can be re-scored with zero tokens.
+   Name check (entities.py, code-only): a "stated" fact's names (only the claim's names that
+   appear in the fact's own text, plus the claim's lead name if the fact opens with It/The
+   company) must be in the quote's paragraph or be the page's subject (2+ paragraphs);
+   publisher names (domain) skipped. Else missing, or contradicted if the paragraph/quote/
+   previous sentence opens with another unclaimed name ("about Moustachir, not VOLZ"; names
+   keep their original casing). Technical acronyms in entities.ACRONYMS (PV, CSP, EV, GDP,
+   IPO, AI, CO2, W/Wh units) are never names. A name acronym also counts as named when the
+   passage spells it out in capitalized words (ASF = Algerian Startup Fund; IRENA != IEA).
+   Prompt also requires facts to name their subject.
    Key-term check: a stated fact's numbers (2+ digits) must be in its quote or the quote's
-   paragraph, else missing. Framing lexicon (EVALUATIVE): a part with no number, an evaluative
+   paragraph, else missing. Number matching (claim-level "Numbers not on page" too) accepts
+   a unit-scaled form (units.py): both numbers carry an explicit unit of one family
+   (W/kW/MW/GW/TW + written-out; Wh..TWh; thousand/million/billion/trillion, k/M/bn/B), and
+   the page number converts to the claim's at its stated precision, rounded or cut off
+   (15,925 MW = 15.9 GW = 16 GW, not 17 GW; 3,267 MW = 3.2 or 3.3 GW). A number without a
+   unit is never scaled. Framing lexicon (EVALUATIVE): a part with no number, an evaluative
    word (largest, leading, the most...) and < 8 other content words is framing, whatever the
    model says. No content-noun check and no framing->fact rule: on the saved runs both broke
    correct claims (paraphrase; analytical sentences in 7/9/22/25/29). Groq call uses seed=0. Optional 2nd arg
    re-runs only those claim numbers. Writes audit.json.
 4. touchstone.py: audit(report, client, pages=None, max_claims=None, only=None, deadline=None)
-   is the importable pipeline. Yields events: start {cited, checked, uncited}, claim (one per
-   segment, uncited ones with claim: null), skipped, done {tokens}. pages=None fetches live.
+   is the importable pipeline. Yields events: start {cited, checked, uncited, limit}, claim
+   (one per segment, uncited ones with claim: null), skipped {label: NOT CHECKED}, done
+   {tokens}. pages=None fetches live. max_claims keeps the FIRST N cited claims in report
+   order (until 2026-10-09 it put claims with numbers first, which silently skipped claim 5
+   of report3 mid-report).
    quote_check.py's CLI is a thin wrapper over it (uses cached fetch_results.json).
 5. app.py (FastAPI, run: .venv/bin/uvicorn app:app): GET / serves static/ (index.html, app.js,
    style.css, no framework); POST /api/audit {report} streams NDJSON events; GET /api/example
-   returns report2.txt. Limits: 20,000 chars, 10 cited claims (claims with numbers first),
+   returns report2.txt. Limits: 20,000 chars, 10 cited claims (first 10 in report order; the
+   rest stream as "skipped" and show collapsed as "Not checked (limit of 10 per audit)", and
+   the summary says "Checked X of N claims"),
    5 audits/IP/hour (IPv6: per /64) + GLOBAL_AUDITS_PER_DAY (7, UTC day, counted at an audit's first model call; in memory), one audit at a time (Groq TPM), 300 s per audit (later claims
    -> NOT CHECKED), a {"type":"heartbeat"} line after 15 s of stream silence (the audit runs in
    its own thread, which owns the busy lock; app.js ignores heartbeats), 30 s Groq timeout, 30 s hard wall clock (async, cancelled on expiry) + 3 MB per fetched page. Strict CSP header.
@@ -57,14 +72,16 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    Bot protection (fetch_links.bot_blocked): cf-mitigated: challenge, Cloudflare challenge
    titles, or a 403/429/503 with Cloudflare/DataDome/Akamai/PerimeterX markers -> BLOCKED
    "blocked the checker (bot protection)" -> SOURCE UNREACHABLE, never sent to the model.
-6. cloudflare/worker.js: the public entry point (user -> Worker -> Railway; Ooredoo can't reach
-   Railway). Strips client copies of the two X-Touchstone headers, sets them from
-   CF-Connecting-IP and env.PROXY_SECRET; 500 "misconfigured" without ORIGIN_HOST/PROXY_SECRET.
+6. cloudflare/worker.js: the public entry point, https://touchstone.aynx.dev (Worker custom
+   domain; workers.dev + Preview URLs disabled; user -> Worker -> Railway, permanently, since
+   Ooredoo reaches Railway only intermittently). The railway.app URL is never shared.
+   Strips client copies of the two X-Touchstone headers, sets them from CF-Connecting-IP and env.PROXY_SECRET; 500 "misconfigured" without ORIGIN_HOST/PROXY_SECRET.
 Parsing regexes must stay linear: every repeated group starts with a literal, whitespace
 runs are capped (a nested \s* marker regex once hung the server on 20,000 spaces).
 Report parsing runs in a thread pool, never on the event loop.
 Dependencies: requirements.txt. Token-free checks: .venv/bin/python test_parsing.py (parsing,
-bot-page fixtures on a mocked transport) and test_security.py (network: rebinding, TLS, SSRF
+bot-page fixtures on a mocked transport, claim cap order), test_checks.py (unit-scaled
+numbers, name check scope/acronyms, VOLZ/Moustachir) and test_security.py (network: rebinding, TLS, SSRF
 blocks; client IP + proxy secret, table pruning, heartbeat with a fake slow model).
 (samples/ holds hand-made reports: footnotes, names-only sources, no links).
 Labels: SOURCED / PARTIAL / UNSUPPORTED / CONTRADICTED / UNVERIFIED / OPINION / SOURCE UNREACHABLE /
@@ -101,6 +118,18 @@ TUNING ON REPORT2 IS CLOSED (2026-10-08). Every number above is on the tuning se
 optimistic. The next eval is a fresh report with fresh labels, scored with both metrics.
 Claim 1 label corrected SOURCED -> PARTIAL (2026-10-07) after re-checking the source: the
 page names tax advantages and public procurement, not public funding.
+2026-10-09: re-scored the saved run (audit.json) through judge() after the units/name-check
+changes below: no label or reason changed (11/13 on that run, same as before).
+
+## Fresh-report eval 1 (2026-10-09, production): report3.txt, North African renewables
+Perplexity report, 11 cited claims, 10 checked (claim 5 skipped by the old numbers-first cap).
+labels3.json: 10 hand labels verified against the live pages (report3.txt itself is not
+in the repo yet: add it when Anis sends the report text). Result 6/9 scorable (67%;
+target 85%; claim 4 SOURCE UNREACHABLE not scored). All 3 errors were false alarms from code
+checks: unit-scaled numbers ("15.9 GW" vs "15,925 MW") and the name check (whole-claim
+scope + "PV" read as a name, "Pv not named in its passage"). Both fixed 2026-10-09.
+report3 is now a REGRESSION SET, not an eval set: it has been seen. The next eval must use
+fresh reports run after these fixes, scored with both metrics.
 
 ## Open issues, in order
 1. DONE: Claims 4 and 9 false rejections. Cause: U+2011 hyphens and '...'-shortened quotes; fixed in
@@ -136,10 +165,14 @@ page names tax advantages and public procurement, not public funding.
    variables (Railway Config as Code / railway.json is deprecated for new services).
    Deployed 2026-10-08 (touchstone-project.up.railway.app, 1 replica, CLIENT_IP_HEADER=
    X-Real-IP). Verified: Railway overwrites X-Real-IP (31 forged requests: 30x200, then 429).
-   Ooredoo (2026-10-08): Ooredoo Algeria mobile data can't reach Railway at all (railway.app
-   and a custom domain CNAMEd to Railway time out, even with 1.1.1.1 DNS); a Cloudflare
-   Worker at touchstone.am-belamri-e87.workers.dev loads fine. Public traffic is user ->
-   Worker -> Railway; the railway.app URL is never shared publicly. Worker traffic gets its
+   Ooredoo: reaching Railway is intermittent (railway.app and a custom domain CNAMEd to
+   Railway timed out on 2026-10-08 even with 1.1.1.1 DNS, worked on 2026-10-09); the
+   Cloudflare Worker loads fine, so it stays permanently. Public URL (2026-10-09):
+   https://touchstone.aynx.dev, a Worker custom domain (aynx.dev DNS moved from Name.com to
+   Cloudflare; portfolio records DNS-only); workers.dev and Preview URLs disabled. Public
+   traffic is user -> Worker -> Railway; the railway.app URL is never shared.
+   Known minor issue: an app redirect (e.g. /static -> /static/) would send users to
+   railway.app (Location names the origin); not triggered today. Worker traffic gets its
    own buckets via the PROXY_SECRET handshake (DEPLOY.md: secret, deploy order, forged-header
    tests direct + through the Worker, mobile test on Ooredoo/Mobilis/Djezzy with VPNs and DNS
    apps off). VPN users (WARP) with rotating exit IPs get extra buckets: accepted for the

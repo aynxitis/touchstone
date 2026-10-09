@@ -88,4 +88,14 @@ ev = [e for e in audit(f"- Algeria has 7,800 startups {url}", None,
       if e["type"] == "claim"][0]
 assert ev["label"] == "SOURCE UNREACHABLE" and ev["reason"] == "The site blocked the checker (bot protection).", ev
 
+
+# Claim cap: the first max_claims cited claims in report order are checked (a claim without
+# numbers is not pushed back); the rest come as "skipped" events labelled NOT CHECKED.
+report = "\n".join(f"- Claim {i} {'has no figures' if i == 5 else f'says {i * 11}%'} https://example.com/{i}"
+                   for i in range(1, 12))
+events = list(audit(report, None, pages={}, max_claims=10))
+assert events[0] == {"type": "start", "cited": 11, "checked": 10, "uncited": 0, "limit": 10}, events[0]
+assert [e["claim"] for e in events if e["type"] == "claim"] == list(range(1, 11))
+assert [(e["claim"], e["label"]) for e in events if e["type"] == "skipped"] == [(11, "NOT CHECKED")]
+
 print("parsing checks passed")

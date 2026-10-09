@@ -24,6 +24,17 @@ vc vcs usd dzd eur gbp mad tnd egp sme smes b2b b2c saas fintech series round se
 pre a b c d q1 q2 q3 q4 h1 h2 fy ltd inc llc sarl spa eurl no executive decree law article
 ordinance act""".split())
 
+# Common technical acronyms: written as acronyms but not names, so never entities on their
+# own. A passage may write them out ("solar photovoltaic" for PV).
+ACRONYMS = {"pv": ["photovoltaic"], "csp": ["concentrated solar power", "concentrating solar power"],
+            "ev": ["electric vehicle"], "evs": ["electric vehicle"], "gdp": ["gross domestic product"],
+            "ipo": ["initial public offering"], "ai": ["artificial intelligence"],
+            "co2": ["carbon dioxide"], "w": ["watt"], "kw": ["kilowatt"], "mw": ["megawatt"],
+            "gw": ["gigawatt"], "tw": ["terawatt"], "wh": ["watt-hour", "watt hour"],
+            "kwh": ["kilowatt-hour", "kilowatt hour"], "mwh": ["megawatt-hour", "megawatt hour"],
+            "gwh": ["gigawatt-hour", "gigawatt hour"], "twh": ["terawatt-hour", "terawatt hour"]}
+GENERIC |= set(ACRONYMS)
+
 TOKEN = re.compile(r"[^\W_][\w&\-]*(?:['’]s)?|[^\w\s]")   # words; punctuation one char each
 BREAK = set(".!?:;|—–\"“")     # a word after one of these starts a sentence ('(' does not)
 POSSESSIVE = re.compile(r"['’]s$")
@@ -53,14 +64,15 @@ def _mid_sentence_caps(text):
 
 def entities(text, context=""):
     """Proper names in order of appearance: runs of capitalized words ('Algiers Stock
-    Exchange'), acronyms ('ASF'), single names ('Yassir'). Lowercased, possessive stripped.
+    Exchange'), acronyms ('ASF'), single names ('Yassir'). Casing as written (first time
+    seen), possessive stripped; compare with named_in(), which ignores case.
     A sentence-initial word ('Capital', 'State-backed' in a table cell) only counts if it is
     an acronym or appears capitalized mid-sentence in the text or `context` (e.g. the page)."""
     names = _mid_sentence_caps(text) | _mid_sentence_caps(context)
     out, run = [], []
 
     def end_run():
-        if run and " ".join(run) not in out:
+        if run and " ".join(run).lower() not in {o.lower() for o in out}:
             out.append(" ".join(run))
         run.clear()
 
@@ -69,7 +81,7 @@ def entities(text, context=""):
         acronym = sum(ch.isupper() for ch in word) >= 2
         initial_ok = not start or (low not in COMMON and (acronym or low in names))
         if word[:1].isupper() and len(word) > 1 and low not in GENERIC and initial_ok:
-            run.append(low)
+            run.append(word)
             if possessive:                     # "Yassir's" ends the name
                 end_run()
         else:
@@ -93,9 +105,30 @@ def fold(text):
                    if not unicodedata.combining(ch))
 
 
+# Small words skipped when reading an acronym off a name ("Office National des Statistiques").
+CONNECTORS = {"of", "for", "and", "the", "de", "des", "du", "la", "le", "et", "d", "l", "&"}
+
+
+def spelled_out(acronym, passage):
+    """True if the passage has a run of capitalized words whose initials spell the acronym
+    ('ASF' = 'Algerian Startup Fund'; connectors like 'of' and 'des' are skipped)."""
+    want, run = acronym.lower(), ""
+    for w in re.findall(r"[^\W\d_][\w\-]*|&", passage):
+        if w.lower() in CONNECTORS and run:
+            continue
+        run = run + w[0].lower() if w[0].isupper() else ""
+        if run.endswith(want):
+            return True
+    return False
+
+
 def named_in(entity, passage):
     """True if every word of the name (3+ letters) appears in the passage, ignoring case
-    and accents."""
+    and accents. An acronym also counts as named if the passage spells it out."""
+    if entity.isupper() and " " not in entity and len(entity) >= 2:
+        expansions = ACRONYMS.get(entity.lower(), [])
+        if any(fold(x) in fold(passage) for x in expansions) or spelled_out(entity, passage):
+            return True
     entity, p = fold(entity), fold(passage)
     words = [w for w in entity.split() if len(w) >= 3] or entity.split()
     return all(any(re.search(r"(?<![a-z0-9])" + re.escape(f), p) for f in _stems(w)) for w in words)
@@ -108,11 +141,12 @@ IMPLICIT_SUBJECT = re.compile(
 
 
 def fact_entities(fact, claim_ents):
-    """The claim's names this fact is about: those written in the fact, plus the claim's
-    lead name (its subject) when the fact names none or opens with 'It'/'The company'."""
+    """The claim's names this fact is about: those written in the fact itself, plus the
+    claim's lead name (its subject) when the fact opens with 'It'/'The company'. Names from
+    elsewhere in the claim are not required ('grown by 40%' needs no 'PV')."""
     own = [e for e in claim_ents if named_in(e, fact)]
     lead = claim_ents[:1]
-    if lead and (not own or IMPLICIT_SUBJECT.match(fact)) and lead[0] not in own:
+    if lead and IMPLICIT_SUBJECT.match(fact) and lead[0] not in own:
         own = lead + own
     return own
 
@@ -129,6 +163,7 @@ def publisher(entity, url):
     """True if the name is the source's own (UpGrowth on upgrowth.dz): pages rarely name
     themselves."""
     host = (urlparse(url).hostname or "").lower().replace("-", "")
+    entity = entity.lower()
     first = entity.split()[0]
     return bool(host) and (entity.replace(" ", "").replace("-", "") in host
                            or (len(first) >= 4 and first in host))
@@ -140,7 +175,7 @@ def opening_name(text, page):
         return None
     first = next(_tokens(text), None)
     ents = entities(text, page)
-    return ents[0] if first and ents and ents[0].split()[0] == first[0].lower() else None
+    return ents[0] if first and ents and ents[0].split()[0].lower() == first[0].lower() else None
 
 
 def sentence_before(quote, para):

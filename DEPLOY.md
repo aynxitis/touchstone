@@ -3,12 +3,22 @@
 Nothing here costs Groq tokens except an actual audit.
 
 ## Architecture: user -> Cloudflare Worker -> Railway
-Ooredoo Algeria mobile data cannot reach Railway at all: `touchstone-project.up.railway.app`
-and a custom domain CNAMEd to Railway both time out on Ooredoo, even with clean DNS
-(1.1.1.1). A Cloudflare Worker that proxies to Railway (`cloudflare/worker.js`, at
-`touchstone.am-belamri-e87.workers.dev`) loads fine on Ooredoo. So all public traffic goes
-user -> Worker -> Railway, and **the railway.app URL is never shared publicly** (it stays
-reachable, but only for the checks below).
+**Public URL: https://touchstone.aynx.dev**, a custom domain on the Cloudflare Worker
+(`cloudflare/worker.js`). The aynx.dev DNS moved from Name.com to Cloudflare; the portfolio's
+records there are DNS-only (not proxied). The Worker's workers.dev URL and its Preview URLs
+are disabled, so the custom domain is the only way in through the Worker.
+
+Why a Worker: Ooredoo Algeria mobile data reaches Railway only intermittently.
+`touchstone-project.up.railway.app` and a custom domain CNAMEd to Railway timed out on
+Ooredoo on 2026-10-08 even with clean DNS (1.1.1.1), and worked on 2026-10-09. The Worker
+loads fine on Ooredoo, so it stays permanently: all public traffic goes
+user -> Worker -> Railway, and **the railway.app URL is never shared** (it stays reachable,
+but only for the checks below).
+
+Known minor issue (not triggered today): if the app ever answers with a redirect (e.g.
+Starlette's `/static` -> `/static/`), its `Location` names the railway.app host, and the Worker
+passes it through (`redirect: "manual"`), sending the user to railway.app. No page links to a
+URL that redirects. If one ever does, rewrite `Location` in the Worker.
 
 Behind the Worker, Railway's `X-Real-IP` is the Worker's Cloudflare egress IP, so every user
 would share one rate-limit bucket. The Worker therefore sends the visitor's IP
@@ -112,7 +122,7 @@ Replace `URL` with the generated domain (`https://touchstone-production-xxxx.up.
        -d '{"report":"Algeria has 7,800 startups."}'
    done; echo
    ```
-   (b) Through the Worker (`WORKER` = `https://touchstone.am-belamri-e87.workers.dev`), with
+   (b) Through the Worker (`WORKER` = `https://touchstone.aynx.dev`), with
    every IP header forged. The Worker must overwrite them with the real visitor IP:
    ```sh
    for i in $(seq 1 31); do
@@ -146,7 +156,7 @@ Replace `URL` with the generated domain (`https://touchstone-production-xxxx.up.
    page." `SOURCE UNREACHABLE` with `TIMEOUT` or `ERROR` means outbound traffic is restricted:
    the account is on the Limited Trial (step 1). This uses one of the 5 hourly audits for
    your IP but not the daily cap.
-6. From Algeria: open the Worker URL (not the railway.app one) on Algerian mobile data, on
+6. From Algeria: open https://touchstone.aynx.dev (not the railway.app URL) on Algerian mobile data, on
    Ooredoo, Mobilis and Djezzy, with VPNs and DNS-changing apps (1.1.1.1/WARP, Intra, ...)
    turned off, plus home internet. Load the page and run the example audit to the end.
 
