@@ -128,13 +128,59 @@ def has_anchor(kind, value, para, claim):
     return bool(vals & locnum.values(para)) or bool(offsets & unit_supported(claim, para))
 
 
+ITEM_LINE = re.compile(r"^(?:[-*+\u2022]\s|\d{1,3}[.)]\s|\|)")   # list item or table row
+GROUP_CHARS = 600          # a long list/table is cut into chunks of about this size
+ROW_CHARS = 30             # longer list items / rows stand alone, as paragraphs always did
+CONTEXT_CHARS = 300        # lines up to this long can serve as a list's heading / lead-in
+
+
+def passages(page):
+    """The page cut into passages for excerpt selection. Paragraphs over 30 characters stand
+    alone, as do list items / rows over ROW_CHARS (unchanged). The short list items / table
+    rows that rule used to drop are kept when they have a number after the list marker
+    ("- Tesla Model Y: 116 989" is 24), as one passage with their context: up to 2 short
+    lines just before the run (heading, lead-in) and, for a table, its header row; long
+    runs are cut into chunks of ~GROUP_CHARS, each with the same context. Every passage line
+    is a page line, so quotes from them verify as usual."""
+    out, context, run = [], [], []
+    # A row: short, with a number after the list marker ("8. Volz — The First ASF Exit" has none).
+    is_row = lambda r: len(r) <= ROW_CHARS and any(ch.isdigit() for ch in ITEM_LINE.sub("", r, 1))
+
+    def flush():
+        rows = [r for r in run if is_row(r)]
+        if rows:
+            head = context[-2:] + ([run[0]] if run[0].startswith("|") and run[0] not in rows else [])
+            chunk = []
+            for r in rows:
+                if chunk and len("\n".join(head + chunk + [r])) > GROUP_CHARS:
+                    out.append("\n".join(head + chunk))
+                    chunk = []
+                chunk.append(r)
+            out.append("\n".join(head + chunk))
+        out.extend(r for r in run if r not in rows and len(r) > 30)
+        run.clear()
+
+    for line in (x.strip() for x in page.split("\n")):
+        if not line:
+            continue
+        if ITEM_LINE.match(line):
+            run.append(line)
+            continue
+        flush()
+        if len(line) > 30:
+            out.append(line)
+        context = (context + [line])[-2:] if len(line) <= CONTEXT_CHARS else []
+    flush()
+    return out
+
+
 def best_excerpts(claim, page):
     """Pick paragraphs for the model (code-only, zero tokens), within MAX_EXCERPT_CHARS.
     First, for each anchor of the claim (titles, then organisations/acronyms, then numbers),
     the best-scoring paragraph that contains it, if it still fits. Then the remaining
     paragraphs by keyword overlap with the claim, best first, while they fit."""
     kw = keywords(claim)
-    paras = [p.strip() for p in page.split("\n") if len(p.strip()) > 30]
+    paras = passages(page)
     score = {p: len(kw & keywords(p)) for p in paras}
     scored = sorted(paras, key=lambda p: score[p], reverse=True)
     out, total = [], 0
@@ -190,9 +236,44 @@ def numbers_not_in(text, passage, min_digits=2):
     return locnum.missing(text, passage, min_digits, scaled=unit_supported(text, passage))
 
 
+def is_year(token):
+    """'2025': a plain 4-digit number from 1900 to 2100."""
+    return token.isdigit() and len(token) == 4 and 1900 <= int(token) <= 2100
+
+
 def numbers_not_in_passage(fact, quote, page):
-    """Numbers in the fact (2+ digits) that are neither in its quote nor the quote's paragraph."""
-    return numbers_not_in(fact, quote + " " + paragraph_of(quote, page, quote_on_page))
+    """Numbers in the fact (2+ digits) that are neither in its quote nor the quote's paragraph.
+    A year only has to be somewhere on the page (title, heading, table header): a table row
+    "| Tesla | 238,656 |" sits under "Sales 2025", not next to it."""
+    gone = numbers_not_in(fact, quote + " " + paragraph_of(quote, page, quote_on_page))
+    years = [n for n in gone if is_year(n)]
+    on_page = set(numbers_not_in(" ".join(years), page)) if years else set()
+    return [n for n in gone if not is_year(n) or n in on_page]
+
+
+def value_conflict(fact, quote):
+    """True if the quote holds a different figure for the fact's figure: the fact has a
+    non-year number the quote lacks AND the quote has a non-year number the fact lacks
+    ("raised $5 million" vs a quote saying "$3 million"). Locale/unit-aware."""
+    figures = lambda a, b: [n for n in numbers_not_in(a, b, min_digits=1) if not is_year(n)]
+    return bool(figures(fact, quote)) and bool(figures(quote, fact))
+
+
+def line_on_page(fact, page, names=()):
+    """Full-page fallback (no model call): the first page line (paragraph, list item, table
+    row) holding all of the fact's non-year numbers, at least one of them 2+ digits, plus the
+    fact's subject (the first of the claim's names written in the fact), if it names one.
+    None if there is no such line."""
+    nums = [m for m in NUMBER_RE.finditer(fact) if not is_year(m.group())]
+    if not any(locnum.digits(m) >= 2 for m in nums):
+        return None
+    subject = next((n for n in names if named_in(n, fact)), None)
+    for line in page.split("\n"):
+        line = line.strip()
+        if (line and not [n for n in numbers_not_in(fact, line, min_digits=1) if not is_year(n)]
+                and (subject is None or named_in(subject, line))):
+            return line
+    return None
 
 
 def missing_numbers(claim, page):
@@ -245,8 +326,11 @@ def judge(out, claim, page, url="", raw=""):
     # Numbers are facts: a part with a number is checked even if the model calls it framing.
     # Short evaluative parts are framing even if the model calls them facts (lexicon, code).
     names = entities(claim, page)
+    # The lexicon may overrule the model's "fact", except a fact the model found stated with
+    # a verified quote: a code heuristic alone never takes support away (A1).
+    backed = lambda x: x.get("status") == "stated" and x.get("quote") and quote_on_page(x["quote"], page)
     framing = [x["text"] for x in parts_in if not NUM_RE.search(x["text"])
-               and (x.get("kind") == "framing" or is_evaluative(x["text"], names))]
+               and (x.get("kind") == "framing" or (is_evaluative(x["text"], names) and not backed(x)))]
     raw_facts = [{"fact": x["text"], "status": x.get("status"), "quote": x.get("quote")}
                  for x in parts_in if x["text"] not in framing]
 
@@ -259,23 +343,34 @@ def judge(out, claim, page, url="", raw=""):
             # no verified quote, no credit: the fact counts as missing
             fact.update(status="missing", quote="", rejected_quote=quote)
             demoted = True
+        elif status == "contradicted" and not value_conflict(fact["fact"], quote):
+            # CONTRADICTED needs a different value in the quote, not just the model's word:
+            # without one, the page simply doesn't support the fact.
+            fact.update(status="missing", quote="", unmatched_quote=quote,
+                        note="The model judged this contradicted, but its quote shows no conflicting figure.")
         elif status == "stated" and (gone := numbers_not_in_passage(fact["fact"], quote, page)):
             # Key-term check: the fact's numbers must be in its quote or the quote's paragraph.
-            fact.update(status="missing", quote="", unmatched_quote=quote,
-                        note=f"Quote found, but {', '.join(gone)} not in its passage.")
+            # A code heuristic alone never accuses: the model found it stated, so it's amber.
+            fact.update(status="unconfirmed", note=f"Quote found, but {', '.join(gone)} not in its passage.")
         elif status == "stated":
-            # Name check: a verified quote about someone else is not support (claim 26).
+            # Name check: a verified quote about someone else is not support (claim 26). Code
+            # only, so "couldn't confirm" with the reason, never an accusation by itself.
             hit = check_fact(fact["fact"], quote, claim, page, quote_on_page, url)
             if hit and hit[0] == "contradicted":
-                fact.update(status="contradicted",
+                fact.update(status="unconfirmed",
                             note=f"The quoted passage is about {hit[2]}, not {', '.join(hit[1])}.")
             elif hit:
-                fact.update(status="missing", quote="", unmatched_quote=quote,
+                fact.update(status="unconfirmed",
                             note=f"Quote found, but {', '.join(hit[1])} not named in its passage.")
+        if fact["status"] == "missing" and (line := line_on_page(fact["fact"], page, names)):
+            # Full-page fallback: a line elsewhere on the page has all the fact's figures (and
+            # its subject). Never "not found" then; shown for a human to check.
+            fact.update(status="possible", evidence=line)
         facts.append(fact)
 
     statuses = [f["status"] for f in facts]
     missing = missing_numbers(claim, page)
+    soft = ("unconfirmed", "possible")
     if not out:
         label = "ERROR"        # unparseable model output
     elif not facts:
@@ -283,9 +378,11 @@ def judge(out, claim, page, url="", raw=""):
     elif "contradicted" in statuses:
         label = "CONTRADICTED"
     elif all(x == "stated" for x in statuses):
-        label = "PARTIAL" if missing else "SOURCED"
-    elif "stated" in statuses:
+        label = "COULDN'T CONFIRM" if missing else "SOURCED"
+    elif "missing" in statuses and any(x == "stated" or x in soft for x in statuses):
         label = "PARTIAL"
+    elif "missing" not in statuses:
+        label = "COULDN'T CONFIRM"   # only code-check doubts / page-line evidence: amber
     elif demoted:
         label = "UNVERIFIED"   # model claimed support but its quotes aren't on the page
     else:
@@ -297,12 +394,16 @@ def judge(out, claim, page, url="", raw=""):
         parts.append("Contradicted by the page: " + by("contradicted") + ".")
     if by("stated"):
         parts.append("Stated: " + by("stated") + ".")
+    if by("unconfirmed"):
+        parts.append("Couldn't confirm (code check): " + by("unconfirmed") + ".")
+    if by("possible"):
+        parts.append("Possibly stated, check the page line shown: " + by("possible") + ".")
     if by("missing"):
         parts.append("Not in the checked passages: " + by("missing") + ".")
     if demoted:
         parts.append("Some quotes from the model are not on the page.")
     parts.extend(dict.fromkeys(f["note"] for f in facts if f.get("note")))
-    if missing and label in ("SOURCED", "PARTIAL"):
+    if missing and label in ("SOURCED", "PARTIAL", "COULDN'T CONFIRM"):
         parts.append(f"Numbers not on page: {', '.join(missing)}.")
     if framing:
         parts.append("Framing not checked: " + "; ".join(framing) + ".")

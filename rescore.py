@@ -43,7 +43,7 @@ def model_reply(c):
     parts = []
     for f in c.get("facts", []):
         quote = f.get("quote") or f.get("unmatched_quote") or f.get("rejected_quote") or ""
-        status = f["status"]
+        status = {"unconfirmed": "stated", "possible": "missing"}.get(f["status"], f["status"])
         if f.get("unmatched_quote") or f.get("rejected_quote") or (status == "contradicted" and f.get("note")):
             status = "stated"           # demoted by a code check: the model had said stated
         parts.append({"text": f["fact"], "kind": "fact", "status": status, "quote": quote})
@@ -113,7 +113,8 @@ def main():
             print(f"       {reason}")
     print(f"\n{changed} label(s) changed out of {len(claims)}.")
     if labels:
-        sc = lambda l: "UNSUPPORTED" if l == "CONTRADICTED" else l     # CLAUDE.md scoring
+        # CLAUDE.md scoring: CONTRADICTED = UNSUPPORTED (red), COULDN'T CONFIRM = PARTIAL (amber)
+        sc = lambda l: {"CONTRADICTED": "UNSUPPORTED", "COULDN'T CONFIRM": "PARTIAL"}.get(l, l)
         old = {c["claim"]: c["label"] for c in claims}
         scorable = [n for n, l in labels.items() if n in old and l != "SOURCE UNREACHABLE"]
         acc = lambda got: sum(sc(got[n]) == sc(labels[n]) for n in scorable)

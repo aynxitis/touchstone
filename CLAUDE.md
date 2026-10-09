@@ -16,7 +16,11 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    dropped; link stripping keeps balanced parentheses ("(+23.9%) ([Eleport](url))" ->
    "(+23.9%)");
    code-only check that numbers in a claim appear on the cited page.
-3. quote_check.py REPORT [4,9]: best_excerpts() picks paragraphs (max 3000 chars total):
+3. quote_check.py REPORT [4,9]: best_excerpts() picks passages (max 3000 chars total) from
+   passages(): paragraphs > 30 chars, plus the short list items / table rows (<= 30 chars,
+   a number after the list marker) the 30-char rule used to drop ("- Tesla Model Y: 116 989"),
+   grouped per run with up to 2 short lines before it (heading, lead-in) and a table's
+   header; it
    first, per anchor of the claim (titles in quotes/*italics*/_underscores_, organisation
    names + acronyms, 2+ digit numbers incl. unit-scaled), the best-scoring paragraph holding
    it if it fits; then the rest by keyword overlap while they fit (until 2026-10-09 keyword
@@ -25,7 +29,21 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    with a number is always a fact). Code verifies every quote (exact, else
    rapidfuzz partial_ratio >= 92 with identical numbers; unverified -> missing) and derives
    the label: any contradicted -> CONTRADICTED, all stated -> SOURCED, some -> PARTIAL,
-   none -> UNSUPPORTED. Framing never affects the label. judge() is the code-only half of
+   none -> UNSUPPORTED. Framing never affects the label.
+   SAFEGUARDS (2026-10-09, fresh-report errors were all too harsh):
+   A1 a code heuristic alone never accuses. A fact the model found "stated" with a verified
+   quote that a code check (numbers, units, years, names) rejects becomes "unconfirmed"
+   ("couldn't confirm" + the check's reason); the framing lexicon never overrules such a
+   fact. A claim whose only doubts are unconfirmed/possible facts (or claim numbers not on
+   the page) is COULDN'T CONFIRM (amber, new label, scored as PARTIAL: PARTIAL means some
+   fact is not found; this means the model found it and code doubts it). CONTRADICTED needs
+   the model's "contradicted" AND a verified quote with a conflicting figure
+   (value_conflict: a non-year number on each side the other lacks); otherwise "missing".
+   A2 full-page fallback: a "missing" fact whose non-year numbers (one with 2+ digits) and
+   subject (first claim name in the fact) all sit on one page line becomes "possible"
+   ("possibly stated", the line shown as evidence), never counted as not found. No model call.
+   Years (1900-2100) only have to be somewhere on the page, not in the figure's passage
+   (table rows sit under "Sales 2025"); cost: a date is no longer tied to its passage. judge() is the code-only half of
    check() (model reply -> label), so saved runs can be re-scored with zero tokens.
    Name check (entities.py, code-only): a "stated" fact's names (only the claim's names that
    appear in the fact's own text, plus the claim's lead name if the fact opens with It/The
@@ -35,6 +53,9 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    keep their original casing). Technical acronyms in entities.ACRONYMS (PV, CSP, EV, GDP,
    IPO, AI, CO2, W/Wh units) are never names. A name acronym also counts as named when the
    passage spells it out in capitalized words (ASF = Algerian Startup Fund; IRENA != IEA).
+   Demonyms/region adjectives (European, Algerian, North African...: entities.DEMONYMS) are
+   never names on their own ("European Union" still is). "About someone else" never fires
+   when the fact's subject is in the passage (BYD's quote in a paragraph opening "Tesla").
    Prompt also requires facts to name their subject.
    Key-term check: a stated fact's numbers (2+ digits) must be in its quote or the quote's
    paragraph, else missing. Number matching (claim-level "Numbers not on page" too) accepts
@@ -93,7 +114,8 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    by the process tracks tokens of the trailing 60 s (response usage) and waits before a
    call that would pass 7,500; a per-minute 429 waits its retry-after (header, else "try
    again in Xs", else 10 s; +0.5 s, max 60 s) and resends the same claim. Each wait streams
-   {"type":"wait","seconds","claim"} -> "Waiting for capacity... (Xs)"; heartbeats continue.
+   {"type":"wait","seconds","claim"} -> "Waiting for capacity... (Xs)", a live countdown that
+   any later status replaces and that never survives the audit's end; heartbeats continue.
    A wait that would pass the 300 s deadline isn't taken: the rest are NOT CHECKED. Groq SDK
    max_retries=0 (audit() retries: 429s as above, timeouts/5xx twice). Retries never count
    twice toward the daily cap (CountingClient counts the first call attempt). The daily cap counts an audit at its first model call attempt.
@@ -120,7 +142,7 @@ test_security.py (network: rebinding, TLS, SSRF blocks; client IP + proxy secret
 pruning, heartbeat with a fake slow model, examples/ui_check.txt makes no model call,
 cache-busting headers). examples/ui_check.txt = DEPLOY.md's zero-token UI check on production.
 (samples/ holds hand-made reports: footnotes, names-only sources, no links).
-Labels: SOURCED / PARTIAL / UNSUPPORTED / CONTRADICTED / UNVERIFIED / OPINION / SOURCE UNREACHABLE /
+Labels: SOURCED / PARTIAL / COULDN'T CONFIRM / UNSUPPORTED / CONTRADICTED / UNVERIFIED / OPINION / SOURCE UNREACHABLE /
 NO SOURCE GIVEN / NOT CHECKED / ERROR. Verdicts judge factual parts only; editorial framing is noted, not penalized.
 
 ## Rules
@@ -140,7 +162,7 @@ Touchstone caught 3/3 real problems (3, 8, 26: all real numbers attributed to th
 source; 26 = Moustachir's IPO credited to VOLZ).
 labels2.json is now the TUNING SET (issues 1-2 were fixed against it). The next eval must
 use a fresh report with fresh labels, or the score is overfitted.
-Scoring: CONTRADICTED counts as UNSUPPORTED. Always do 2 full runs and track BOTH metrics:
+Scoring: CONTRADICTED counts as UNSUPPORTED; COULDN'T CONFIRM counts as PARTIAL. Always do 2 full runs and track BOTH metrics:
 - accuracy per run: labeled claims correct (out of 13 for report2)
 - run agreement: how many of the cited claims get the identical label in both runs
 Results on report2 (2 full runs each, ~41-44K tokens per run):

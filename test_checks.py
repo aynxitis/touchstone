@@ -84,7 +84,17 @@ for fact in ("VOLZ was the first Algerian startup to list on the Algiers Stock E
     assert hit == ("contradicted", ["VOLZ"], "Moustachir"), (fact, hit)
 r = judge({"parts": [{"text": "VOLZ's IPO was oversubscribed by 119%", "kind": "fact",
                       "status": "stated", "quote": q26}]}, claim26, page26)
-assert r["label"] == "CONTRADICTED" and "about Moustachir, not VOLZ" in r["reason"], r
+# A1: the code's name check alone never accuses: amber, with its reason kept.
+assert r["label"] == "COULDN'T CONFIRM" and "about Moustachir, not VOLZ" in r["reason"], r
+assert r["facts"][0]["status"] == "unconfirmed"
+# As in the saved report2 run, the model itself said "contradicted" (the passage is about
+# Moustachir) but the quote has the claim's own figures: not CONTRADICTED (no conflicting
+# value), still red: UNSUPPORTED. No page line names VOLZ with those figures (no fallback).
+r = judge({"parts": [{"text": "VOLZ's IPO raised approximately DZD 94 million (about $724,000)", "kind": "fact",
+                      "status": "contradicted", "quote": q26},
+                     {"text": "VOLZ's IPO was oversubscribed by 119%", "kind": "fact",
+                      "status": "contradicted", "quote": q26}]}, claim26, page26)
+assert r["label"] == "UNSUPPORTED" and {f["status"] for f in r["facts"]} == {"missing"}, r
 
 # 3. Passage selection: paragraphs holding the claim's anchors (titles in quotes/italics,
 #    organisations/acronyms, numbers) are always sent, within MAX_EXCERPT_CHARS. Report3
@@ -222,5 +232,93 @@ assert not is_evaluative("Volkswagen was the best-selling brand", ["Volkswagen"]
 assert not is_evaluative("Yassir is the #1 ride-hailing app", ["Yassir"])
 assert is_evaluative("the largest local-currency round", ["Volz"])          # no name: colour
 assert is_evaluative("Volz was a notable signal", ["Volz"])                  # no ranking: colour
+
+# 8. Safeguards against harsh false flags (Gemini part 2b, 2026-10-09).
+from quote_check import line_on_page, passages, value_conflict
+P = lambda text, status, quote="", kind="fact": {"text": text, "kind": kind, "status": status, "quote": quote}
+brands_url = "https://www.best-selling-cars.com/europe/2025-full-year-europe-best-selling-car-manufacturers-and-brands/"
+brands = "\n".join([
+    "Best-Selling Car Manufacturers in Europe in 2025 (Full Year)",
+    "The best-selling car manufacturers in the European Union (EU), the UK, and EFTA countries in full-year 2025, according to the ACEA were:",
+    "| R | Brand | Sales 2025 | Sales 2024 | % 25/24 |",
+    "| 9 | Tesla | 238,656 | 326,525 | -26.9 |",
+    "| 12 | BYD | 187,657 | 50,912 | 268.6 |",
+    "Tesla was the worst-performing larger car brand in 2025, with sales down by 26.9%. BYD was the best-performing brand with sales up almost ten times more \u2014 +268.6%.",
+    "Volkswagen and Toyota were again the two best-selling car brands in Europe in 2025."])
+tesla = ("Tesla: Despite having the most popular individual car, Tesla struggled as a brand in 2025. Its total "
+         "European vehicle sales plummeted by 26.9% to 238,656 total units")
+byd = "BYD: Experienced massive explosive growth, with its total European sales rocketing by 268.6% to 187,657 units"
+row_t, row_b = "| 9 | Tesla | 238,656 | 326,525 | -26.9 |", "| 12 | BYD | 187,657 | 50,912 | 268.6 |"
+sent = "BYD was the best-performing brand with sales up almost ten times more \u2014 +268.6%."
+
+# B3: a year only has to be on the page; the table row sits under "Sales 2025".
+r = judge({"parts": [P("Tesla's total European sales fell 26.9% to 238,656 units in 2025", "stated", row_t),
+                     P("Tesla had the most popular individual car", "missing"),
+                     P("Tesla struggled as a brand", "", kind="framing")]}, tesla, brands, brands_url)
+assert r["label"] == "PARTIAL" and [f["status"] for f in r["facts"]] == ["stated", "missing"], r
+assert numbers_not_in_passage("Tesla sold 238,656 units in 2025", row_t, brands) == []
+assert numbers_not_in_passage("Tesla sold 238,656 units in 2019", row_t, brands) == ["2019"]   # year not on page
+
+# B2: "European" is not a name; BYD named in its passage is never "about Tesla", even though
+# the paragraph opens with Tesla.
+assert entities(byd, brands) == ["BYD"] and entities("Its European sales") == []
+assert entities("The European Union fund") == ["European Union"]
+assert check_fact("BYD's total European sales rose 268.6%", sent, byd, brands, quote_on_page, brands_url) is None
+r = judge({"parts": [P("BYD's total European sales rose 268.6%", "stated", sent),
+                     P("BYD sold 187,657 units", "stated", row_b)]}, byd, brands, brands_url)
+assert r["label"] == "SOURCED", r
+
+# A1: a code check alone never accuses. The model said stated with a verified quote; the
+# number check disagrees (passage lacks 187,657) -> "couldn't confirm", amber, with the reason.
+r = judge({"parts": [P("BYD's sales rose 268.6% to 187,657 units", "stated", sent)]},
+          byd, brands.replace(row_b, "| 12 | BYD | x | y | z |"), brands_url)
+assert r["label"] == "COULDN'T CONFIRM" and r["facts"][0]["status"] == "unconfirmed", r
+assert "187,657 not in its passage" in r["facts"][0]["note"]
+# CONTRADICTED needs the model's "contradicted" AND a conflicting figure in a verified quote.
+assert value_conflict("Tesla sold 250,000 units", row_t) and not value_conflict("Tesla sold 238,656 units", row_t)
+assert not value_conflict("Tesla sold cars in 2024", "Tesla sold cars in 2025")          # years aren't figures
+r = judge({"parts": [P("Tesla sold 250,000 units", "contradicted", row_t)]}, tesla, brands, brands_url)
+assert r["label"] == "CONTRADICTED", r
+r = judge({"parts": [P("Tesla had the best year of any brand", "contradicted", row_t)]}, tesla, brands, brands_url)
+assert r["label"] == "UNSUPPORTED" and "no conflicting figure" in r["reason"], r
+
+# A2: a fact the model didn't find in the passages, whose figures (and subject) sit on one
+# page line, is "possibly stated" with that line as evidence; never counted as not found.
+r = judge({"parts": [P("BYD sold 187,657 units", "missing")]}, byd, brands, brands_url)
+assert r["label"] == "COULDN'T CONFIRM" and r["facts"][0]["status"] == "possible", r
+assert r["facts"][0]["evidence"] == row_b and "Possibly stated" in r["reason"]
+assert line_on_page("BYD sold 187,657 units", brands, ["BYD"]) == row_b
+assert line_on_page("Tesla sold 187,657 units", brands, ["Tesla"]) is None       # BYD's line, not Tesla's
+assert line_on_page("Sales rose in 2025", brands, []) is None                     # only a year: no fallback
+assert line_on_page("Sales of 268.6% growth", brands, []) is not None             # no subject: figures only
+r = judge({"parts": [P("BYD sold 187,657 units", "stated", row_b), P("BYD sold 999,999 units", "missing")]},
+          byd, brands, brands_url)
+assert r["label"] == "PARTIAL" and r["facts"][1]["status"] == "missing", r       # not on any line: not found
+
+# B1: short list items (under the old 30-char minimum) are kept, with their heading/lead-in,
+# so "Tesla Model Y: 116,989 units" has its passage; a quote from the row still verifies.
+top5 = "\n".join([
+    "We looked into the best-selling EVs in early 2026.",
+    "The top 5 most popular electric cars 2025 in Europe from 2025 January to October",
+    "Here are the best electric cars sold in Europe so far, per Jos\u00e9 Pontes\u2019 research at CleanTechnica:",
+    "- Tesla Model Y: 116 989", "- \u0160koda Elroq: 71 148", "- Renault 5 (including Alpine A290): 67 625",
+    "- Volkswagen ID.4: 66 030", "- Volkswagen ID.3: 64 414",
+    "Notably, the Tesla Model 3 has just about fallen off the top 5 list, with 62 629 sales.",
+    "1. Tesla Model Y \u2013 still the benchmark", "- Fast", "2. \u0160koda Elroq"])
+ps = passages(top5)
+group = [p for p in ps if "- Tesla Model Y: 116 989" in p]
+assert len(group) == 1 and group[0].startswith("The top 5 most popular electric cars 2025") and "- \u0160koda Elroq: 71 148" in group[0], ps
+assert "- Renault 5 (including Alpine A290): 67 625" in ps                       # over 30 chars: alone, as before
+assert not any(p.endswith("- Fast") or p == "2. \u0160koda Elroq" for p in ps)      # no number: still dropped
+claim_y = "Top 5 Best-Selling EV Models in Europe (Recorded Jan\u2013Oct 2025): Tesla Model Y: 116,989 units"
+assert any("Model Y: 116 989" in e for e in best_excerpts(claim_y, top5))
+assert any("Elroq: 71 148" in e for e in best_excerpts("\u0160koda Elroq: 71,148 units", top5))
+assert sum(map(len, best_excerpts(claim_y, top5))) <= MAX_EXCERPT_CHARS
+r = judge({"parts": [P("Tesla Model Y sold 116,989 units in Europe from January to October 2025", "stated",
+                       "- Tesla Model Y: 116 989")]}, claim_y, top5)
+assert r["label"] == "SOURCED", r
+# If the replayed model reply predates B1 (it saw no list), A2 still finds the row.
+r = judge({"parts": [P("Tesla Model Y sold 116,989 units", "missing")]}, claim_y, top5)
+assert r["label"] == "COULDN'T CONFIRM" and r["facts"][0]["evidence"] == "- Tesla Model Y: 116 989", r
 
 print("check tests passed")

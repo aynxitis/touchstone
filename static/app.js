@@ -4,18 +4,24 @@
 
 const MAX_CHARS = 20000;
 const TONES = {
-  "SOURCED": "green", "PARTIAL": "yellow", "UNSUPPORTED": "red", "CONTRADICTED": "red",
+  "SOURCED": "green", "PARTIAL": "yellow", "COULDN'T CONFIRM": "yellow",
+  "UNSUPPORTED": "red", "CONTRADICTED": "red",
   "UNVERIFIED": "blue", "OPINION": "blue", "SOURCE UNREACHABLE": "grey",
   "NO SOURCE GIVEN": "grey", "NOT CHECKED": "grey", "ERROR": "grey",
 };
 // Summary order and wording: "9 sourced, 3 partial, 1 contradicted, 2 unreachable"
 const SUMMARY = [
-  ["SOURCED", "sourced"], ["PARTIAL", "partial"], ["UNSUPPORTED", "unsupported"],
+  ["SOURCED", "sourced"], ["PARTIAL", "partial"], ["COULDN'T CONFIRM", "couldn't confirm"],
+  ["UNSUPPORTED", "unsupported"],
   ["CONTRADICTED", "contradicted"], ["UNVERIFIED", "unverified"], ["OPINION", "opinion"],
   ["SOURCE UNREACHABLE", "unreachable"], ["NOT CHECKED", "not checked (time limit)"],
   ["ERROR", "failed"],
 ];
-const STATUS_TEXT = { stated: "stated", missing: "not found", contradicted: "contradicted" };
+const STATUS_TEXT = {
+  stated: "stated", missing: "not found", contradicted: "contradicted",
+  unconfirmed: "couldn't confirm",   // the model found it; a code check doubts it (never an accusation)
+  possible: "possibly stated",       // not in the passages, but a page line has its figures
+};
 
 const $ = (id) => document.getElementById(id);
 const str = (v) => (typeof v === "string" ? v : "");
@@ -37,7 +43,29 @@ function safeUrl(u) {
   } catch { return null; }
 }
 
+// "Waiting for capacity… (Ns)" counts down live; any later status ends it.
+let waitTimer = null;
+
+function stopWaiting() {
+  if (waitTimer) clearInterval(waitTimer);
+  waitTimer = null;
+}
+
+function showWaiting(seconds) {
+  stopWaiting();
+  let left = seconds;
+  const tick = () => {
+    $("status").textContent = left > 0 ? `Waiting for capacity… (${left}s)` : "Resuming…";
+    $("status").classList.remove("error");
+    left -= 1;
+    if (left < 0) stopWaiting();
+  };
+  tick();
+  waitTimer = setInterval(tick, 1000);
+}
+
 function setStatus(text, isError = false) {
+  stopWaiting();
   $("status").textContent = text;
   $("status").classList.toggle("error", isError);
 }
@@ -70,6 +98,10 @@ function renderCard(ev) {
     ph.append(el("span", "tag", STATUS_TEXT[status] || "unclear"), el("span", "", str(f.fact)));
     li.append(ph);
     if (str(f.quote)) li.append(el("blockquote", "", `“${str(f.quote)}”`));
+    if (str(f.evidence)) {
+      li.append(el("p", "rejected", "Not in the passages checked, but this line on the page has its figures. Check it:"));
+      li.append(el("blockquote", "", `“${str(f.evidence)}”`));
+    }
     if (str(f.rejected_quote)) {
       li.append(el("p", "rejected", `Quote given by the model, not found on the page: “${str(f.rejected_quote)}”`));
     }
@@ -255,8 +287,7 @@ async function runAudit() {
       setStatus(done < total ? `Claim ${done}/${total} done, checking the next…` : `Claim ${done}/${total} done`);
     } else if (ev.type === "wait") {
       // Groq's free tier allows ~4 claims a minute: the audit pauses, then carries on.
-      const s = int(ev.seconds);
-      setStatus(`Waiting for capacity… (${s ?? "a few "}s)`);
+      showWaiting(int(ev.seconds) ?? 10);
     } else if (ev.type === "skipped") {
       addSkipped(ev, limit);
       run.not_checked.push({ claim: int(ev.claim), text: str(ev.text), url: str(ev.url),
@@ -324,6 +355,10 @@ async function runAudit() {
   } catch {
     setStatus("Could not reach the server.", true);
   } finally {
+    // Never leave a waiting/countdown status behind once the audit is over (B4).
+    if (waitTimer || /^(Waiting for capacity|Resuming)/.test($("status").textContent)) {
+      setStatus(done ? `Done. Claim ${done}/${total}.` : "The audit ended.");
+    }
     $("audit").disabled = $("example").disabled = false;
   }
 }

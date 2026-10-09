@@ -35,6 +35,21 @@ ACRONYMS = {"pv": ["photovoltaic"], "csp": ["concentrated solar power", "concent
             "gwh": ["gigawatt-hour", "gigawatt hour"], "twh": ["terawatt-hour", "terawatt hour"]}
 GENERIC |= set(ACRONYMS)
 
+# Demonyms and region adjectives: capitalized, but they describe, they don't name ("its total
+# European sales"). A run made only of these (and compass words) is never an entity; inside a
+# longer name it stays ("European Union", "Algerian Startup Fund").
+DEMONYMS = set("""european african asian american arab arabic latin nordic scandinavian
+mediterranean maghrebi maghreb sub-saharan gulf western eastern northern southern north south
+east west central middle algerian moroccan tunisian egyptian libyan mauritanian sudanese
+french german british english scottish welsh irish italian spanish portuguese dutch belgian
+swiss austrian danish swedish norwegian finnish icelandic polish czech slovak hungarian
+romanian bulgarian greek turkish russian ukrainian baltic estonian latvian lithuanian croatian
+serbian slovenian chinese japanese korean indian pakistani indonesian vietnamese thai
+malaysian filipino australian canadian mexican brazilian argentine argentinian chilean
+colombian peruvian nigerian kenyan ethiopian ghanaian senegalese ivorian south-african
+saudi emirati qatari kuwaiti omani bahraini jordanian lebanese syrian iraqi iranian israeli
+palestinian yemeni""".split())
+
 TOKEN = re.compile(r"[^\W_][\w&\-]*(?:['’]s)?|[^\w\s]")   # words; punctuation one char each
 BREAK = set(".!?:;|—–\"“")     # a word after one of these starts a sentence ('(' does not)
 POSSESSIVE = re.compile(r"['’]s$")
@@ -72,7 +87,8 @@ def entities(text, context=""):
     out, run = [], []
 
     def end_run():
-        if run and " ".join(run).lower() not in {o.lower() for o in out}:
+        if (run and " ".join(run).lower() not in {o.lower() for o in out}
+                and not all(w.lower() in DEMONYMS for w in run)):
             out.append(" ".join(run))
         run.clear()
 
@@ -197,7 +213,10 @@ def check_fact(fact, quote, claim, page, on_page, url=""):
     absent = [e for e in need if not named_in(e, quote) and not named_in(e, para)]
     if not absent:
         return None
-    for text in (para, quote, sentence_before(quote, para)):
+    # "About someone else" never when the fact's subject (its first name) is there: if BYD
+    # is in the passage, a sentence before it opening with "Tesla" doesn't make it Tesla's.
+    subject_here = need[0] not in absent
+    for text in () if subject_here else (para, quote, sentence_before(quote, para)):
         other = opening_name(text, page)
         if other and not publisher(other, url) and not any(
                 named_in(c, other) or named_in(other, c) for c in claim_ents):
