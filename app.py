@@ -1,10 +1,12 @@
 """Touchstone web app. Run locally: .venv/bin/uvicorn app:app"""
+import hashlib
 import hmac
 import ipaddress
 import json
 import queue
 import math
 import os
+import re
 import threading
 import time
 import types
@@ -14,7 +16,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from groq import Groq
 from starlette.concurrency import run_in_threadpool
@@ -56,6 +58,30 @@ client = Groq(api_key=os.environ["GROQ_API_KEY"], timeout=30, max_retries=2)
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 
+# Cache-busting: index.html references each asset as /static/<name>?v=<content hash>, so a
+# browser holding an old app.js gets the new one on the next page load. Versioned asset URLs
+# never change content, so they're cached for a year; index.html and unversioned asset URLs
+# are revalidated every time (no-cache).
+ASSET_REF = re.compile(r'(\b(?:src|href)=")/static/([\w.\-]+)(")')
+
+
+def asset_versions(static_dir):
+    """{file name: first 12 hex chars of its SHA-256} for every file in static_dir."""
+    return {p.name: hashlib.sha256(p.read_bytes()).hexdigest()[:12]
+            for p in sorted(static_dir.iterdir()) if p.is_file()}
+
+
+def versioned_index(static_dir, versions):
+    """index.html with each /static/<name> reference rewritten to /static/<name>?v=<hash>.
+    Same-origin URLs, so script-src 'self' / style-src 'self' still cover them."""
+    html = (static_dir / "index.html").read_text(encoding="utf-8")
+    return ASSET_REF.sub(lambda m: f"{m[1]}/static/{m[2]}?v={versions[m[2]]}{m[3]}"
+                         if m[2] in versions else m[0], html)
+
+
+ASSET_VERSIONS = asset_versions(HERE / "static")      # computed once at startup
+INDEX_HTML = versioned_index(HERE / "static", ASSET_VERSIONS)
+
 CSP = ("default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; "
        "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
 
@@ -68,7 +94,11 @@ async def guard(request: Request, call_next):
     response.headers["Content-Security-Policy"] = CSP
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
-    if request.url.path == "/" or request.url.path.startswith("/static/"):
+    path, v = request.url.path, request.query_params.get("v")
+    if (path.startswith("/static/") and response.status_code == 200 and v
+            and v == ASSET_VERSIONS.get(path.removeprefix("/static/"))):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"   # hash in URL
+    elif path == "/" or path.startswith("/static/"):
         response.headers["Cache-Control"] = "no-cache"   # revalidate: users get updates at once
     return response
 
@@ -187,7 +217,7 @@ def healthz():
 
 @app.get("/")
 def index():
-    return FileResponse(HERE / "static" / "index.html")
+    return HTMLResponse(INDEX_HTML)
 
 
 @app.get("/api/example")

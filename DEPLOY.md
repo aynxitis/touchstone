@@ -156,7 +156,21 @@ Replace `URL` with the generated domain (`https://touchstone-production-xxxx.up.
    page." `SOURCE UNREACHABLE` with `TIMEOUT` or `ERROR` means outbound traffic is restricted:
    the account is on the Limited Trial (step 1). This uses one of the 5 hourly audits for
    your IP but not the daily cap.
-6. From Algeria: open https://touchstone.aynx.dev (not the railway.app URL) on Algerian mobile data, on
+6. UI check, zero tokens: open https://touchstone.aynx.dev, paste `examples/ui_check.txt`
+   (11 nonsense claims citing the IANA example-domains page) and press Audit. No claim shares
+   a word, name, title or number with the page, so each one is answered UNVERIFIED ("No
+   relevant passage found on the page.") before any model call: no Groq tokens, and the
+   daily cap is not touched (it counts an audit at its first model call). It does use one of
+   your IP's 5 audits per hour. You should see:
+   - summary "Checked 10 of 11 claims: 10 unverified", and under it "Checked the first 10 of
+     11 cited claims, in report order. The rest are listed below as not checked.";
+   - ten UNVERIFIED cards (Claims 1-10);
+   - below them a collapsed "+ Not checked (limit of 10 per audit): 1 claim" that opens to
+     "Claim 11: Wuzzle crantop 48281".
+   If the old wording shows ("claims with numbers first", no Not checked list), the browser
+   is running a cached app.js: view the page source; the script tag must read
+   `/static/app.js?v=<12 hex chars>`.
+7. From Algeria: open https://touchstone.aynx.dev (not the railway.app URL) on Algerian mobile data, on
    Ooredoo, Mobilis and Djezzy, with VPNs and DNS-changing apps (1.1.1.1/WARP, Intra, ...)
    turned off, plus home internet. Load the page and run the example audit to the end.
 

@@ -156,4 +156,51 @@ assert A.busy.acquire(blocking=False); A.busy.release()           # lock release
 A.audit, A.client, A.HEARTBEAT_SECONDS = real_audit, real_client, real_beat
 A.hits.clear()
 
+# 10. examples/ui_check.txt (DEPLOY.md's zero-token UI check on production): 11 nonsense
+#     claims on the live IANA page. None may reach the model (no shared keyword or anchor ->
+#     UNVERIFIED before any call), so it never counts toward the daily cap; claim 11 is skipped.
+import fetch_links
+url = "https://www.iana.org/help/example-domains"
+iana = fetch_links.fetch(url)
+assert iana["status"] == "OK", iana
+def no_model(**k): raise AssertionError("ui_check.txt reached the model")
+boom = A.CountingClient(T.SimpleNamespace(chat=T.SimpleNamespace(completions=T.SimpleNamespace(create=no_model))))
+A.daily.update(day=A.utc_today(), count=0)
+ev = list(real_audit(open("examples/ui_check.txt").read(), boom, pages={url: iana}, max_claims=A.MAX_CLAIMS))
+assert ev[0]["cited"] == 11 and ev[0]["checked"] == 10, ev[0]
+assert [e["label"] for e in ev if e["type"] == "claim"] == ["UNVERIFIED"] * 10
+assert [e["claim"] for e in ev if e["type"] == "skipped"] == [11] and ev[-1] == {"type": "done", "tokens": 0}
+assert A.daily["count"] == 0
+
+# 11. Cache-busting: index.html links each asset as /static/<name>?v=<hash of its content>;
+#     the hash changes with the file. Versioned URL -> immutable for a year; plain URL and the
+#     page itself -> no-cache. URLs stay same-origin, so the CSP (script-src 'self') holds.
+import re, tempfile
+from pathlib import Path
+with tempfile.TemporaryDirectory() as d:
+    d = Path(d)
+    (d / "index.html").write_text('<link href="/static/style.css"><script src="/static/app.js"></script>'
+                                  '<script src="/static/missing.js"></script>')
+    (d / "style.css").write_text("body{}"); (d / "app.js").write_text("one")
+    v1 = A.versioned_index(d, A.asset_versions(d))
+    (d / "app.js").write_text("two")
+    v2 = A.versioned_index(d, A.asset_versions(d))
+js = lambda html: re.search(r'src="/static/app\.js\?v=([0-9a-f]{12})"', html)[1]
+css = lambda html: re.search(r'href="/static/style\.css\?v=([0-9a-f]{12})"', html)[1]
+assert js(v1) != js(v2) and css(v1) == css(v2)
+assert 'src="/static/missing.js"' in v1                                # unknown file: left alone
+with TestClient(A.app) as tc:
+    page = tc.get("/")
+    assert page.headers["cache-control"] == "no-cache"
+    assert "script-src 'self'" in page.headers["content-security-policy"]
+    refs = re.findall(r'(?:src|href)="(/static/[^"]+)"', page.text)
+    assert len(refs) == 2 and all(re.search(r"\?v=[0-9a-f]{12}$", r) for r in refs), refs
+    for ref in refs:
+        r = tc.get(ref)
+        assert r.status_code == 200 and r.headers["cache-control"] == "public, max-age=31536000, immutable", ref
+        bare = tc.get(ref.split("?")[0])
+        assert bare.headers["cache-control"] == "no-cache" and bare.content == r.content
+        assert tc.get(ref.split("?")[0] + "?v=000000000000").headers["cache-control"] == "no-cache"
+    assert tc.get("/static/nope.js?v=").status_code == 404
+
 print("security checks passed")

@@ -86,4 +86,36 @@ r = judge({"parts": [{"text": "VOLZ's IPO was oversubscribed by 119%", "kind": "
                       "status": "stated", "quote": q26}]}, claim26, page26)
 assert r["label"] == "CONTRADICTED" and "about Moustachir, not VOLZ" in r["reason"], r
 
+# 3. Passage selection: paragraphs holding the claim's anchors (titles in quotes/italics,
+#    organisations/acronyms, numbers) are always sent, within MAX_EXCERPT_CHARS. Report3
+#    claim 2: the attribution sentence sits in a different paragraph from the figure, and
+#    keyword-heavy filler paragraphs used to crowd it out.
+from quote_check import MAX_EXCERPT_CHARS, anchors, best_excerpts
+claim2 = ("Installed renewable capacity reached 15,925 MW (15.9 GW) in 2025, according to an "
+          "analysis of IRENA\u2019s *Renewable Capacity Statistics 2026*.")
+filler = [f"In 2025 the installed renewable capacity of country {i} reached new highs as renewable "
+          f"capacity installed by developers grew and installed solar capacity reached records, "
+          f"according to an analysis of national statistics on renewable capacity additions. "
+          * 2 for i in range(12)]
+figure = "North Africa\u2019s installed renewable capacity reached 15,925 megawatts at the end of the year."
+attribution = ("The figures come from an analysis of IRENA\u2019s \u2018Renewable Capacity Statistics "
+               "2026\u2019 report, published in March.")
+page2 = "\n".join(filler[:6] + [figure] + filler[6:] + [attribution])
+assert ("title", "renewable capacity statistics 2026") in anchors(claim2, page2)
+assert ("name", "IRENA") in anchors(claim2, page2)
+ex = best_excerpts(claim2, page2)
+assert attribution in ex and figure in ex, [e[:40] for e in ex]
+assert sum(map(len, ex)) <= MAX_EXCERPT_CHARS
+# Without anchors (the old rule: keyword overlap, best first, while it fits) both are lost.
+from quote_check import keywords
+kw = keywords(claim2)
+old, total = [], 0
+for p in sorted(page2.split("\n"), key=lambda p: len(kw & keywords(p)), reverse=True):
+    if total + len(p) <= MAX_EXCERPT_CHARS:
+        old.append(p); total += len(p)
+assert attribution not in old and figure not in old
+# The apostrophe in IRENA's is not a quote; straight and underscore titles are titles.
+assert [a for a in anchors("IRENA's data and 'Energy Outlook 2030' plus _World Energy Review_ say 12%.", "")
+        if a[0] == "title"] == [("title", "energy outlook 2030"), ("title", "world energy review")]
+
 print("check tests passed")

@@ -13,8 +13,11 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    segments() splits the report per line; a link owns its line's text
    (a ':' lead-in + its bullets form one block); uncited text -> NO SOURCE GIVEN;
    code-only check that numbers in a claim appear on the cited page.
-3. quote_check.py REPORT [4,9]: code picks top paragraphs by keyword overlap (max 3000
-   chars), Groq openai/gpt-oss-120b splits the claim into one list of parts, each marked
+3. quote_check.py REPORT [4,9]: best_excerpts() picks paragraphs (max 3000 chars total):
+   first, per anchor of the claim (titles in quotes/*italics*/_underscores_, organisation
+   names + acronyms, 2+ digit numbers incl. unit-scaled), the best-scoring paragraph holding
+   it if it fits; then the rest by keyword overlap while they fit (until 2026-10-09 keyword
+   overlap only, which dropped report3 claim 2's "analysis of IRENA's ..." sentence), Groq openai/gpt-oss-120b splits the claim into one list of parts, each marked
    fact or framing (<=5 facts: stated/missing/contradicted, each with its own quote; a part
    with a number is always a fact). Code verifies every quote (exact, else
    rapidfuzz partial_ratio >= 92 with identical numbers; unverified -> missing) and derives
@@ -45,11 +48,13 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    is the importable pipeline. Yields events: start {cited, checked, uncited, limit}, claim
    (one per segment, uncited ones with claim: null), skipped {label: NOT CHECKED}, done
    {tokens}. pages=None fetches live. max_claims keeps the FIRST N cited claims in report
-   order (until 2026-10-09 it put claims with numbers first, which silently skipped claim 5
-   of report3 mid-report).
+   order (until 2026-10-09 it checked claims containing digits ahead of the others, which
+   skipped claim 5 of report3 mid-report).
    quote_check.py's CLI is a thin wrapper over it (uses cached fetch_results.json).
 5. app.py (FastAPI, run: .venv/bin/uvicorn app:app): GET / serves static/ (index.html, app.js,
-   style.css, no framework); POST /api/audit {report} streams NDJSON events; GET /api/example
+   style.css, no framework; index.html is served with /static/<name>?v=<sha256[:12]>
+   computed at startup: versioned URLs get "public, max-age=31536000, immutable", the page and
+   unversioned URLs "no-cache"); POST /api/audit {report} streams NDJSON events; GET /api/example
    returns report2.txt. Limits: 20,000 chars, 10 cited claims (first 10 in report order; the
    rest stream as "skipped" and show collapsed as "Not checked (limit of 10 per audit)", and
    the summary says "Checked X of N claims"),
@@ -66,7 +71,6 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    no per-claim error cards). Per-day or unclear limit -> "free daily capacity is used up,
    try again tomorrow" and the daily cap is marked full; per-minute (TPM/RPM) -> "try again in
    a minute", day not marked. The daily cap counts an audit at its first model call attempt.
-   Page and static files are sent with Cache-Control: no-cache so updates reach users at once.
    Client IP: X-Touchstone-Client-IP is trusted only if X-Touchstone-Proxy-Secret matches env
    PROXY_SECRET (hmac.compare_digest); else CLIENT_IP_HEADER (X-Real-IP), else the socket.
    Bot protection (fetch_links.bot_blocked): cf-mitigated: challenge, Cloudflare challenge
@@ -81,8 +85,10 @@ runs are capped (a nested \s* marker regex once hung the server on 20,000 spaces
 Report parsing runs in a thread pool, never on the event loop.
 Dependencies: requirements.txt. Token-free checks: .venv/bin/python test_parsing.py (parsing,
 bot-page fixtures on a mocked transport, claim cap order), test_checks.py (unit-scaled
-numbers, name check scope/acronyms, VOLZ/Moustachir) and test_security.py (network: rebinding, TLS, SSRF
-blocks; client IP + proxy secret, table pruning, heartbeat with a fake slow model).
+numbers, name check scope/acronyms, VOLZ/Moustachir, anchor passage selection) and
+test_security.py (network: rebinding, TLS, SSRF blocks; client IP + proxy secret, table
+pruning, heartbeat with a fake slow model, examples/ui_check.txt makes no model call,
+cache-busting headers). examples/ui_check.txt = DEPLOY.md's zero-token UI check on production.
 (samples/ holds hand-made reports: footnotes, names-only sources, no links).
 Labels: SOURCED / PARTIAL / UNSUPPORTED / CONTRADICTED / UNVERIFIED / OPINION / SOURCE UNREACHABLE /
 NO SOURCE GIVEN / NOT CHECKED / ERROR. Verdicts judge factual parts only; editorial framing is noted, not penalized.

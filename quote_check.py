@@ -10,7 +10,7 @@ from groq import Groq
 from rapidfuzz import fuzz
 
 from check_numbers import NUM_RE, norm, segments
-from entities import check_fact, paragraph_of
+from entities import check_fact, entities, named_in, paragraph_of
 from units import unit_supported
 
 MODEL = "openai/gpt-oss-120b"
@@ -81,20 +81,74 @@ def keywords(text):
     return {w for w in words if w not in STOPWORDS} | set(nums)
 
 
+# Titles in a claim: "…", “…”, ‘…’, '…', *…*, _…_ (3-150 chars, one line). Straight single
+# quotes only count at word edges, so the apostrophe in "IRENA's" never opens a title.
+TITLE_RE = re.compile(r'"([^"\n]{3,150})"|\u201c([^\u201d\n]{3,150})\u201d|\u2018([^\u2019\n]{3,150})\u2019'
+                      r"|(?<!\w)'([^'\n]{3,150})'(?!\w)|(?<![*\w])\*([^*\n]{3,150})\*(?![*\w])"
+                      r"|(?<![_\w])_([^_\n]{3,150})_(?![_\w])")
+# Words that make a capitalized name an organisation ("International Energy Agency").
+ORG_WORDS = re.compile(r"\b(agency|association|authority|bank|board|bureau|centre|center|commission|"
+                       r"committee|company|corporation|council|exchange|federation|forum|foundation|"
+                       r"fund|group|institute|institution|ministry|office|organi[sz]ation|programme|"
+                       r"program|society|union|university|inc|ltd|llc|plc|sa|spa)\b", re.I)
+
+
+def plain(text):
+    """Lowercase, quotes/asterisks/underscores dropped, spaces collapsed: for title matching."""
+    return re.sub(r"\s+", " ", re.sub(r"[\"'*_\u2018\u2019\u201c\u201d]", " ", normalize(text))).strip()
+
+
+def anchors(claim, page):
+    """The claim's distinctive anchors as (kind, value): titles in quotes or italics,
+    organisation names and acronyms (entities.py), and numbers with 2+ digits. Attribution
+    phrases ("according to an analysis of IRENA's *...*") hang on these, and their sentence
+    is often in another paragraph than the figure."""
+    titles = [plain(next(g for g in m.groups() if g)) for m in TITLE_RE.finditer(claim)]
+    names = [e for e in entities(claim, page)
+             if (e.isupper() and " " not in e) or ORG_WORDS.search(e)]
+    nums = {}                                  # number -> its offsets in the claim
+    for m in NUM_RE.finditer(claim):
+        if len(norm(m.group()).replace(".", "")) >= 2:
+            nums.setdefault(norm(m.group()), set()).add(m.start())
+    return ([("title", t) for t in dict.fromkeys(titles) if len(t) >= 3]
+            + [("name", e) for e in names] + [("number", x) for x in nums.items()])
+
+
+def has_anchor(kind, value, para, claim):
+    if kind == "title":
+        return value in plain(para)
+    if kind == "name":
+        return named_in(value, para)
+    n, offsets = value                         # written as is, or unit-scaled (15.9 GW)
+    return n in {norm(x) for x in NUM_RE.findall(para)} or bool(offsets & unit_supported(claim, para))
+
+
 def best_excerpts(claim, page):
-    """Pick the paragraphs sharing the most keywords with the claim (code-only, zero tokens)."""
+    """Pick paragraphs for the model (code-only, zero tokens), within MAX_EXCERPT_CHARS.
+    First, for each anchor of the claim (titles, then organisations/acronyms, then numbers),
+    the best-scoring paragraph that contains it, if it still fits. Then the remaining
+    paragraphs by keyword overlap with the claim, best first, while they fit."""
     kw = keywords(claim)
     paras = [p.strip() for p in page.split("\n") if len(p.strip()) > 30]
-    scored = sorted(paras, key=lambda p: len(kw & keywords(p)), reverse=True)
+    score = {p: len(kw & keywords(p)) for p in paras}
+    scored = sorted(paras, key=lambda p: score[p], reverse=True)
     out, total = [], 0
+
+    def take(p):
+        nonlocal total
+        if p not in out and total + len(p) <= MAX_EXCERPT_CHARS:
+            out.append(p)
+            total += len(p)
+
+    for kind, value in anchors(claim, page):
+        hit = next((p for p in scored if has_anchor(kind, value, p, claim)), None)
+        if hit and not any(has_anchor(kind, value, p, claim) for p in out):
+            take(hit)
     for p in scored:
-        if len(kw & keywords(p)) == 0:
+        if score[p] == 0:
             break
-        if total + len(p) > MAX_EXCERPT_CHARS:
-            continue
-        out.append(p)
-        total += len(p)
-    return out
+        take(p)
+    return sorted(out, key=lambda p: score[p], reverse=True)
 
 
 # Evaluative wording: a part using it with no number and little else is framing.
