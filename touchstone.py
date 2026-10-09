@@ -1,11 +1,19 @@
 """Touchstone as a library: audit(report) yields one result per claim, in report order.
 Used by the CLI (quote_check.py) and the web app (app.py)."""
+import math
 import re
 import time
 
 from check_numbers import segments
 from fetch_links import BOT_BLOCKED, fetch_many
+from pacing import TokenPacer, retry_after
 from quote_check import check
+
+MAX_MINUTE_RETRIES = 5     # per claim, only without a deadline (CLI); with one, the deadline decides
+MAX_ERROR_RETRIES = 2      # timeouts, connection errors, 5xx: what the SDK's own retries did
+NOT_CHECKED_TIME = {"label": "NOT CHECKED", "quote": "", "reason": "Audit time limit reached.", "tokens": 0}
+NOT_CHECKED_WAIT = {"label": "NOT CHECKED", "quote": "", "tokens": 0,
+                    "reason": "Audit time limit reached while waiting for model capacity."}
 
 
 def select(cited, max_claims):
@@ -24,18 +32,33 @@ def quota_scope(err):
     return "minute" if re.search(r"per minute|\b[TR]PM\b", text, re.I) else "day"
 
 
-def audit(report, client, pages=None, max_claims=None, only=None, deadline=None):
+def transient(err):
+    """Worth one more try: timeouts, connection errors, 408/409/5xx (not 429, not 4xx)."""
+    code = getattr(err, "status_code", None)
+    return (type(err).__name__ in ("APITimeoutError", "APIConnectionError", "TimeoutError")
+            or code in (408, 409) or (isinstance(code, int) and code >= 500))
+
+
+def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
+          pacer=None, clock=time.monotonic, sleep=time.sleep):
     """Yield events as dicts:
       {"type": "start", "cited", "checked", "uncited", "limit"}   limit = max_claims or None
       {"type": "claim", "index", "claim", "text", "url", "label", ...}   index = 1..checked
          (uncited text comes as a claim event with claim None, index None)
       {"type": "skipped", "claim", "text", "url", "label": "NOT CHECKED"}   cited but over
          the cap / not in `only`; no fetch, no tokens
+      {"type": "wait", "seconds", "claim"}   waiting for Groq's per-minute capacity (pacer or a
+         per-minute 429), then the same claim is (re)sent
       {"type": "quota", "scope": "day"|"minute", "checked"}   Groq refused (429): audit stops,
-         claims already checked are kept, the rest are not sent; then "done"
+         claims already checked are kept, the rest are not sent; then "done". "day" always
+         stops; "minute" only without a deadline after MAX_MINUTE_RETRIES (with a deadline,
+         waits that would pass it mark the rest NOT CHECKED instead)
       {"type": "done", "tokens"}
     pages: {url: fetch result dict}; if None, the selected claims' pages are fetched live.
-    deadline: time.monotonic() value; claims not started by then are marked NOT CHECKED."""
+    deadline: clock() value; claims not started by then are marked NOT CHECKED.
+    pacer: TokenPacer shared across audits (app.py); None = a fresh one. clock/sleep are
+    injectable so tests never really wait."""
+    pacer = pacer or TokenPacer(clock=clock)
     segs = segments(report)
     cited = [(t, u) for t, u in segs if u]
     if only is not None:
@@ -51,7 +74,7 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None)
         urls = list(dict.fromkeys(cited[i][1] for i in sorted(chosen)))
         pages = dict(zip(urls, fetch_many(urls)))
 
-    tokens, n, index = 0, 0, 0
+    tokens, n, index, out_of_capacity = 0, 0, 0, False
     for text, url in segs:
         if url is None:   # uncited text: nothing to check, costs no tokens
             yield {"type": "claim", "index": None, "claim": None, "text": text, "url": None,
@@ -64,8 +87,10 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None)
             continue
         index += 1
         page = pages.get(url) or {}
-        if deadline is not None and time.monotonic() > deadline:
-            r = {"label": "NOT CHECKED", "quote": "", "reason": "Audit time limit reached.", "tokens": 0}
+        if out_of_capacity:
+            r = dict(NOT_CHECKED_WAIT)
+        elif deadline is not None and clock() > deadline:
+            r = dict(NOT_CHECKED_TIME)
         elif not page.get("text"):
             why = " ".join(x for x in (page.get("status"), page.get("detail")) if x)
             reason = f"Could not read the page ({why})." if why else ""
@@ -73,17 +98,46 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None)
                 reason = f"The site {BOT_BLOCKED}."
             r = {"label": "SOURCE UNREACHABLE", "quote": "", "reason": reason, "tokens": 0}
         else:
-            try:
-                r = check(client, text, page["text"], url)
-            except Exception as e:   # model timeout, API error: report it, keep going
-                if scope := quota_scope(e):
-                    # Out of Groq capacity: every later claim would fail the same way. Stop
-                    # cleanly instead of sending one error card per remaining claim.
-                    yield {"type": "quota", "scope": scope, "checked": index - 1}
-                    yield {"type": "done", "tokens": tokens}
-                    return
-                r = {"label": "ERROR", "quote": "", "tokens": 0,
-                     "reason": f"Model call failed ({type(e).__name__})."}
+            r, minute_tries, error_tries = None, 0, 0
+            while r is None:
+                # Proactive: wait until this call fits in the trailing minute's token budget.
+                wait = pacer.wait_needed()
+                if wait > 0:
+                    if deadline is not None and clock() + wait > deadline:
+                        out_of_capacity, r = True, dict(NOT_CHECKED_WAIT)
+                        break
+                    yield {"type": "wait", "seconds": math.ceil(wait), "claim": n}
+                    sleep(wait)
+                    continue
+                try:
+                    r = check(client, text, page["text"], url)
+                except Exception as e:
+                    scope = quota_scope(e)
+                    if scope == "day" or (scope == "minute" and deadline is None
+                                          and minute_tries >= MAX_MINUTE_RETRIES):
+                        # Out of Groq capacity: every later claim would fail the same way. Stop
+                        # cleanly instead of sending one error card per remaining claim.
+                        yield {"type": "quota", "scope": scope, "checked": index - 1}
+                        yield {"type": "done", "tokens": tokens}
+                        return
+                    if scope == "minute":
+                        # Reactive: wait what Groq asks, then resend the same claim. The daily
+                        # cap counted this audit at its first call; a retry doesn't count again.
+                        minute_tries += 1
+                        wait = retry_after(e)
+                        if deadline is not None and clock() + wait > deadline:
+                            out_of_capacity, r = True, dict(NOT_CHECKED_WAIT)
+                            break
+                        yield {"type": "wait", "seconds": math.ceil(wait), "claim": n}
+                        sleep(wait)
+                        continue
+                    if transient(e) and error_tries < MAX_ERROR_RETRIES:
+                        error_tries += 1
+                        sleep(error_tries)
+                        continue
+                    r = {"label": "ERROR", "quote": "", "tokens": 0,     # report it, keep going
+                         "reason": f"Model call failed ({type(e).__name__})."}
+            pacer.record(r["tokens"])
         if page.get("meta_only") and page.get("text"):
             r["reason"] = (r.get("reason", "") + " Judged from the page's meta description only "
                            "(the page body loads with JavaScript).").strip()

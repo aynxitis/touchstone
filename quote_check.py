@@ -164,11 +164,20 @@ EVALUATIVE = re.compile(
     r"flagship|pioneer\w*|dominant|premier|best|unique|standout|consequential|crucial|major|"
     r"strongest|fastest|influential|landmark|signal|proof point|matter\w*)\b", re.I)
 EVALUATIVE_MAX_WORDS = 8   # longer parts carry a statement besides the judgment: keep as facts
+# Rankings and superlatives: checkable when tied to a name ("Volkswagen was the best-selling
+# electric car brand"; report4-part2 claim 5 was demoted to framing by "best" alone).
+RANKING = re.compile(
+    r"\bthe (?:most|least)\b|#\s?1\b|\b(?:no\.|number) ?(?:1|one)\b|\b(?:largest|biggest|smallest|"
+    r"leading|best|best-selling|top|first|highest|lowest|strongest|fastest|dominant|premier)\b", re.I)
 
 
-def is_evaluative(text):
+def is_evaluative(text, names=()):
     """Short part built around an evaluative word ('the largest local-currency round').
-    Clause-sized parts are not: they state something checkable besides the judgment."""
+    Clause-sized parts are not: they state something checkable besides the judgment. A
+    ranking tied to one of the claim's names ('X was the best-selling Y') is a fact: framing
+    is only colour with nothing to verify (strong, robust, dramatic, massive, struggled)."""
+    if RANKING.search(text) and any(named_in(n, text) for n in names):
+        return False
     rest = [w for w in re.findall(r"[a-z][a-z\-]{3,}", EVALUATIVE.sub(" ", text.lower()))
             if w not in STOPWORDS]
     return bool(EVALUATIVE.search(text)) and len(rest) < EVALUATIVE_MAX_WORDS
@@ -235,8 +244,9 @@ def judge(out, claim, page, url="", raw=""):
     parts_in = [x for x in parts_in if x["text"]]
     # Numbers are facts: a part with a number is checked even if the model calls it framing.
     # Short evaluative parts are framing even if the model calls them facts (lexicon, code).
+    names = entities(claim, page)
     framing = [x["text"] for x in parts_in if not NUM_RE.search(x["text"])
-               and (x.get("kind") == "framing" or is_evaluative(x["text"]))]
+               and (x.get("kind") == "framing" or is_evaluative(x["text"], names))]
     raw_facts = [{"fact": x["text"], "status": x.get("status"), "quote": x.get("quote")}
                  for x in parts_in if x["text"] not in framing]
 
@@ -314,7 +324,7 @@ def main():
     if not key:
         print("GROQ_API_KEY missing from .env")
         sys.exit(1)
-    client = Groq(api_key=key, max_retries=5)   # retries automatically on rate limits
+    client = Groq(api_key=key, max_retries=0)   # audit() paces and retries (pacing.py)
 
     with open(sys.argv[1], encoding="utf-8") as f:
         report = f.read()
@@ -336,6 +346,9 @@ def main():
         if ev["type"] == "quota":
             print(f"\nGroq refused further calls ({ev['scope']} limit) after {ev['checked']} claims; "
                   "stopping. Earlier results are kept.")
+            continue
+        if ev["type"] == "wait":
+            print(f"    waiting {ev['seconds']}s for Groq's per-minute capacity...")
             continue
         if ev["type"] != "claim":
             continue

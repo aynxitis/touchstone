@@ -203,4 +203,96 @@ with TestClient(A.app) as tc:
         assert tc.get(ref.split("?")[0] + "?v=000000000000").headers["cache-control"] == "no-cache"
     assert tc.get("/static/nope.js?v=").status_code == 404
 
+# 12. Groq per-minute pacing (pacing.py): fake client and fake clock, no real sleeping.
+import pacing
+class Clock:
+    def __init__(self): self.t, self.slept = 1000.0, []
+    def __call__(self): return self.t
+    def sleep(self, s): self.slept.append(s); self.t += s
+def reply(tokens=1700):
+    content = json.dumps({"parts": [{"text": "Yassir raised 150 million dollars", "kind": "fact",
+                                     "status": "stated", "quote": "Yassir raised 150 million dollars"}]})
+    return T.SimpleNamespace(choices=[T.SimpleNamespace(message=T.SimpleNamespace(content=content))],
+                             usage=T.SimpleNamespace(total_tokens=tokens))
+def Groq429(msg, retry=None):
+    e = type("RateLimitError", (Exception,), {"status_code": 429})(msg)
+    e.response = T.SimpleNamespace(headers={"retry-after": retry} if retry else {})
+    return e
+TPM = "Rate limit reached for model on tokens per minute (TPM): Limit 8000, Used 7900. Please try again in 7.5s."
+TPD = "Rate limit reached for model on tokens per day (TPD): Limit 200000. Please try again in 12m3s."
+def scripted(*outcomes):
+    calls = []
+    def create(**k):
+        calls.append(1)
+        o = outcomes[min(len(calls), len(outcomes)) - 1]
+        if isinstance(o, Exception): raise o
+        return o
+    return T.SimpleNamespace(chat=T.SimpleNamespace(completions=T.SimpleNamespace(create=create))), calls
+page_y = {"status": "OK", "text": "Yassir raised 150 million dollars in its Series B round. " * 6}
+pages3 = {f"https://example.com/{i}": page_y for i in range(3)}
+report3 = "\n".join(f"- Yassir raised 150 million dollars https://example.com/{i}" for i in range(3))
+
+# 12a. retry-after: header first, then Groq's message, else a fallback; capped at 60 s.
+assert pacing.retry_after(Groq429(TPM, retry="3")) == 3.5
+assert pacing.retry_after(Groq429(TPM)) == 8.0
+assert pacing.retry_after(Groq429("try again in 1m2.5s")) == 60.0          # capped
+assert pacing.retry_after(Groq429("try again in 450ms")) == 0.95
+assert pacing.retry_after(Groq429("Too many requests")) == pacing.RETRY_FALLBACK + 0.5
+
+# 12b. A per-minute 429, then success: the same claim is resent after a "wait" event and the
+#      audit completes with every claim. The retry doesn't count twice toward the daily cap.
+clk = Clock()
+fake, calls = scripted(reply(), Groq429(TPM), reply())
+A.daily.update(day=A.utc_today(), count=0)
+ev = list(real_audit(report3, A.CountingClient(fake), pages=pages3, deadline=clk() + 300,
+                     clock=clk, sleep=clk.sleep, pacer=pacing.TokenPacer(clock=clk)))
+assert [e["label"] for e in ev if e["type"] == "claim"] == ["SOURCED"] * 3, ev
+waits = [e for e in ev if e["type"] == "wait"]
+assert waits == [{"type": "wait", "seconds": 8, "claim": 2}] and 8.0 in clk.slept, (waits, clk.slept)
+assert len(calls) == 4 and A.daily["count"] == 1 and ev[-1]["type"] == "done"
+
+# 12c. A per-day 429 stops the audit cleanly (claims so far kept, no retry).
+clk = Clock()
+fake, calls = scripted(reply(), Groq429(TPD))
+ev = list(real_audit(report3, fake, pages=pages3, deadline=clk() + 300, clock=clk, sleep=clk.sleep,
+                     pacer=pacing.TokenPacer(clock=clk)))
+assert [e["type"] for e in ev if e["type"] != "start"] == ["claim", "quota", "done"], ev
+assert ev[2] == {"type": "quota", "scope": "day", "checked": 1} and len(calls) == 2 and not clk.slept
+
+# 12d. Proactive: with ~7.5K tokens spent in the last minute, the next call waits until the
+#      oldest spend leaves the window, then goes out. No 429 needed.
+clk = Clock()
+pacer = pacing.TokenPacer(clock=clk)
+for _ in range(4):
+    pacer.record(1700); clk.t += 5                       # 6,800 tokens over 20 s
+assert pacer.wait_needed() == 40.0                       # now t=1020; t=1000's spend leaves at 1060
+fake, calls = scripted(reply())
+ev = list(real_audit(report3.split("\n")[0], fake, pages=pages3, deadline=clk() + 300,
+                     clock=clk, sleep=clk.sleep, pacer=pacer))
+assert [e for e in ev if e["type"] == "wait"] == [{"type": "wait", "seconds": 40, "claim": 1}]
+assert clk.slept == [40.0] and [e["label"] for e in ev if e["type"] == "claim"] == ["SOURCED"]
+assert pacing.TokenPacer(clock=clk).wait_needed() == 0                 # empty window: no wait
+
+# 12e. A wait that would pass the 5-minute deadline is not taken: that claim and the rest are
+#      NOT CHECKED (time limit), nothing is slept, and the audit ends normally.
+clk = Clock()
+fake, calls = scripted(reply(), Groq429(TPM, retry="50"))
+ev = list(real_audit(report3, fake, pages=pages3, deadline=clk() + 20, clock=clk, sleep=clk.sleep,
+                     pacer=pacing.TokenPacer(clock=clk)))
+assert [e["label"] for e in ev if e["type"] == "claim"] == ["SOURCED", "NOT CHECKED", "NOT CHECKED"], ev
+assert "waiting for model capacity" in ev[2]["reason"] and not clk.slept and ev[-1]["type"] == "done"
+
+# 12f. Timeouts / 5xx get 2 retries (what the SDK's own retries did), then an ERROR card.
+clk = Clock()
+boom = type("APITimeoutError", (Exception,), {})("timed out")
+fake, calls = scripted(boom, boom, reply())
+ev = list(real_audit(report3.split("\n")[0], fake, pages=pages3, clock=clk, sleep=clk.sleep,
+                     pacer=pacing.TokenPacer(clock=clk)))
+assert [e["label"] for e in ev if e["type"] == "claim"] == ["SOURCED"] and clk.slept == [1, 2]
+fake, calls = scripted(boom)
+ev = list(real_audit(report3.split("\n")[0], fake, pages=pages3, clock=clk, sleep=clk.sleep,
+                     pacer=pacing.TokenPacer(clock=clk)))
+assert [e["label"] for e in ev if e["type"] == "claim"] == ["ERROR"] and len(calls) == 3
+A.daily.update(day=A.utc_today(), count=0)
+
 print("security checks passed")

@@ -202,4 +202,25 @@ _units.quantities("1" + " 234" * 200_000 + " x", page=True)
 missing_numbers("Capacity is 15.9 GW and 2,585,187 cars", "9" * 1_000_000 + " GW\n1" + ",234" * 100_000 + " MW")
 assert _time.monotonic() - _t < 3, _time.monotonic() - _t
 
+# 7. Rankings tied to a name are facts, not framing (report4 part 2, claim 5): the model said
+#    "stated", the lexicon demoted it ("best" inside "best-selling", < 8 other words).
+from quote_check import is_evaluative
+claim5 = ("While exact percentage shares for every individual brand across the entire continent are "
+          "highly fragmented, market positioning shifted dramatically among the top automakers: "
+          "Volkswagen: Reclaimed the title as the #1 best-selling electric car brand in Europe for the full year")
+page5 = ("2025 Full Year Europe: Electric Car Sales per Country\nElectric car sales in Europe grew in 2025."
+         "\nIn 2025, Volkswagen was the largest carmaker and best-selling electric car brand.\nOther.")
+r = judge({"opinion": False, "parts": [
+    {"text": "Volkswagen was the best-selling electric car brand in Europe for the full year", "kind": "fact",
+     "status": "stated", "quote": "Volkswagen was the largest carmaker and best-selling electric car brand."},
+    {"text": "market positioning shifted dramatically among the top automakers", "kind": "framing",
+     "status": "", "quote": ""},
+    {"text": "reclaimed the title as the #1 best-selling electric car brand in Europe for the full year",
+     "kind": "framing", "status": "", "quote": ""}]}, claim5, page5)
+assert r["label"] == "PARTIAL" and r["framing"] == ["market positioning shifted dramatically among the top automakers"], r
+assert not is_evaluative("Volkswagen was the best-selling brand", ["Volkswagen"])
+assert not is_evaluative("Yassir is the #1 ride-hailing app", ["Yassir"])
+assert is_evaluative("the largest local-currency round", ["Volz"])          # no name: colour
+assert is_evaluative("Volz was a notable signal", ["Volz"])                  # no ranking: colour
+
 print("check tests passed")

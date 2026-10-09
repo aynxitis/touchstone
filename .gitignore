@@ -3,3 +3,4 @@
 __pycache__/
 fetch_results.json
 *.pages.json
+runs/

@@ -253,6 +253,10 @@ async function runAudit() {
       counts[label] = (counts[label] || 0) + 1;
       $("cards").append(renderCard(ev));
       setStatus(done < total ? `Claim ${done}/${total} done, checking the next…` : `Claim ${done}/${total} done`);
+    } else if (ev.type === "wait") {
+      // Groq's free tier allows ~4 claims a minute: the audit pauses, then carries on.
+      const s = int(ev.seconds);
+      setStatus(`Waiting for capacity… (${s ?? "a few "}s)`);
     } else if (ev.type === "skipped") {
       addSkipped(ev, limit);
       run.not_checked.push({ claim: int(ev.claim), text: str(ev.text), url: str(ev.url),

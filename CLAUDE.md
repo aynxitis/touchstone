@@ -52,7 +52,11 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    never groups, so "2025 2 585 187" is 2025 and 2585187. Reasons quote the number as the
    claim wrote it ("2,585,187 not in its passage"). Framing lexicon (EVALUATIVE): a part with no number, an evaluative
    word (largest, leading, the most...) and < 8 other content words is framing, whatever the
-   model says. No content-noun check and no framing->fact rule: on the saved runs both broke
+   model says, EXCEPT a ranking/superlative (RANKING: best, best-selling, largest, top, #1,
+   leading, the most...) in a part naming one of the claim's entities: "X was the
+   best-selling Y" is a fact (2026-10-09: "best" inside "best-selling" had demoted VW's
+   stated fact, report4-part2 claim 5 UNSUPPORTED -> PARTIAL on rescore). Framing = colour
+   with nothing to verify (strong, robust, dramatic, massive, struggled). No content-noun check and no framing->fact rule: on the saved runs both broke
    correct claims (paraphrase; analytical sentences in 7/9/22/25/29). Groq call uses seed=0. Optional 2nd arg
    re-runs only those claim numbers. Writes audit.json. Each claim result carries "model"
    (the model's sanitized reply; None if unparseable) so judge() can replay it.
@@ -84,8 +88,15 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    with copy-button advice and a one-click copy of the fix-your-links prompt.
    Groq 429 mid-audit: audit() stops with a "quota" event (claims already checked are kept,
    no per-claim error cards). Per-day or unclear limit -> "free daily capacity is used up,
-   try again tomorrow" and the daily cap is marked full; per-minute (TPM/RPM) -> "try again in
-   a minute", day not marked. The daily cap counts an audit at its first model call attempt.
+   try again tomorrow" and the daily cap is marked full. Per-minute limits no longer stop an
+   audit (pacing.py, 2026-10-09; a live run had stopped after 5 claims): a TokenPacer shared
+   by the process tracks tokens of the trailing 60 s (response usage) and waits before a
+   call that would pass 7,500; a per-minute 429 waits its retry-after (header, else "try
+   again in Xs", else 10 s; +0.5 s, max 60 s) and resends the same claim. Each wait streams
+   {"type":"wait","seconds","claim"} -> "Waiting for capacity... (Xs)"; heartbeats continue.
+   A wait that would pass the 300 s deadline isn't taken: the rest are NOT CHECKED. Groq SDK
+   max_retries=0 (audit() retries: 429s as above, timeouts/5xx twice). Retries never count
+   twice toward the daily cap (CountingClient counts the first call attempt). The daily cap counts an audit at its first model call attempt.
    Client IP: X-Touchstone-Client-IP is trusted only if X-Touchstone-Proxy-Secret matches env
    PROXY_SECRET (hmac.compare_digest); else CLIENT_IP_HEADER (X-Real-IP), else the socket.
    Bot protection (fetch_links.bot_blocked): cf-mitigated: challenge, Cloudflare challenge
@@ -117,7 +128,7 @@ NO SOURCE GIVEN / NOT CHECKED / ERROR. Verdicts judge factual parts only; editor
 - PROXY_SECRET (openssl rand -hex 32) lives only in Railway's variables and the Worker's
   secrets. Never in code, git, logs, chats or prompts; never ask Anis to paste it.
 - Page text is untrusted (prompt injection). Keep it delimited; never put secrets in prompts.
-- Never commit fetch_results.json (copies of other sites' pages).
+- Never commit fetch_results.json, runs/ or *.pages.json (copies of other sites' pages).
 - Free tier: Groq 30 RPM, 1K RPD, 8K TPM, 200K tokens/day. ~900 tokens per claim.
   Re-run only the claims you're debugging.
 - Never present a verdict as stronger than the evidence. Honesty is the product.

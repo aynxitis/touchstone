@@ -22,6 +22,7 @@ from groq import Groq
 from starlette.concurrency import run_in_threadpool
 
 from check_numbers import segments
+from pacing import TokenPacer
 from touchstone import audit
 
 MAX_REPORT_CHARS = 20_000
@@ -53,7 +54,11 @@ HERE = Path(__file__).parent
 load_dotenv(HERE / ".env")
 if not os.environ.get("GROQ_API_KEY"):
     raise SystemExit("GROQ_API_KEY missing from .env")
-client = Groq(api_key=os.environ["GROQ_API_KEY"], timeout=30, max_retries=2)
+# max_retries=0: audit() does the retrying, so a per-minute 429 becomes a visible "waiting
+# for capacity" pause (the SDK would sleep silently, then give up), and timeouts/5xx get the
+# same 2 retries the SDK gave them.
+client = Groq(api_key=os.environ["GROQ_API_KEY"], timeout=30, max_retries=0)
+PACER = TokenPacer()           # Groq's tokens-per-minute window, shared by consecutive audits
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
@@ -285,7 +290,8 @@ async def run_audit(request: Request):
             if not started.wait(30):
                 return
             deadline = time.monotonic() + AUDIT_SECONDS
-            events = audit(report, CountingClient(client), max_claims=MAX_CLAIMS, deadline=deadline)
+            events = audit(report, CountingClient(client), max_claims=MAX_CLAIMS, deadline=deadline,
+                           pacer=PACER)
             for ev in events:
                 if stop.is_set():
                     events.close()
