@@ -42,8 +42,12 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    A2 full-page fallback: a "missing" fact whose non-year numbers (one with 2+ digits) and
    subject (first claim name in the fact) all sit on one page line becomes "possible"
    ("possibly stated", the line shown as evidence), never counted as not found. No model call.
-   Years (1900-2100) only have to be somewhere on the page, not in the figure's passage
-   (table rows sit under "Sales 2025"); cost: a date is no longer tied to its passage. judge() is the code-only half of
+   Years (1900-2100) in a fact must be in its passage, the page title, the h1-h3 headings
+   above the passage (its section path), or the quoted table row's header row / caption;
+   never in footer text (lines with ©, "Copyright", "All rights reserved"). fetch_links
+   stores "title" and "headings" ([[level, text]]) per page; caches made before 2026-10-09
+   lack them, so years there are only found in the passage/table (stricter, amber).
+   Any "unconfirmed" or "possible" fact keeps a claim from SOURCED (at best COULDN'T CONFIRM). judge() is the code-only half of
    check() (model reply -> label), so saved runs can be re-scored with zero tokens.
    Name check (entities.py, code-only): a "stated" fact's names (only the claim's names that
    appear in the fact's own text, plus the claim's lead name if the fact opens with It/The

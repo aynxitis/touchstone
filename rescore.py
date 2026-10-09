@@ -81,7 +81,8 @@ def rescore(c, page):
         reply = {}                          # still no passage: judged without the model
         r = {"label": "UNVERIFIED", "reason": "No relevant passage found on the page."}
     else:
-        r = judge(reply, c["text"], page["text"], c["url"])
+        r = judge(reply, c["text"], page["text"], c["url"],
+                  meta={"title": page.get("title"), "headings": page.get("headings")})
     if page.get("meta_only"):
         r["reason"] = (r.get("reason", "") + META_NOTE).strip()
     return r["label"], r["reason"]

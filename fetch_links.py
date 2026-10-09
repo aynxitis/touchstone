@@ -9,6 +9,7 @@ from urllib.parse import urljoin, urlparse, urlsplit, urlunsplit
 
 import httpx
 import trafilatura
+from html import unescape
 
 URL_RE = re.compile(r"https?://[^\s<>\"'\)\]]+")
 TIMEOUT = 15            # seconds per request (connect/read)
@@ -29,6 +30,31 @@ BLOCK_MARKERS = ("cf-chl", "challenge-platform", "cf-error-details",   # Cloudfl
                  "edgesuite",                # Akamai "Access Denied" (often errors&#46;edgesuite&#46;net)
                  "px-captcha", "perimeterx", "_pxappid")                # PerimeterX
 TITLE_RE = re.compile(r"<title[^>]{0,200}>([^<]{0,200})", re.I)
+H_OPEN = re.compile(r"<h([1-3])\b[^>]{0,500}>", re.I)
+ANY_TAG = re.compile(r"<[^>]{0,500}>")
+MAX_HEADINGS = 200
+
+
+def outline(html):
+    """(title, [[level, text], ...]) for the page's <title> and h1-h3 headings, in order.
+    Plain text loses them (trafilatura flattens headings into ordinary lines), but a year in
+    the title or a heading dates the figures under it. Linear: one scan, bounded inner reads."""
+    m = TITLE_RE.search(html)
+    title = unescape(" ".join(m.group(1).split())) if m else ""
+    lower, heads, misses = html.lower(), [], 0
+    for m in H_OPEN.finditer(html):
+        end = lower.find(f"</h{m.group(1)}", m.end(), m.end() + 2000)
+        if end < 0:
+            misses += 1
+            if misses > MAX_HEADINGS:       # broken or hostile markup: stop looking
+                break
+            continue
+        text = " ".join(unescape(ANY_TAG.sub(" ", html[m.end():end])).split())
+        if text:
+            heads.append([int(m.group(1)), text[:300]])
+        if len(heads) >= MAX_HEADINGS:
+            break
+    return title, heads
 
 
 def bot_blocked(status, headers, html):
@@ -160,6 +186,7 @@ async def fetch_one(url):
     if isinstance(got, dict):
         return got
     html = got
+    title, headings = outline(html)
     text = trafilatura.extract(html) or ""
     if len(text) < MIN_TEXT_CHARS:
         # JS-rendered pages often carry their key facts only in the meta description
@@ -170,9 +197,10 @@ async def fetch_one(url):
             title = (meta.title or "").strip()
             text = "\n".join(x for x in (title, desc, text) if x)
             return {"url": url, "status": "OK", "detail": f"meta description only, {len(text)} chars",
-                    "text": text, "meta_only": True}
+                    "text": text, "meta_only": True, "title": title, "headings": headings}
         return {"url": url, "status": "NO_TEXT", "detail": "JS page or blocked?"}
-    return {"url": url, "status": "OK", "detail": f"{len(text)} chars", "text": text}
+    return {"url": url, "status": "OK", "detail": f"{len(text)} chars", "text": text,
+            "title": title, "headings": headings}
 
 
 async def _get(url):

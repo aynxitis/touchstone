@@ -110,7 +110,8 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
                     sleep(wait)
                     continue
                 try:
-                    r = check(client, text, page["text"], url)
+                    r = check(client, text, page["text"], url,
+                              {"title": page.get("title"), "headings": page.get("headings")})
                 except Exception as e:
                     scope = quota_scope(e)
                     if scope == "day" or (scope == "minute" and deadline is None

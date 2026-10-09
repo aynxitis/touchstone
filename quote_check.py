@@ -241,14 +241,49 @@ def is_year(token):
     return token.isdigit() and len(token) == 4 and 1900 <= int(token) <= 2100
 
 
-def numbers_not_in_passage(fact, quote, page):
+COPYRIGHT = re.compile(r"\u00a9|\(c\)\s{0,3}\d{4}|\bcopyright\b|all rights reserved", re.I)
+fold_line = lambda t: " ".join(t.split()).lower()
+
+
+def year_context(quote, page, meta=None):
+    """Where a fact's year may come from besides its passage: the page title, the headings
+    (h1-h3) above the passage (the nearest of each level: its section path), and for a
+    table row its header row and caption. Never footer/copyright text ("\u00a9 2026" is on
+    almost every page). meta: {"title", "headings": [[level, text]]} from fetch_links."""
+    meta = meta or {}
+    lines = page.split("\n")
+    para = paragraph_of(quote, page, quote_on_page)
+    idx = next((i for i, l in enumerate(lines) if l.strip() and l.strip() == para.strip()), None)
+    out = [quote, para, meta.get("title") or ""]
+    if idx is not None:
+        level = {}
+        for lv, text in meta.get("headings") or []:
+            level.setdefault(fold_line(text), lv)
+        path = {}
+        for line in lines[:idx]:
+            if (lv := level.get(fold_line(line))) is not None:
+                path = {k: v for k, v in path.items() if k < lv} | {lv: line}
+        out += list(path.values())
+        if lines[idx].lstrip().startswith("|"):        # a table row: its header and caption
+            top = idx
+            while top > 0 and lines[top - 1].lstrip().startswith("|"):
+                top -= 1
+            out.append(lines[top])
+            if top > 0 and len(lines[top - 1].strip()) <= 200:
+                out.append(lines[top - 1])
+    return "\n".join(x for x in out if x and not COPYRIGHT.search(x))
+
+
+def numbers_not_in_passage(fact, quote, page, meta=None):
     """Numbers in the fact (2+ digits) that are neither in its quote nor the quote's paragraph.
-    A year only has to be somewhere on the page (title, heading, table header): a table row
-    "| Tesla | 238,656 |" sits under "Sales 2025", not next to it."""
+    A year may also come from the page title, a heading above the passage, or the header /
+    caption of the quoted row's table ("| Tesla | 238,656 |" under "| Brand | Sales 2025 |")."""
     gone = numbers_not_in(fact, quote + " " + paragraph_of(quote, page, quote_on_page))
     years = [n for n in gone if is_year(n)]
-    on_page = set(numbers_not_in(" ".join(years), page)) if years else set()
-    return [n for n in gone if not is_year(n) or n in on_page]
+    if not years:
+        return gone
+    still = set(numbers_not_in(" ".join(years), year_context(quote, page, meta)))
+    return [n for n in gone if not is_year(n) or n in still]
 
 
 def value_conflict(fact, quote):
@@ -281,7 +316,7 @@ def missing_numbers(claim, page):
     return numbers_not_in(claim, page)
 
 
-def check(client, claim, page, url=""):
+def check(client, claim, page, url="", meta=None):
     excerpts = best_excerpts(claim, page)
     if not excerpts:
         return {"label": "UNVERIFIED", "quote": "", "tokens": 0,
@@ -301,12 +336,12 @@ def check(client, claim, page, url=""):
 
     if not isinstance(out, dict):
         out = {}
-    r = judge(out, claim, page, url, raw)
+    r = judge(out, claim, page, url, raw, meta)
     r["tokens"] = resp.usage.total_tokens if resp.usage else 0
     return r
 
 
-def judge(out, claim, page, url="", raw=""):
+def judge(out, claim, page, url="", raw="", meta=None):
     """Code-only half of check(): turn the model's parsed reply into facts, framing and a
     label. No tokens, so saved runs can be re-scored after a change to the code checks.
     The result's "model" field is the model's reply as judged (sanitized parts; None if it
@@ -348,7 +383,7 @@ def judge(out, claim, page, url="", raw=""):
             # without one, the page simply doesn't support the fact.
             fact.update(status="missing", quote="", unmatched_quote=quote,
                         note="The model judged this contradicted, but its quote shows no conflicting figure.")
-        elif status == "stated" and (gone := numbers_not_in_passage(fact["fact"], quote, page)):
+        elif status == "stated" and (gone := numbers_not_in_passage(fact["fact"], quote, page, meta)):
             # Key-term check: the fact's numbers must be in its quote or the quote's paragraph.
             # A code heuristic alone never accuses: the model found it stated, so it's amber.
             fact.update(status="unconfirmed", note=f"Quote found, but {', '.join(gone)} not in its passage.")
@@ -378,6 +413,8 @@ def judge(out, claim, page, url="", raw=""):
     elif "contradicted" in statuses:
         label = "CONTRADICTED"
     elif all(x == "stated" for x in statuses):
+        # SOURCED only when every fact is stated: an "unconfirmed" or "possible" (page-line
+        # evidence only) fact can never yield SOURCED, at best COULDN'T CONFIRM.
         label = "COULDN'T CONFIRM" if missing else "SOURCED"
     elif "missing" in statuses and any(x == "stated" or x in soft for x in statuses):
         label = "PARTIAL"

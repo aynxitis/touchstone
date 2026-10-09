@@ -314,11 +314,49 @@ claim_y = "Top 5 Best-Selling EV Models in Europe (Recorded Jan\u2013Oct 2025): 
 assert any("Model Y: 116 989" in e for e in best_excerpts(claim_y, top5))
 assert any("Elroq: 71 148" in e for e in best_excerpts("\u0160koda Elroq: 71,148 units", top5))
 assert sum(map(len, best_excerpts(claim_y, top5))) <= MAX_EXCERPT_CHARS
-r = judge({"parts": [P("Tesla Model Y sold 116,989 units in Europe from January to October 2025", "stated",
-                       "- Tesla Model Y: 116 989")]}, claim_y, top5)
+# 2025 comes from the h2 above the list (eleport.com's real heading, fetched with the page).
+meta5 = {"title": "The Most Popular Electric Cars In Europe 2025, Compared",
+         "headings": [[1, "Five Most Popular Electric Cars in Europe 2025, Compared"],
+                      [2, "The top 5 most popular electric cars 2025 in Europe from 2025 January to October"]]}
+fact_y = P("Tesla Model Y sold 116,989 units in Europe from January to October 2025", "stated", "- Tesla Model Y: 116 989")
+r = judge({"parts": [fact_y]}, claim_y, top5, meta=meta5)
 assert r["label"] == "SOURCED", r
+# Without title/headings (an old cache), the year can't be dated: amber, never red.
+r = judge({"parts": [fact_y]}, claim_y, top5)
+assert r["label"] == "COULDN'T CONFIRM" and "2025 not in its passage" in r["reason"], r
 # If the replayed model reply predates B1 (it saw no list), A2 still finds the row.
 r = judge({"parts": [P("Tesla Model Y sold 116,989 units", "missing")]}, claim_y, top5)
 assert r["label"] == "COULDN'T CONFIRM" and r["facts"][0]["evidence"] == "- Tesla Model Y: 116 989", r
+
+# 9. B3 tightened: a year counts only in the passage, the page title, the headings above the
+#    passage, or the quoted row's table header/caption. Never footer/copyright text.
+from quote_check import year_context
+assert numbers_not_in_passage("Tesla sold 238,656 units in 2025", row_t, brands) == []        # table header
+footer_page = ("Market report\nIn 2023, sales reached 412,000 units across the region.\n"
+               "Other news.\n\u00a9 2026 Example Media. All rights reserved.")
+q23 = "In 2023, sales reached 412,000 units across the region."
+assert numbers_not_in_passage("Sales reached 412,000 units in 2026", q23, footer_page,
+                              {"title": "Market report", "headings": []}) == ["2026"]
+assert numbers_not_in_passage("Sales reached 412,000 units in 2026", q23, footer_page,
+                              {"title": "Market report \u00a9 2026", "headings": []}) == ["2026"]  # copyright title
+assert numbers_not_in_passage("Sales reached 412,000 units in 2026", q23, footer_page,
+                              {"title": "Market report 2026", "headings": []}) == []               # title
+# Headings: only those ABOVE the passage, and only the current section path.
+hp = "Results 2024\nSales were 412,000 units.\nOutlook 2026\nMore text here about the outlook."
+hm = {"title": "", "headings": [[2, "Results 2024"], [2, "Outlook 2026"]]}
+assert numbers_not_in_passage("Sales were 412,000 units in 2024", "Sales were 412,000 units.", hp, hm) == []
+assert numbers_not_in_passage("Sales were 412,000 units in 2026", "Sales were 412,000 units.", hp, hm) == ["2026"]
+assert "Outlook 2026" not in year_context("Sales were 412,000 units.", hp, hm)
+# A table's caption (the line just above it) dates its rows; a row elsewhere doesn't.
+tp = "Sales in 2024 by brand\n| Brand | Units |\n| Tesla | 238,656 |\nUnrelated 2025 text."
+assert numbers_not_in_passage("Tesla sold 238,656 units in 2024", "| Tesla | 238,656 |", tp) == []
+assert numbers_not_in_passage("Tesla sold 238,656 units in 2025", "| Tesla | 238,656 |", tp) == ["2025"]
+
+# 10. "Possibly stated" can never make a claim SOURCED: at best COULDN'T CONFIRM, whatever
+#     the other facts are (even all stated).
+for others in ([], [P("BYD's sales rose 268.6%", "stated", sent)],
+               [P("BYD's sales rose 268.6%", "stated", sent), P("BYD sold 187,657 units", "stated", row_b)]):
+    r = judge({"parts": others + [P("BYD sold 187,657 units", "missing")]}, byd, brands, brands_url)
+    assert "possible" in [f["status"] for f in r["facts"]] and r["label"] == "COULDN'T CONFIRM", r
 
 print("check tests passed")
