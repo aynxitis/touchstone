@@ -295,4 +295,157 @@ ev = list(real_audit(report3.split("\n")[0], fake, pages=pages3, clock=clk, slee
 assert [e["label"] for e in ev if e["type"] == "claim"] == ["ERROR"] and len(calls) == 3
 A.daily.update(day=A.utc_today(), count=0)
 
+# 13. Providers (providers.py): Gemini batches claims per cited page; Groq is unchanged.
+import providers as PV, quote_check as QC
+from quote_check import SYSTEM, SYSTEM_MULTI, PREAMBLE, TASK_ONE, RULES
+assert SYSTEM == PREAMBLE + TASK_ONE + RULES and SYSTEM_MULTI.endswith(RULES)      # rules shared verbatim
+import hashlib
+assert hashlib.sha256(SYSTEM.encode()).hexdigest()[:16] == "7a2d5cd192d6216e"       # Groq prompt unchanged
+
+class FakeGemini:
+    """google-genai lookalike: client.models.generate_content(model, contents, config)."""
+    def __init__(self, reply, tokens=5000, errors=()):
+        self.calls, self.reply, self.tokens, self.errors = [], reply, tokens, list(errors)
+        self.models = T.SimpleNamespace(generate_content=self._gen)
+    def _gen(self, **k):
+        self.calls.append(k)
+        if self.errors:
+            raise self.errors.pop(0)
+        body = self.reply(k["contents"]) if callable(self.reply) else self.reply
+        return T.SimpleNamespace(text=body, usage_metadata=T.SimpleNamespace(total_token_count=self.tokens))
+
+def claims_in(contents):
+    return [l.split("] ", 1)[1] for l in contents.split("\n<<<")[0].split("\n") if l.startswith("[")]
+
+def all_stated(contents):
+    """Every claim: one fact, stated, quoting the line that holds its figure."""
+    out = []
+    for i, c in enumerate(claims_in(contents), 1):
+        num = c.split()[-1]
+        line = next(l for l in contents.split("\n") if l.startswith("Fact line") and num in l)
+        out.append({"id": i, "opinion": False, "parts": [{"text": c, "kind": "fact", "status": "stated", "quote": line}]})
+    return json.dumps({"claims": out})
+
+gp = lambda n: {"status": "OK", "text": "\n".join(f"Fact line {i}: the widget count reached {1000 + i} units in the region." for i in range(n))}
+gpages = {"https://a.example/1": gp(5), "https://b.example/2": gp(5)}
+greport = "\n".join([
+    "- Widget count reached 1001 https://a.example/1",
+    "- Widget count reached 1002 https://b.example/2",
+    "- Widget count reached 1003 https://a.example/1",
+    "- Zzqvx flarnbeck 4242 https://a.example/1",            # no passage: never sent
+    "- Widget count reached 1004 https://b.example/2"])
+
+# 13a. Grouping by URL: one call per cited page with all its claims; results in report order.
+clk = Clock()
+fake = FakeGemini(all_stated)
+gem = PV.Gemini(fake)
+ev = list(real_audit(greport, fake, pages=gpages, clock=clk, sleep=clk.sleep, provider=gem,
+                     pacer=pacing.TokenPacer.for_provider("gemini", clock=clk)))
+assert len(fake.calls) == 2, len(fake.calls)
+assert claims_in(fake.calls[0]["contents"]) == ["Widget count reached 1001", "Widget count reached 1003"]
+assert claims_in(fake.calls[1]["contents"]) == ["Widget count reached 1002", "Widget count reached 1004"]
+assert fake.calls[0]["model"] == PV.GEMINI_MODEL and fake.calls[0]["config"].temperature == 0
+assert fake.calls[0]["config"].system_instruction == SYSTEM_MULTI
+assert fake.calls[0]["config"].response_mime_type == "application/json"
+cl = [e for e in ev if e["type"] == "claim"]
+assert [e["claim"] for e in cl] == [1, 2, 3, 4, 5]
+assert [e["label"] for e in cl] == ["SOURCED", "SOURCED", "SOURCED", "UNVERIFIED", "SOURCED"], [e["label"] for e in cl]
+assert sum(e["tokens"] for e in cl) == 10000 and ev[-1] == {"type": "done", "tokens": 10000}
+
+# 13b. Schema mapping: by id, malformed/missing entries become that claim's ERROR (never a
+#      verdict), extra ids are ignored, code checks still decide (a fake quote is rejected).
+page_a = gpages["https://a.example/1"]["text"]
+bad = json.dumps({"claims": [
+    {"id": 2, "opinion": False, "parts": [{"text": "Widget count reached 1003", "kind": "fact", "status": "stated",
+                                           "quote": "Fact line 3: the widget count reached 1003 units in the region."}]},
+    {"id": 1, "opinion": False, "parts": [{"text": "Widget count reached 1001", "kind": "fact", "status": "stated",
+                                           "quote": "An invented sentence that is not on the page at all."}]},
+    {"id": 9, "opinion": True, "parts": []}, "junk"]})
+res = PV.map_results(bad, ["Widget count reached 1001", "Widget count reached 1003", "Third"], page_a,
+                     "https://a.example/1", None, 7)
+# Claim 1's invented quote is rejected; A2 then finds the page line with 1001: amber, not SOURCED.
+assert [r["label"] for r in res] == ["COULDN'T CONFIRM", "SOURCED", "ERROR"], [r["label"] for r in res]
+assert res[0]["facts"][0]["rejected_quote"] and res[0]["facts"][0]["status"] == "possible"
+assert [r["tokens"] for r in res] == [3, 2, 2]
+assert [r["label"] for r in PV.map_results("not json", ["a"], page_a, "", None, 0)] == ["ERROR"]
+assert all(isinstance(r.get("model"), (dict, type(None))) for r in res)            # rescore.py replays these
+
+# 13c. 100K-char cap: a short page goes whole; a long one keeps the claims' anchor passages
+#      plus surrounding lines up to the cap, skipped stretches marked "[...]".
+assert PV.page_for_model(page_a, ["x"]) == page_a
+filler = [f"Filler paragraph {i} about something else entirely, nothing to see here at all." for i in range(4000)]
+target = "The flagship plant produced 48,213 tonnes of output in 2025 according to the ministry."
+long_page = "\n".join(filler[:2000] + [target] + filler[2000:])
+assert len(long_page) > 300_000
+sent = PV.page_for_model(long_page, ["The plant produced 48,213 tonnes in 2025"])
+assert len(sent) <= PV.PAGE_CHARS and target in sent and "[...]" in sent
+assert all(l == "[...]" or l in long_page for l in sent.split("\n"))               # lines verbatim
+assert sent.index(target) > 1000                                                   # context kept above it too
+assert QC.quote_on_page(target, long_page)
+
+# 13d. Pacing per provider: Gemini RPM (13 per minute), TPM (225K), RPD (450 per day).
+clk = Clock()
+gpace = pacing.TokenPacer.for_provider("gemini", clock=clk)
+for _ in range(13):
+    gpace.note_request(); clk.t += 1                       # 13 requests in 13 s
+assert gpace.wait_needed(1000) == 47.0                     # the first leaves the minute at t=1060
+clk.t += 47
+assert gpace.wait_needed(1000) == 0
+gpace.record(220_000)
+assert gpace.wait_needed(10_000) == 60.0                   # 220K + 10K > 225K: wait out the minute
+day = [1]
+dpace = pacing.TokenPacer(budget=10**9, rpd=3, clock=clk, day=lambda: day[0])
+for _ in range(3):
+    assert dpace.wait_needed(1) == 0; dpace.note_request()
+assert dpace.wait_needed(1) == pacing.DAY_FULL             # today's requests used up
+day[0] = 2
+assert dpace.wait_needed(1) == 0                           # a new UTC day
+assert pacing.TokenPacer.for_provider("groq").rpm is None and pacing.TokenPacer.for_provider("groq").budget == 7_500
+
+# 13e. RPD exhausted mid-audit stops like a per-day quota; a Gemini per-minute 429 waits its
+#      retryDelay and resends the same page's claims; a per-day 429 stops.
+clk = Clock()
+fake = FakeGemini(all_stated)
+dpace = pacing.TokenPacer(budget=10**9, rpd=1, clock=clk)
+ev = list(real_audit(greport, fake, pages=gpages, clock=clk, sleep=clk.sleep, provider=PV.Gemini(fake), pacer=dpace))
+assert len(fake.calls) == 1 and {"type": "quota", "scope": "day", "checked": 1} in ev, ev
+GErr = lambda code, msg: type("ClientError", (Exception,), {"code": code})(msg)
+g_min = GErr(429, "429 RESOURCE_EXHAUSTED. Quota exceeded for metric generate_content_free_tier_requests, "
+                  "quotaId GenerateRequestsPerMinutePerProjectPerModel-FreeTier. Please retry in 21.4s.")
+g_day = GErr(429, "429 RESOURCE_EXHAUSTED. quotaId GenerateRequestsPerDayPerProjectPerModel-FreeTier")
+assert touchstone.quota_scope(g_min) == "minute" and touchstone.quota_scope(g_day) == "day"
+assert pacing.retry_after(g_min) == 21.9
+assert pacing.retry_after(GErr(429, "{'retryDelay': '34s'}")) == 34.5
+clk = Clock()
+fake = FakeGemini(all_stated, errors=[g_min])
+ev = list(real_audit(greport, fake, pages=gpages, clock=clk, sleep=clk.sleep, provider=PV.Gemini(fake),
+                     deadline=clk() + 300, pacer=pacing.TokenPacer.for_provider("gemini", clock=clk)))
+assert [e for e in ev if e["type"] == "wait"] == [{"type": "wait", "seconds": 22, "claim": 1}]
+assert len(fake.calls) == 3 and [e["label"] for e in ev if e["type"] == "claim"].count("SOURCED") == 4
+clk = Clock()
+fake = FakeGemini(all_stated, errors=[g_day])
+ev = list(real_audit(greport, fake, pages=gpages, clock=clk, sleep=clk.sleep, provider=PV.Gemini(fake),
+                     pacer=pacing.TokenPacer.for_provider("gemini", clock=clk)))
+assert ev[1] == {"type": "quota", "scope": "day", "checked": 0} and len(fake.calls) == 1
+
+# 13f. The daily cap counts a Gemini audit once (first generate_content attempt), and the
+#      Groq path through app.py is unchanged (one chat call per claim, as in 12b).
+A.daily.update(day=A.utc_today(), count=0)
+clk = Clock()
+fake = FakeGemini(all_stated)
+counted = A.CountingClient(fake)
+list(real_audit(greport, counted, pages=gpages, clock=clk, sleep=clk.sleep, provider=PV.Gemini(counted),
+                pacer=pacing.TokenPacer.for_provider("gemini", clock=clk)))
+assert A.daily["count"] == 1 and len(fake.calls) == 2
+A.daily.update(day=A.utc_today(), count=0)
+
+# 13g. The provider note: only with Gemini, rendered server-side into the page.
+with tempfile.TemporaryDirectory() as d:
+    d = Path(d)
+    (d / "index.html").write_text('<p class="meta">Limits.</p>\n<!--provider-note-->\n<script src="/static/app.js"></script>')
+    (d / "app.js").write_text("x")
+    v = A.asset_versions(d)
+    assert "Google Gemini" in A.versioned_index(d, v, "gemini") and "provider-note" not in A.versioned_index(d, v, "gemini")
+    assert "Gemini" not in A.versioned_index(d, v, "groq") and "provider-note" not in A.versioned_index(d, v, "groq")
+
 print("security checks passed")

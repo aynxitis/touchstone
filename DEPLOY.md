@@ -87,6 +87,9 @@ New Project → Deploy from GitHub repo → this repo. Then in the service:
 | Settings → Networking | Public Networking | Generate Domain |
 | Variables | `GROQ_API_KEY` | your key (sealed variable) |
 | Variables | `GLOBAL_AUDITS_PER_DAY` | `7` |
+| Variables | `PROVIDER` | leave unset (= `groq`); `gemini` only to trial Gemini (see below) |
+| Variables | `GEMINI_API_KEY` | only with `PROVIDER=gemini` (sealed variable) |
+| Variables | `GEMINI_AUDITS_PER_DAY` | `40` (only with `PROVIDER=gemini`) |
 | Variables | `CLIENT_IP_HEADER` | `X-Real-IP` |
 | Variables | `PROXY_SECRET` | the shared Worker secret (sealed variable; see Architecture) |
 
@@ -173,6 +176,27 @@ Replace `URL` with the generated domain (`https://touchstone-production-xxxx.up.
 7. From Algeria: open https://touchstone.aynx.dev (not the railway.app URL) on Algerian mobile data, on
    Ooredoo, Mobilis and Djezzy, with VPNs and DNS-changing apps (1.1.1.1/WARP, Intra, ...)
    turned off, plus home internet. Load the page and run the example audit to the end.
+
+## Model provider: Groq (default) or Gemini
+`PROVIDER` picks the model: unset or `groq` = Groq `openai/gpt-oss-120b`, one call per claim
+over ~3,000 chars of excerpts (8K tokens/minute free tier). `gemini` = Google
+`gemini-3.5-flash-lite`, one call per cited page with the whole page (up to 100K chars) and
+all its claims. Code checks and labels are the same either way. Switching is a variable
+change plus redeploy; the page then shows "Reports are processed by Google Gemini." under
+the input.
+
+With `PROVIDER=gemini` set, in Railway: `GEMINI_API_KEY` (sealed; from Google AI Studio,
+never pasted anywhere else) and `GEMINI_AUDITS_PER_DAY` (`40`: an audit sends at most 10
+requests, one per cited page, and the app paces itself at 13/minute and 450/day under the
+free tier's 15 RPM / 500 RPD). The app refuses to start if the key is missing.
+
+**Data use.** With Gemini, the pasted report and the text of every cited page go to Google.
+On the free tier, Google's Gemini API terms allow it to use submitted content and responses
+to improve its products, and human reviewers may read them; paid (billing-enabled) projects
+are excluded. Check the current terms for your project's region before using it with real
+users, and don't switch the public site to Gemini without telling users (the on-page line
+does that). Groq's free tier has its own data terms; neither is suitable for confidential
+reports.
 
 ## If abuse happens
 Someone with several IPs can use up the 7 daily audits on purpose; IP-based limits can't stop

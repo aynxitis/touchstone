@@ -359,4 +359,16 @@ for others in ([], [P("BYD's sales rose 268.6%", "stated", sent)],
     r = judge({"parts": others + [P("BYD sold 187,657 units", "missing")]}, byd, brands, brands_url)
     assert "possible" in [f["status"] for f in r["facts"]] and r["label"] == "COULDN'T CONFIRM", r
 
+# 11. compare_runs.py: two runs of one report, claim by claim, with accuracy per run.
+import compare_runs
+with _tf.TemporaryDirectory() as d:
+    a, b = _os.path.join(d, "a.json"), _os.path.join(d, "b.json")
+    _json.dump({"provider": "groq", "claims": [{"claim": 1, "url": "u", "label": "UNSUPPORTED"},
+                                              {"claim": 2, "url": "u", "label": "SOURCED"}]}, open(a, "w"))
+    _json.dump({"provider": "gemini", "claims": [{"claim": 1, "url": "u", "label": "COULDN'T CONFIRM"},
+                                                {"claim": 2, "url": "u", "label": "SOURCED"}]}, open(b, "w"))
+    out = compare_runs.compare(a, b, {1: "PARTIAL", 2: "SOURCED"})
+assert "<>" in out[1] and "<>" not in out[2] and "Same label on 1/2" in out[3], out
+assert out[-2:] == ["Accuracy groq: 1/2", "Accuracy gemini: 2/2"], out
+
 print("check tests passed")

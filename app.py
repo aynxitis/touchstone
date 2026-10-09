@@ -18,11 +18,11 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from groq import Groq
 from starlette.concurrency import run_in_threadpool
 
 from check_numbers import segments
 from pacing import TokenPacer
+from providers import make_client, make_provider, provider_name
 from touchstone import audit
 
 MAX_REPORT_CHARS = 20_000
@@ -45,20 +45,25 @@ PRUNE_EVERY = 300              # seconds between sweeps of the rate-limit tables
 # audit is up to ~20K). New audits are refused up front once it's reached, rather than failing
 # mid-audit when Groq runs out. Counts audits that call the model at all (CountingClient): an
 # audit whose links are all unreachable costs nothing and must not use up the day for everyone.
-DAILY_LIMIT = int(os.environ.get("GLOBAL_AUDITS_PER_DAY", "7"))
+HERE = Path(__file__).parent
+load_dotenv(HERE / ".env")
+# PROVIDER=groq (default) | gemini: see providers.py. Each has its own daily audit cap:
+# Groq GLOBAL_AUDITS_PER_DAY (7: ~20K tokens per audit vs 200K tokens/day); Gemini
+# GEMINI_AUDITS_PER_DAY (40: an audit sends one request per cited page, at most 10, and the
+# pacer keeps requests under 450 of the 500/day; 40 x 10 = 400 even in the worst case).
+PROVIDER = provider_name()
+DAILY_LIMIT = int(os.environ.get("GLOBAL_AUDITS_PER_DAY" if PROVIDER == "groq" else "GEMINI_AUDITS_PER_DAY",
+                                 "7" if PROVIDER == "groq" else "40"))
 DAILY_FULL = "Touchstone's free daily capacity is used up, try again tomorrow."
 MINUTE_FULL = "Touchstone is at its per-minute capacity right now. Try again in a minute."
 HEARTBEAT = json.dumps({"type": "heartbeat"}) + "\n"
-HERE = Path(__file__).parent
 
-load_dotenv(HERE / ".env")
-if not os.environ.get("GROQ_API_KEY"):
-    raise SystemExit("GROQ_API_KEY missing from .env")
-# max_retries=0: audit() does the retrying, so a per-minute 429 becomes a visible "waiting
-# for capacity" pause (the SDK would sleep silently, then give up), and timeouts/5xx get the
-# same 2 retries the SDK gave them.
-client = Groq(api_key=os.environ["GROQ_API_KEY"], timeout=30, max_retries=0)
-PACER = TokenPacer()           # Groq's tokens-per-minute window, shared by consecutive audits
+# Groq: max_retries=0, audit() does the retrying, so a per-minute 429 becomes a visible
+# "waiting for capacity" pause and timeouts/5xx get 2 retries. Keys come from the
+# environment only and are never logged.
+client = make_client(PROVIDER)
+PACER = TokenPacer.for_provider(PROVIDER)   # the provider's minute/day, shared by audits
+PROVIDER_NOTE = {"gemini": '<p class="meta">Reports are processed by Google Gemini.</p>'}
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
@@ -76,16 +81,18 @@ def asset_versions(static_dir):
             for p in sorted(static_dir.iterdir()) if p.is_file()}
 
 
-def versioned_index(static_dir, versions):
+def versioned_index(static_dir, versions, provider="groq"):
     """index.html with each /static/<name> reference rewritten to /static/<name>?v=<hash>.
-    Same-origin URLs, so script-src 'self' / style-src 'self' still cover them."""
+    Same-origin URLs, so script-src 'self' / style-src 'self' still cover them. The
+    <!--provider-note--> marker becomes the provider's data-use line (Gemini), or nothing."""
     html = (static_dir / "index.html").read_text(encoding="utf-8")
+    html = html.replace("<!--provider-note-->", PROVIDER_NOTE.get(provider, ""))
     return ASSET_REF.sub(lambda m: f"{m[1]}/static/{m[2]}?v={versions[m[2]]}{m[3]}"
                          if m[2] in versions else m[0], html)
 
 
 ASSET_VERSIONS = asset_versions(HERE / "static")      # computed once at startup
-INDEX_HTML = versioned_index(HERE / "static", ASSET_VERSIONS)
+INDEX_HTML = versioned_index(HERE / "static", ASSET_VERSIONS, PROVIDER)
 
 CSP = ("default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; "
        "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
@@ -171,21 +178,24 @@ def count_daily_audit():
 
 
 class CountingClient:
-    """Wraps the Groq client for one audit: the audit counts toward the daily cap at its first
-    model call ATTEMPT, before the request goes out. Counting reported tokens instead would
-    fail open: a call that errors, times out, or returns no usage reports 0 tokens even
-    though Groq may have spent them."""
+    """Wraps the provider's client for one audit: the audit counts toward the daily cap at its
+    first model call ATTEMPT, before the request goes out. Counting reported tokens instead
+    would fail open: a call that errors, times out, or returns no usage reports 0 tokens even
+    though the provider may have spent them. Groq: chat.completions.create; Gemini:
+    models.generate_content."""
 
     def __init__(self, inner):
         self.counted = False
-        self.chat = types.SimpleNamespace(completions=types.SimpleNamespace(create=self._create))
-        self._inner = inner
+        self.chat = types.SimpleNamespace(completions=types.SimpleNamespace(
+            create=lambda **k: self._call(lambda: inner.chat.completions.create(**k))))
+        self.models = types.SimpleNamespace(
+            generate_content=lambda **k: self._call(lambda: inner.models.generate_content(**k)))
 
-    def _create(self, **kwargs):
+    def _call(self, send):
         if not self.counted:
             self.counted = True
             count_daily_audit()
-        return self._inner.chat.completions.create(**kwargs)
+        return send()
 
 
 def prune(now):
@@ -290,8 +300,9 @@ async def run_audit(request: Request):
             if not started.wait(30):
                 return
             deadline = time.monotonic() + AUDIT_SECONDS
-            events = audit(report, CountingClient(client), max_claims=MAX_CLAIMS, deadline=deadline,
-                           pacer=PACER)
+            counted = CountingClient(client)
+            events = audit(report, counted, max_claims=MAX_CLAIMS, deadline=deadline,
+                           pacer=PACER, provider=make_provider(PROVIDER, counted))
             for ev in events:
                 if stop.is_set():
                     events.close()

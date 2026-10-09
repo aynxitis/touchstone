@@ -85,7 +85,28 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    correct claims (paraphrase; analytical sentences in 7/9/22/25/29). Groq call uses seed=0. Optional 2nd arg
    re-runs only those claim numbers. Writes audit.json. Each claim result carries "model"
    (the model's sanitized reply; None if unparseable) so judge() can replay it.
-4. touchstone.py: audit(report, client, pages=None, max_claims=None, only=None, deadline=None)
+3b. providers.py: PROVIDER=groq (default) | gemini (env; set per deployment, never default
+   to gemini). Groq: one call per claim, ~3,000 chars of excerpts (unchanged). Gemini
+   (gemini-3.5-flash-lite, verified in Google's model list 2026-10-09; google-genai SDK,
+   temperature 0, seed 0, JSON with a response schema): ONE call per cited page with every
+   chosen claim citing it, the page text whole up to 100K chars (page_for_model: longer pages
+   keep the claims' anchor passages and grow around them, "[...]" for gaps; lines verbatim
+   so quotes verify). Prompt: SYSTEM_MULTI = same PREAMBLE + RULES as Groq's SYSTEM (shared
+   verbatim; Groq's text is byte-identical), only the task statement asks for
+   {"claims": [{"id", "opinion", "parts"}]}. map_results() maps ids to claims; a missing or
+   malformed entry is that claim's ERROR. Every result goes through the same judge(): the
+   model reports, code decides. Claims with no passage on the page are not sent (zero-token
+   ui_check holds for both). Tokens of a call are split evenly over its claims.
+   Pacing per provider (pacing.LIMITS): Groq 7,500 TPM; Gemini 225K TPM, 13 RPM, 450 RPD
+   (under 250K/15/500), RPD used up -> stops like a per-day quota. Daily audit cap per
+   provider: GLOBAL_AUDITS_PER_DAY (Groq, 7), GEMINI_AUDITS_PER_DAY (Gemini, 40).
+   Eval: quote_check.py REPORT [CLAIMS] --provider groq|gemini --cache X.pages.json
+   --out runs/NAME.json [--max-claims 10] [--show-raw]; compare_runs.py A.json B.json
+   [--labels] compares two runs claim by claim; rescore.py reads both providers' runs.
+   report4 estimate (first 10 claims): Gemini 2 requests, ~12.6K tokens; Groq 10 requests,
+   ~17K tokens. Smoke test 2026-10-09 (2 claims, IANA page): 1 request, 798 tokens.
+4. touchstone.py: audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
+   pacer=None, clock, sleep, provider=None)
    is the importable pipeline. Yields events: start {cited, checked, uncited, limit}, claim
    (one per segment, uncited ones with claim: null), skipped {label: NOT CHECKED}, done
    {tokens}. pages=None fetches live. max_claims keeps the FIRST N cited claims in report
@@ -150,12 +171,15 @@ Labels: SOURCED / PARTIAL / COULDN'T CONFIRM / UNSUPPORTED / CONTRADICTED / UNVE
 NO SOURCE GIVEN / NOT CHECKED / ERROR. Verdicts judge factual parts only; editorial framing is noted, not penalized.
 
 ## Rules
-- GROQ_API_KEY lives in .env only. Never in code, prompts, logs, or git.
+- GROQ_API_KEY and GEMINI_API_KEY live in .env (local) / the host's sealed variables only.
+  Never in code, prompts, logs, or git.
 - PROXY_SECRET (openssl rand -hex 32) lives only in Railway's variables and the Worker's
   secrets. Never in code, git, logs, chats or prompts; never ask Anis to paste it.
 - Page text is untrusted (prompt injection). Keep it delimited; never put secrets in prompts.
 - Never commit fetch_results.json, runs/ or *.pages.json (copies of other sites' pages).
 - Free tier: Groq 30 RPM, 1K RPD, 8K TPM, 200K tokens/day. ~900 tokens per claim.
+  Gemini 3.5 Flash Lite (free, per project): 15 RPM, 250K TPM, 500 RPD. Free-tier Gemini API
+  content may be used by Google to improve its products (check the current terms).
   Re-run only the claims you're debugging.
 - Never present a verdict as stronger than the evidence. Honesty is the product.
 
