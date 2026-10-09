@@ -11,7 +11,10 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    【1】 + a numbered/bracketed source list or Sources/References section) into inline URLs
    and drops the source list; a run of markers gives the text its FIRST source only.
    segments() splits the report per line; a link owns its line's text
-   (a ':' lead-in + its bullets form one block); uncited text -> NO SOURCE GIVEN;
+   (a ':' lead-in + its bullets form one block); uncited text -> NO SOURCE GIVEN; passages
+   with no letter or digit (the "." after "([Name](url)).") and rules (---, ***, ___) are
+   dropped; link stripping keeps balanced parentheses ("(+23.9%) ([Eleport](url))" ->
+   "(+23.9%)");
    code-only check that numbers in a claim appear on the cited page.
 3. quote_check.py REPORT [4,9]: best_excerpts() picks paragraphs (max 3000 chars total):
    first, per anchor of the claim (titles in quotes/*italics*/_underscores_, organisation
@@ -39,11 +42,20 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    (W/kW/MW/GW/TW + written-out; Wh..TWh; thousand/million/billion/trillion, k/M/bn/B), and
    the page number converts to the claim's at its stated precision, rounded or cut off
    (15,925 MW = 15.9 GW = 16 GW, not 17 GW; 3,267 MW = 3.2 or 3.3 GW). A number without a
-   unit is never scaled. Framing lexicon (EVALUATIVE): a part with no number, an evaluative
+   unit is never scaled. Locale numbers (locnum.py), used by every number comparison
+   (claim-wide, per fact, units, quote matcher, excerpt keywords/anchors): a token is
+   grouped (1-3 digits, then groups of exactly 3 after one separator kind: space, NBSP,
+   U+202F, U+2009, ' or ’, '.', ',') or plain (digits with an optional ',' or '.' decimal).
+   Each token gets every plausible reading: "1,234"/"545.142" = thousands or decimal;
+   "29,7" = 29.7; space-grouped page tokens also yield each group (table rows). Two numbers
+   match if any readings are equal (unit-scaled: at the claim's precision). A 4-digit start
+   never groups, so "2025 2 585 187" is 2025 and 2585187. Reasons quote the number as the
+   claim wrote it ("2,585,187 not in its passage"). Framing lexicon (EVALUATIVE): a part with no number, an evaluative
    word (largest, leading, the most...) and < 8 other content words is framing, whatever the
    model says. No content-noun check and no framing->fact rule: on the saved runs both broke
    correct claims (paraphrase; analytical sentences in 7/9/22/25/29). Groq call uses seed=0. Optional 2nd arg
-   re-runs only those claim numbers. Writes audit.json.
+   re-runs only those claim numbers. Writes audit.json. Each claim result carries "model"
+   (the model's sanitized reply; None if unparseable) so judge() can replay it.
 4. touchstone.py: audit(report, client, pages=None, max_claims=None, only=None, deadline=None)
    is the importable pipeline. Yields events: start {cited, checked, uncited, limit}, claim
    (one per segment, uncited ones with claim: null), skipped {label: NOT CHECKED}, done
@@ -61,6 +73,9 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    5 audits/IP/hour (IPv6: per /64) + GLOBAL_AUDITS_PER_DAY (7, UTC day, counted at an audit's first model call; in memory), one audit at a time (Groq TPM), 300 s per audit (later claims
    -> NOT CHECKED), a {"type":"heartbeat"} line after 15 s of stream silence (the audit runs in
    its own thread, which owns the busy lock; app.js ignores heartbeats), 30 s Groq timeout, 30 s hard wall clock (async, cancelled on expiry) + 3 MB per fetched page. Strict CSP header.
+   After an audit, a "Download results" button saves the run as JSON, built client-side
+   from the received events (no server storage): report, every claim event (facts, quotes,
+   statuses, label, reason, URL, model reply), not_checked, uncited, tokens, timestamp.
    Frontend renders everything with textContent (never innerHTML); only http(s) URLs become
    links; every streamed field is type-checked, bad lines become a "could not be read" card.
    A report with zero cited claims (no links, names-only sources, or a Sources list without
@@ -84,8 +99,9 @@ Parsing regexes must stay linear: every repeated group starts with a literal, wh
 runs are capped (a nested \s* marker regex once hung the server on 20,000 spaces).
 Report parsing runs in a thread pool, never on the event loop.
 Dependencies: requirements.txt. Token-free checks: .venv/bin/python test_parsing.py (parsing,
-bot-page fixtures on a mocked transport, claim cap order), test_checks.py (unit-scaled
-numbers, name check scope/acronyms, VOLZ/Moustachir, anchor passage selection) and
+bot-page fixtures on a mocked transport, claim cap order, report4 junk passages and
+parentheses), test_checks.py (unit-scaled and locale numbers, name check scope/acronyms,
+VOLZ/Moustachir, anchor passage selection, rescore.py end to end) and
 test_security.py (network: rebinding, TLS, SSRF blocks; client IP + proxy secret, table
 pruning, heartbeat with a fake slow model, examples/ui_check.txt makes no model call,
 cache-busting headers). examples/ui_check.txt = DEPLOY.md's zero-token UI check on production.
@@ -125,7 +141,20 @@ optimistic. The next eval is a fresh report with fresh labels, scored with both 
 Claim 1 label corrected SOURCED -> PARTIAL (2026-10-07) after re-checking the source: the
 page names tax advantages and public procurement, not public funding.
 2026-10-09: re-scored the saved run (audit.json) through judge() after the units/name-check
-changes below: no label or reason changed (11/13 on that run, same as before).
+changes below: no label or reason changed (11/13 on that run, same as before). Same again
+after locale numbers + parsing fixes (also no excerpt or report2 segment changed).
+
+## Re-scoring production runs (zero tokens)
+After a change to the code checks, never re-run audits to see its effect: download the run
+from the web page ("Download results") and run
+  .venv/bin/python rescore.py RUN.json --cache NAME.pages.json [--labels labelsN.json]
+It re-fetches the cited pages (or reads the cache; *.pages.json is gitignored: copies of
+other sites' pages), replays each claim's saved model reply through the current judge(),
+and prints old -> new label per claim (+ accuracy vs hand labels). It works on the CLI's
+audit.json too (older runs without "model" are rebuilt from their facts). It cannot measure
+changes to excerpt selection or the prompt (the model's reply is fixed), and a page that
+changed since the run can move a label by itself. Claims judged without a model call are
+re-scored only if the page still offers no passage.
 
 ## Fresh-report eval 1 (2026-10-09, production): report3.txt, North African renewables
 Perplexity report, 18 cited claims; production checked 10 (1-4, 6-11: the old numbers-first
@@ -135,7 +164,14 @@ checks 1-10: claim 5 is in (unlabelled), claim 11 is out; use only=1-11 to repla
 target 85%; claim 4 SOURCE UNREACHABLE not scored). All 3 errors were false alarms from code
 checks: unit-scaled numbers ("15.9 GW" vs "15,925 MW") and the name check (whole-claim
 scope + "PV" read as a name, "Pv not named in its passage"). Both fixed 2026-10-09.
-report3 is now a REGRESSION SET, not an eval set: it has been seen. The next eval must use
+report3 is now a REGRESSION SET, not an eval set: it has been seen.
+
+## Fresh-report eval 2 (2026-10-09, production): report4.txt, Gemini, EV sales in Europe
+22 cited claims, 2 uncited sentences. Scored 3/10: all 7 errors were false UNSUPPORTED from
+locale numbers (eleport.com writes "2 585 187", "29,7%"; the report "2,585,187", "29.7%").
+Also: 19 junk "." passages in the uncited list and "(+23.9%" truncation. All fixed
+2026-10-09 (locnum.py, segments()). No hand labels file yet. report4 is now a REGRESSION
+set too; re-score the production run with rescore.py, then the next eval is a fresh report. The next eval must use
 fresh reports run after these fixes, scored with both metrics.
 
 ## Open issues, in order

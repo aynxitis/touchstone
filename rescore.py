@@ -1,0 +1,124 @@
+"""Re-score a saved run with the current code checks, zero tokens.
+
+  .venv/bin/python rescore.py RUN.json [--cache PAGES.json] [--labels LABELS.json]
+
+RUN.json is a file from the web page's "Download results" button, or the CLI's audit.json.
+Each checked claim's saved model reply is fed through the current judge() against its page,
+and the old and new labels are printed side by side. Pages are re-fetched (no model call);
+with --cache, they are read from PAGES.json if it exists, else fetched and saved there.
+Cache files are copies of other sites' pages: never commit them (*.pages.json is ignored).
+
+Limits: the model's reply is replayed as it was, so a change to passage selection or the
+prompt is not measured (the model would have seen other passages). A page that changed since
+the run can move a label by itself. Older runs without the "model" field are rebuilt from
+their facts (a fact a code check demoted is replayed as the model's "stated")."""
+import argparse
+import json
+import os
+
+from fetch_links import fetch_many
+from quote_check import best_excerpts, judge
+
+SKIP = {"SOURCE UNREACHABLE", "NOT CHECKED", "NO SOURCE GIVEN"}
+META_NOTE = " Judged from the page's meta description only (the page body loads with JavaScript)."
+
+
+def load_run(path):
+    """[(claim number, text, url, old label, claim dict)] for the checked claims."""
+    with open(path, encoding="utf-8") as f:
+        run = json.load(f)
+    claims = run["claims"] if isinstance(run, dict) else run      # download | audit.json
+    return [c for c in claims if isinstance(c, dict) and c.get("claim") and c.get("url")]
+
+
+def model_reply(c):
+    """The model's reply for a claim: saved as is (new runs), else rebuilt from its facts.
+    None: no model call was made (or its reply was unparseable)."""
+    if "model" in c:
+        return c["model"]
+    if c["label"] == "OPINION":
+        return {"opinion": True, "parts": []}
+    if not c.get("facts") and not c.get("framing"):
+        return None
+    parts = []
+    for f in c.get("facts", []):
+        quote = f.get("quote") or f.get("unmatched_quote") or f.get("rejected_quote") or ""
+        status = f["status"]
+        if f.get("unmatched_quote") or f.get("rejected_quote") or (status == "contradicted" and f.get("note")):
+            status = "stated"           # demoted by a code check: the model had said stated
+        parts.append({"text": f["fact"], "kind": "fact", "status": status, "quote": quote})
+    parts += [{"text": x, "kind": "framing", "status": "", "quote": ""} for x in c.get("framing", [])]
+    return {"opinion": False, "parts": parts}
+
+
+def get_pages(urls, cache):
+    pages = {}
+    if cache and os.path.exists(cache):
+        with open(cache, encoding="utf-8") as f:
+            pages = {r["url"]: r for r in json.load(f)}
+    todo = [u for u in urls if u not in pages]
+    if todo:
+        print(f"Fetching {len(todo)} page(s) (no model call)...")
+        pages.update(zip(todo, fetch_many(todo)))
+        if cache:
+            with open(cache, "w", encoding="utf-8") as f:
+                json.dump(list(pages.values()), f, ensure_ascii=False)
+    return pages
+
+
+def rescore(c, page):
+    """New label and reason for one claim, or (None, why) when it can't be re-scored."""
+    if c["label"] in SKIP:
+        return None, "not judged in the run"
+    if not page.get("text"):
+        return None, f"page unreadable now ({page.get('status')})"
+    reply = model_reply(c)
+    if reply is None:
+        if c["label"] == "ERROR":
+            return None, "model reply was unparseable"
+        if best_excerpts(c["text"], page["text"]):
+            return None, "no model call in the run; would call the model now"
+        reply = {}                          # still no passage: judged without the model
+        r = {"label": "UNVERIFIED", "reason": "No relevant passage found on the page."}
+    else:
+        r = judge(reply, c["text"], page["text"], c["url"])
+    if page.get("meta_only"):
+        r["reason"] = (r.get("reason", "") + META_NOTE).strip()
+    return r["label"], r["reason"]
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Re-score a saved Touchstone run with zero tokens.")
+    ap.add_argument("run")
+    ap.add_argument("--cache", help="pages cache (read if present, else written)")
+    ap.add_argument("--labels", help="hand labels [{claim, label}] to score old vs new")
+    args = ap.parse_args()
+
+    claims = load_run(args.run)
+    pages = get_pages(list(dict.fromkeys(c["url"] for c in claims)), args.cache)
+    labels = {}
+    if args.labels:
+        with open(args.labels, encoding="utf-8") as f:
+            labels = {x["claim"]: x["label"] for x in json.load(f)}
+
+    changed, results = 0, {}
+    for c in claims:
+        new, reason = rescore(c, pages.get(c["url"]) or {})
+        results[c["claim"]] = new or c["label"]
+        mark = "  " if new in (None, c["label"]) else "->"
+        changed += mark == "->"
+        note = f"  ({reason})" if new is None else ""
+        print(f"[{c['claim']:>2}] {c['label']:<18} {mark} {new or '(kept)':<18}{note}")
+        if mark == "->":
+            print(f"       {reason}")
+    print(f"\n{changed} label(s) changed out of {len(claims)}.")
+    if labels:
+        sc = lambda l: "UNSUPPORTED" if l == "CONTRADICTED" else l     # CLAUDE.md scoring
+        old = {c["claim"]: c["label"] for c in claims}
+        scorable = [n for n, l in labels.items() if n in old and l != "SOURCE UNREACHABLE"]
+        acc = lambda got: sum(sc(got[n]) == sc(labels[n]) for n in scorable)
+        print(f"Accuracy vs {args.labels}: old {acc(old)}/{len(scorable)}, new {acc(results)}/{len(scorable)}")
+
+
+if __name__ == "__main__":
+    main()

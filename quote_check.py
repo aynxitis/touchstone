@@ -9,9 +9,11 @@ from dotenv import load_dotenv
 from groq import Groq
 from rapidfuzz import fuzz
 
-from check_numbers import NUM_RE, norm, segments
+from check_numbers import NUM_RE, segments
 from entities import check_fact, entities, named_in, paragraph_of
 from units import unit_supported
+import locnum
+from locnum import NUMBER_RE
 
 MODEL = "openai/gpt-oss-120b"
 MAX_EXCERPT_CHARS = 3000   # keeps each call well under Groq's 8K tokens/minute
@@ -71,13 +73,16 @@ def piece_on_page(quote, page):
     if m.score < QUOTE_MATCH_MIN:
         return False
     # A fuzzy match may forgive a typo, never a changed figure: the quote's numbers must
-    # equal those in the matched passage (compared after norm(), so 1,500 == 1500).
-    nums = lambda t: sorted(norm(n).rstrip(".") for n in NUM_RE.findall(t))
-    return nums(q) == nums(p[m.dest_start:m.dest_end])
+    # equal those in the matched passage, in any locale format (1,500 == 1 500 == 1500).
+    span = p[m.dest_start:m.dest_end]
+    count = lambda t: sum(1 for _ in NUMBER_RE.finditer(t))
+    return (count(q) == count(span) and not locnum.missing(q, span, min_digits=1)
+            and not locnum.missing(span, q, min_digits=1))
 
 def keywords(text):
     words = re.findall(r"[a-zA-Z][a-zA-Z\-]{2,}", text.lower())
-    nums = [norm(n) for n in NUM_RE.findall(text) if len(norm(n)) >= 2]
+    nums = [locnum.canon(v) for m in NUMBER_RE.finditer(text) if locnum.digits(m) >= 2
+            for v in locnum.readings(m)]
     return {w for w in words if w not in STOPWORDS} | set(nums)
 
 
@@ -106,12 +111,12 @@ def anchors(claim, page):
     titles = [plain(next(g for g in m.groups() if g)) for m in TITLE_RE.finditer(claim)]
     names = [e for e in entities(claim, page)
              if (e.isupper() and " " not in e) or ORG_WORDS.search(e)]
-    nums = {}                                  # number -> its offsets in the claim
-    for m in NUM_RE.finditer(claim):
-        if len(norm(m.group()).replace(".", "")) >= 2:
-            nums.setdefault(norm(m.group()), set()).add(m.start())
+    nums = {}                                  # number as written -> (readings, offsets)
+    for m in NUMBER_RE.finditer(claim):
+        if locnum.digits(m) >= 2:
+            nums.setdefault(m.group(), (frozenset(locnum.readings(m)), set()))[1].add(m.start())
     return ([("title", t) for t in dict.fromkeys(titles) if len(t) >= 3]
-            + [("name", e) for e in names] + [("number", x) for x in nums.items()])
+            + [("name", e) for e in names] + [("number", x) for x in nums.values()])
 
 
 def has_anchor(kind, value, para, claim):
@@ -119,8 +124,8 @@ def has_anchor(kind, value, para, claim):
         return value in plain(para)
     if kind == "name":
         return named_in(value, para)
-    n, offsets = value                         # written as is, or unit-scaled (15.9 GW)
-    return n in {norm(x) for x in NUM_RE.findall(para)} or bool(offsets & unit_supported(claim, para))
+    vals, offsets = value                      # any locale format, or unit-scaled (15.9 GW)
+    return bool(vals & locnum.values(para)) or bool(offsets & unit_supported(claim, para))
 
 
 def best_excerpts(claim, page):
@@ -170,16 +175,10 @@ def is_evaluative(text):
 
 
 def numbers_not_in(text, passage, min_digits=2):
-    """Numbers in text (min_digits+ digits) that are neither written in the passage nor a
-    unit-scaled form of a passage number (15.9 GW = 15,925 MW; see units.py)."""
-    have = {norm(n).rstrip(".") for n in NUM_RE.findall(passage)}
-    scaled = unit_supported(text, passage)
-    out = []
-    for m in NUM_RE.finditer(text):
-        n = norm(m.group()).rstrip(".")
-        if len(n.replace(".", "")) >= min_digits and n not in have and m.start() not in scaled:
-            out.append(n)
-    return list(dict.fromkeys(out))
+    """Numbers in text (min_digits+ digits), as written, that are neither in the passage in
+    any locale format (2,585,187 = 2 585 187; 29.7 = 29,7; locnum.py) nor a unit-scaled form
+    of a passage number (15.9 GW = 15,925 MW; units.py)."""
+    return locnum.missing(text, passage, min_digits, scaled=unit_supported(text, passage))
 
 
 def numbers_not_in_passage(fact, quote, page):
@@ -219,10 +218,12 @@ def check(client, claim, page, url=""):
 
 def judge(out, claim, page, url="", raw=""):
     """Code-only half of check(): turn the model's parsed reply into facts, framing and a
-    label. No tokens, so saved runs can be re-scored after a change to the code checks."""
+    label. No tokens, so saved runs can be re-scored after a change to the code checks.
+    The result's "model" field is the model's reply as judged (sanitized parts; None if it
+    was unparseable): rescore.py feeds it back in here."""
     if out.get("opinion") is True:
         return {"label": "OPINION", "quote": "", "reason": "Advice or opinion, not a checkable fact.",
-                "facts": [], "framing": []}
+                "facts": [], "framing": [], "model": {"opinion": True, "parts": []}}
 
     # Model output is untrusted too: anything that isn't the expected shape is dropped
     # or coerced to a string, never trusted.
@@ -299,7 +300,8 @@ def judge(out, claim, page, url="", raw=""):
         parts.insert(0, "No checkable fact identified in the claim.")
     reason = " ".join(parts) or raw[:200]
     quote = next((f["quote"] for f in facts if f["status"] in ("contradicted", "stated")), "")
-    return {"label": label, "quote": quote, "reason": reason, "facts": facts, "framing": framing}
+    return {"label": label, "quote": quote, "reason": reason, "facts": facts, "framing": framing,
+            "model": {"opinion": False, "parts": parts_in} if out else None}
 
 
 def main():

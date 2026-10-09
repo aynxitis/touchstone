@@ -136,7 +136,31 @@ function summaryLine(counts, checked, cited) {
   return bits.length ? `${head}: ${bits.join(", ")}` : head;
 }
 
+// The last finished run, for "Download results": built from the events already received,
+// nothing is stored on the server. rescore.py re-scores such a file with zero tokens.
+let lastRun = null;
+
+function offerDownload(run) {
+  run.created = new Date().toISOString();
+  lastRun = run;
+  $("download").hidden = false;
+}
+
+function downloadRun() {
+  if (!lastRun) return;
+  const blob = new Blob([JSON.stringify(lastRun, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `touchstone-run-${lastRun.created.replace(/[:.]/g, "-")}.json`;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
 function reset() {
+  lastRun = null;
+  $("download").hidden = true;
   $("cards").replaceChildren();
   $("summary").textContent = "";
   $("scope").textContent = "";
@@ -195,6 +219,11 @@ async function runAudit() {
 
   let total = 0, cited = 0, limit = null, done = 0, finished = false, noLinks = false, sentences = 0, stopped = "";
   const counts = {};
+  // Everything needed to re-check the run later: each claim event as received (facts,
+  // quotes, statuses, label, reason, URL, the model's reply), the not-checked claims, and
+  // the uncited passages.
+  const run = { format: "touchstone-run", version: 1, created: "", report, cited: 0, checked: 0,
+                tokens: null, stopped: null, claims: [], not_checked: [], uncited: [] };
 
   const handle = (ev) => {
     if (!ev || typeof ev !== "object") throw new Error("bad event");
@@ -202,6 +231,8 @@ async function runAudit() {
     if (ev.type === "start") {
       total = int(ev.checked) ?? 0;
       cited = int(ev.cited) ?? total;
+      run.cited = cited;
+      run.checked = total;
       limit = int(ev.limit);
       if (cited === 0) { noLinks = true; return; }   // screen shown at "done"
       $("scope").textContent = cited > total
@@ -212,8 +243,11 @@ async function runAudit() {
       if (ev.claim === null) {
         if (noLinks) sentences += countSentences(str(ev.text));
         else addUncited(str(ev.text));
+        run.uncited.push(str(ev.text));
         return;
       }
+      const { type, index, ...claim } = ev;
+      run.claims.push(claim);
       done += 1;
       const label = str(ev.label) || "UNKNOWN";
       counts[label] = (counts[label] || 0) + 1;
@@ -221,13 +255,18 @@ async function runAudit() {
       setStatus(done < total ? `Claim ${done}/${total} done, checking the next…` : `Claim ${done}/${total} done`);
     } else if (ev.type === "skipped") {
       addSkipped(ev, limit);
+      run.not_checked.push({ claim: int(ev.claim), text: str(ev.text), url: str(ev.url),
+                             label: "NOT CHECKED", reason: limit ? `Limit of ${limit} claims per audit.` : "" });
     } else if (ev.type === "quota") {
       // Out of capacity mid-audit: keep the cards so far, say so once, no per-claim errors.
       stopped = str(ev.message) || "Touchstone's free daily capacity is used up, try again tomorrow.";
+      run.stopped = stopped;
       $("scope").textContent = `Stopped after ${done} of ${total} claims. Results so far are kept.`;
     } else if (ev.type === "done") {
       finished = true;
+      run.tokens = int(ev.tokens);
       if (noLinks) { showNoLinks(sentences); return; }
+      if (done) offerDownload(run);
       if (stopped) {
         setStatus(stopped, true);
         if (done) $("summary").textContent = summaryLine(counts, done, cited);
@@ -276,6 +315,7 @@ async function runAudit() {
     if (!finished && !$("status").classList.contains("error")) {
       setStatus(`The connection ended early. Claim ${done}/${total} done.`, true);
       if (done) $("summary").textContent = summaryLine(counts, done, cited);
+      if (done) { run.stopped = "The connection ended early."; offerDownload(run); }
     }
   } catch {
     setStatus("Could not reach the server.", true);
@@ -318,4 +358,5 @@ $("report").addEventListener("input", updateCount);
 $("audit").addEventListener("click", runAudit);
 $("example").addEventListener("click", loadExample);
 $("copy-prompt").addEventListener("click", copyPrompt);
+$("download").addEventListener("click", downloadRun);
 updateCount();

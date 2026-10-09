@@ -20,9 +20,23 @@ def clean(text):
         text = " — ".join(c.strip() for c in text.split("|") if c.strip())
     text = re.sub(r"^\s*(?:[-*+]|\d+\.)\s+", "", text)
     text = text.replace("**", "")
-    return re.sub(r"\s+", " ", text).strip(" -*()[]|")
+    return trim_parens(re.sub(r"\s+", " ", text).strip(" -*[]|"))
 
 
+def trim_parens(text):
+    """Strip the parentheses a removed link leaves at the ends ("... (+23.9%) (" from
+    "(+23.9%) ([Eleport](url))"), but keep balanced ones: "(+23.9%)" stays whole."""
+    while text:
+        if text[-1] == "(" or (text[-1] == ")" and text.count(")") > text.count("(")):
+            text = text[:-1].rstrip(" -*[]|")
+        elif text[0] == ")" or (text[0] == "(" and text.count("(") > text.count(")")):
+            text = text[1:].lstrip(" -*[]|")
+        else:
+            break
+    return text
+
+
+HAS_WORD = re.compile(r"[^\W_]")     # a letter or digit: passages without one are junk
 LIST_ITEM = re.compile(r"^\s*(?:[-*+]|\d+\.)\s+")
 
 # Footnote citations: "[1]", "[1, 2]", "[^1]", "【1】" in the text, not followed by "(" or
@@ -100,9 +114,9 @@ def segments(report):
         s = line.strip()
         if not s:
             continue                                   # blank lines don't end a block
-        if s.startswith("#") or re.fullmatch(r"\|?[\s:\-|]*", s):
+        if s.startswith("#") or re.fullmatch(r"\|?[\s:\-|]*|[*_\s]{3,40}", s):
             flush()
-            continue                                   # heading, table separator
+            continue                                   # heading, table separator, rule
         links = list(URL_RE.finditer(line))
         if not links and s.startswith("|"):
             flush()
@@ -116,11 +130,11 @@ def segments(report):
             if block:
                 text = " ".join(block + [text]).strip()
                 block.clear()
-            if text:
+            if HAS_WORD.search(text):
                 out.append((text, m.group().rstrip(".,;:!?")))
         tail = clean(line[last:])
-        if not tail:
-            continue
+        if not HAS_WORD.search(tail):
+            continue                                   # "." left after "([Name](url))."
         if links or not (block or tail.endswith(":")):
             out.append((tail, None))
         else:

@@ -118,4 +118,79 @@ assert attribution not in old and figure not in old
 assert [a for a in anchors("IRENA's data and 'Energy Outlook 2030' plus _World Energy Review_ say 12%.", "")
         if a[0] == "title"] == [("title", "energy outlook 2030"), ("title", "world energy review")]
 
+# 4. Locale number formats (locnum.py): any reading of a page number may equal the claim's.
+from decimal import Decimal as D
+import locnum
+for claim, passage in (("2,585,187 cars were sold", "Sales: 2 585 187 cars"),
+                       ("a 29.7% increase", "une hausse de 29,7%"),
+                       ("1,992,803 in 2024", "1\u202f992\u202f803 en 2024"),
+                       ("1,992,803 in 2024", "1\u00a0992\u00a0803 en 2024"),
+                       ("1,992,803 in 2024", "1\u2009992\u2009803 en 2024"),
+                       ("545,142 EVs", "545.142 Elektroautos"),
+                       ("2,585,187 cars", "2'585'187 Autos"),
+                       ("2,585,187 cars", "2\u2019585\u2019187 Autos"),
+                       ("60,651 EVs", "Austria 60,651"),
+                       ("Norway grew 50.6%", "Norwegen 50,6%"),
+                       ("1,234.5 units", "1.234,5 Einheiten"),
+                       ("2,585,187 EVs, 29.7% more", "In 2025 2 585 187 EVs, +29,7%")):
+    assert found(claim, passage), (claim, passage)
+for claim, passage in (("a 29.7% increase", "une hausse de 27,9%"),
+                       ("2,585,187 cars", "2 585 178 cars"),
+                       ("Norway grew 50.6%", "5,06%"),
+                       ("2,585,187 cars", "2585 187 cars")):          # 4-digit first group: not one number
+    assert not found(claim, passage), (claim, passage)
+# A year followed by a number is two numbers, never 20252585187 or 2025258.
+toks = [(m.group(), locnum.readings(m, page=True)) for m in locnum.NUMBER_RE.finditer("In 2025 2 585 187 cars")]
+assert [t for t, _ in toks] == ["2025", "2 585 187"], toks
+assert D(20252585187) not in locnum.values("In 2025 2 585 187 cars") and D(2025258) not in locnum.values("In 2025 2 585 187 cars")
+# Ambiguous tokens keep both readings; lists stay separate numbers.
+assert locnum.values("1,234") == {D(1234), D("1.234")} and locnum.values("545.142") == {D(545142), D("545.142")}
+assert locnum.values("10, 20, 30") == {D(10), D(20), D(30)}
+assert [m.group() for m in locnum.NUMBER_RE.finditer("10,20,30 and 1,5,7")] == ["10,20", "30", "1,5", "7"]
+# Reasons name the number as the claim wrote it.
+assert missing_numbers("Sales reached 2,585,187.", "Sales reached 2 585 178.") == ["2,585,187"]
+# The per-fact check and the quote matcher read locale formats too.
+pg = "Battery-electric sales reached 2 585 187 units in 2025, up 29,7% on 2024.\nOther."
+qt = "Battery-electric sales reached 2 585 187 units in 2025, up 29,7% on 2024."
+assert numbers_not_in_passage("2,585,187 BEVs were sold in 2025, up 29.7%", qt, pg) == []
+assert quote_on_page("Battery-electric sales reached 2,585,187 units in 2025, up 29.7% on 2024.", pg)
+assert not quote_on_page("Battery-electric sales reached 2,585,178 units in 2025, up 29.7% on 2024.", pg)
+# Units with locale numbers: 15 925 MW (French) is 15.9 GW.
+assert found("Capacity reached 15.9 GW.", "capacité de 15 925 MW")
+
+# 5. rescore.py: a downloaded run is re-scored through the current judge() with zero tokens.
+#    Report4 claim 1 as production judged it before locale numbers: the model said "stated",
+#    the number check demoted it ("2585187 not in its passage") -> UNSUPPORTED. Now SOURCED.
+import json as _json, os as _os, subprocess, sys as _sys, tempfile as _tf
+url4 = "https://eleport.com/ev-sales-in-europe/"
+page4 = ("EV sales in Europe\nIn 2025, 2 585 187 battery-electric cars were sold in Europe (EU, EFTA "
+         "and the UK), a rise of 29,7% from 1 992 803 in 2024.\nOther text about charging.")
+quote4 = ("In 2025, 2 585 187 battery-electric cars were sold in Europe (EU, EFTA and the UK), a rise "
+          "of 29,7% from 1 992 803 in 2024.")
+claim4 = ("Total EV Sales: 2,585,187 battery-electric vehicles were sold across Europe (EU, EFTA, and "
+          "the UK) in 2025")
+model4 = {"opinion": False, "parts": [{"text": "2,585,187 battery-electric vehicles were sold across "
+          "Europe (EU, EFTA, and the UK) in 2025", "kind": "fact", "status": "stated", "quote": quote4}]}
+assert judge(model4, claim4, page4, url4)["label"] == "SOURCED"
+run4 = {"format": "touchstone-run", "version": 1, "report": claim4, "claims": [
+    {"claim": 1, "text": claim4, "url": url4, "label": "UNSUPPORTED", "model": model4,
+     "facts": [{"fact": model4["parts"][0]["text"], "status": "missing", "quote": "",
+                "unmatched_quote": quote4, "note": "Quote found, but 2585187 not in its passage."}]},
+    {"claim": 2, "text": "Unreachable one", "url": "https://x.invalid/", "label": "SOURCE UNREACHABLE"}],
+    "not_checked": [], "uncited": []}
+with _tf.TemporaryDirectory() as d:
+    run_path, cache = _os.path.join(d, "run.json"), _os.path.join(d, "r4.pages.json")
+    _json.dump(run4, open(run_path, "w"))
+    _json.dump([{"url": url4, "status": "OK", "text": page4}, {"url": "https://x.invalid/", "status": "ERROR"}],
+               open(cache, "w"))
+    labels_path = _os.path.join(d, "labels.json")
+    _json.dump([{"claim": 1, "label": "SOURCED"}], open(labels_path, "w"))
+    out = subprocess.run([_sys.executable, "rescore.py", run_path, "--cache", cache, "--labels", labels_path],
+                         capture_output=True, text=True, check=True).stdout
+assert "[ 1] UNSUPPORTED        -> SOURCED" in out, out
+assert "1 label(s) changed out of 2." in out and "old 0/1, new 1/1" in out, out
+# Without the "model" field (older runs), the reply is rebuilt from the facts: same result.
+import rescore
+assert rescore.model_reply({k: v for k, v in run4["claims"][0].items() if k != "model"}) == model4
+
 print("check tests passed")

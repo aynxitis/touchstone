@@ -1,0 +1,43 @@
+The European electric vehicle (EV) market experienced robust growth in 2025, with battery-electric vehicles (BEVs) achieving record sales and market penetration across the continent.
+
+### Overall European Sales & Market Share (2025)
+
+* **Total EV Sales:** 2,585,187 battery-electric vehicles were sold across Europe (EU, EFTA, and the UK) in 2025 ([Eleport](https://eleport.com/ev-sales-in-europe/)).
+* **Year-Over-Year Growth:** This represents a strong **29.7% increase** compared to the 1,992,803 EVs sold in 2024 ([Eleport](https://eleport.com/ev-sales-in-europe/)).
+* **Market Share:** EVs captured **19.5%** of the total European new car market, meaning roughly one in five new cars sold was fully electric ([Eleport](https://eleport.com/ev-sales-in-europe/)).
+
+---
+
+### Sales Figures and Market Share by Country
+
+Adoption rates varied significantly by region, heavily concentrated in Northern and Western Europe.
+
+* **Norway:** 172,231 EVs sold (+50.6%), dominating with a **95.9%** EV market share ([Eleport](https://eleport.com/ev-sales-in-europe/)).
+* **Germany:** 545,142 EVs sold (+43.2%), achieving a **20.1%** EV market share. Germany remained the largest European EV market by total volume ([Eleport](https://eleport.com/ev-sales-in-europe/)).
+* **United Kingdom:** 473,348 EVs sold (+23.9%) ([Eleport](https://eleport.com/ev-sales-in-europe/)).
+* **France:** 326,922 EVs sold (+12.5%), reaching a **20.0%** EV market share ([Eleport](https://eleport.com/ev-sales-in-europe/)).
+* **Denmark:** Reached an estimated **68%** EV market share ([Best Selling Cars](https://www.best-selling-cars.com/europe/2025-full-year-europe-bev-electric-car-sales-per-european-country/)).
+* **Netherlands:** Reached a **40%** EV market share ([Best Selling Cars](https://www.best-selling-cars.com/europe/2025-full-year-europe-bev-electric-car-sales-per-european-country/)).
+* **Finland:** 26,745 EVs sold (+22.3%), resulting in a **37.2%** EV market share ([Eleport](https://eleport.com/ev-sales-in-europe/)).
+* **Sweden:** 99,723 EVs sold (+5.7%), achieving a **36.5%** EV market share ([Eleport](https://eleport.com/ev-sales-in-europe/)).
+* **Austria:** 60,651 EVs sold (+35.9%), reaching a **21.3%** EV market share ([Eleport](https://eleport.com/ev-sales-in-europe/)).
+* **Poland:** 43,311 EVs sold (+161.5%), reaching a **7.2%** EV market share ([Eleport](https://eleport.com/ev-sales-in-europe/)).
+* **Spain & Italy:** EV adoption remained much lower, finishing at **9%** and **6%** market share, respectively ([Best Selling Cars](https://www.best-selling-cars.com/europe/2025-full-year-europe-bev-electric-car-sales-per-european-country/)).
+
+---
+
+### Brand Performance and Top EV Models
+
+While exact percentage shares for every individual brand across the entire continent are highly fragmented, market positioning shifted dramatically among the top automakers:
+
+* **Volkswagen:** Reclaimed the title as the **#1 best-selling electric car brand** in Europe for the full year ([Best Selling Cars](https://www.best-selling-cars.com/europe/2025-full-year-europe-bev-electric-car-sales-per-european-country/)).
+* **Tesla:** Despite having the most popular individual car, Tesla struggled as a brand in 2025. Its total European vehicle sales plummeted by **26.9%** to 238,656 total units ([Best Selling Cars](https://www.best-selling-cars.com/europe/2025-full-year-europe-best-selling-car-manufacturers-and-brands/)).
+* **BYD:** Experienced massive explosive growth, with its total European sales rocketing by **268.6%** to 187,657 units ([Best Selling Cars](https://www.best-selling-cars.com/europe/2025-full-year-europe-best-selling-car-manufacturers-and-brands/)).
+
+**Top 5 Best-Selling EV Models in Europe (Recorded Jan–Oct 2025):**
+
+1. **Tesla Model Y:** 116,989 units ([Eleport](https://eleport.com/most-popular-electric-cars/))
+2. **Škoda Elroq:** 71,148 units ([Eleport](https://eleport.com/most-popular-electric-cars/))
+3. **Renault 5:** 67,625 units ([Eleport](https://eleport.com/most-popular-electric-cars/))
+4. **Volkswagen ID.4:** 66,030 units ([Eleport](https://eleport.com/most-popular-electric-cars/))
+5. **Volkswagen ID.3:** 64,414 units ([Eleport](https://eleport.com/most-popular-electric-cars/))

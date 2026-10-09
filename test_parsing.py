@@ -105,4 +105,26 @@ assert len(c) == 18 and c[4][0].startswith("The transport sector remains a weak 
 from touchstone import select
 assert select(c, 10) == set(range(10))
 
+# report4 (Gemini, EV sales): "([Name](url))." links. The leftover "." is never a passage,
+# "---" rules are skipped, and "(+23.9%) ([Eleport](url))" keeps its own closing parenthesis.
+segs4 = segments(open("report4.txt", encoding="utf-8").read())
+assert [t for t, u in segs4 if not u] == [
+    "The European electric vehicle (EV) market experienced robust growth in 2025, with "
+    "battery-electric vehicles (BEVs) achieving record sales and market penetration across the continent.",
+    "Adoption rates varied significantly by region, heavily concentrated in Northern and Western Europe."]
+c4 = [(t, u) for t, u in segs4 if u]
+assert len(c4) == 22
+assert c4[5] == ("United Kingdom: 473,348 EVs sold (+23.9%)", "https://eleport.com/ev-sales-in-europe/")
+assert c4[3][0] == "Norway: 172,231 EVs sold (+50.6%), dominating with a 95.9% EV market share"
+assert c4[0][0].endswith("(EU, EFTA, and the UK) in 2025")
+assert c4[14][0].startswith("While exact percentage shares") and "Volkswagen: Reclaimed" in c4[14][0]
+assert all(t.count("(") == t.count(")") for t, _ in c4), [t for t, _ in c4 if t.count("(") != t.count(")")]
+seg = lambda line: segments(line)
+for line, want in (("* **Spain:** 20,000 EVs sold (+3.1%) ([Eleport](https://e.com/a)).", "Spain: 20,000 EVs sold (+3.1%)"),
+                   ("- Italy: 9,000 EVs (+1.0%) ([Src](https://e.com/b))", "Italy: 9,000 EVs (+1.0%)"),
+                   ("- Malta sold 40 EVs (2024) https://e.com/c", "Malta sold 40 EVs (2024)"),
+                   ("Sales rose (see [chart](https://e.com/d)).", "Sales rose (see")):
+    assert seg(line) == [(want, line[line.index("https"):].split(")")[0])], (line, seg(line))
+assert seg("Intro.\n\n---\n***\n___\n\nEnd. https://e.com/x\n.\n- (\n") == [("Intro.", None), ("End.", "https://e.com/x")]
+
 print("parsing checks passed")

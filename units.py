@@ -4,6 +4,8 @@ the same family (power, energy, or plain magnitude); a number with no unit is ne
 import re
 from decimal import Decimal, InvalidOperation, ROUND_DOWN, ROUND_HALF_UP
 
+from locnum import NUMBER, readings
+
 PREFIX = {"": 1, "k": 10**3, "kilo": 10**3, "M": 10**6, "mega": 10**6, "G": 10**9,
           "giga": 10**9, "T": 10**12, "tera": 10**12}
 MAGNITUDE = {"thousand": 10**3, "k": 10**3, "K": 10**3, "million": 10**6, "mn": 10**6,
@@ -16,9 +18,9 @@ UNIT = (r"(?P<wh>[kMGT]?Wh)|(?P<w>[kMGT]?W)"
         r"|(?P<whw>(?i:(?:kilo|mega|giga|tera)?watt[- ]?hours?))"
         r"|(?P<ww>(?i:(?:kilo|mega|giga|tera)?watts?))"
         r"|(?P<mw>(?i:thousand|million|billion|trillion)|mn|mln|bn|tn|[kKMB])")
-# A number, at most one space/hyphen, a unit, and no letter right after the unit ("5 Morocco"
-# is not 5 M). Linear: no nested repeats.
-QUANTITY = re.compile(r"(?<![\d.,])(\d[\d,]*(?:\.\d+)?)[ \t -]?(?:" + UNIT + r")(?![A-Za-z])")
+# A number in any locale format (locnum.py), at most one space/hyphen, a unit, and no letter
+# right after the unit ("5 Morocco" is not 5 M). Linear: no nested repeats.
+QUANTITY = re.compile(r"(?P<num>" + NUMBER + r")[ \t\u00a0-]?(?:" + UNIT + r")(?![A-Za-z])")
 
 
 def _prefix(word):
@@ -43,32 +45,34 @@ def _unit(m):
     return "x", MAGNITUDE.get(word) or MAGNITUDE[word.lower()]
 
 
-def quantities(text):
-    """[(number as written, family, scale, start offset)] for every number with a unit."""
-    return [(m.group(1), *_unit(m), m.start(1)) for m in QUANTITY.finditer(text)]
+def quantities(text, page=False):
+    """[(readings, family, scale, start offset)] for every number with a unit; readings are
+    the number's plausible values (locnum.readings: '1,234' is 1234 or 1.234)."""
+    return [(readings(m, page), *_unit(m), m.start("num")) for m in QUANTITY.finditer(text)]
 
 
 def scaled_match(claim_quantity, passage_quantities):
     """True if a passage number in the same unit family converts to the claim's number at the
     claim's stated precision, rounded or cut off: 15,925 MW is 15.9 GW and 16 GW, not 17 GW;
     3,267 MW is 3.2 GW (cut off) or 3.3 GW (rounded)."""
-    num, family, scale, _ = claim_quantity
-    want = Decimal(num.replace(",", ""))
-    places = Decimal(1).scaleb(want.as_tuple().exponent)      # 15.9 -> 0.1, 16 -> 1
-    for n, fam, sc, _ in passage_quantities:
-        if fam != family:
-            continue
-        v = Decimal(n.replace(",", "")) * sc / scale
-        try:
-            if want in (v.quantize(places, ROUND_HALF_UP), v.quantize(places, ROUND_DOWN)):
-                return True
-        except InvalidOperation:      # absurdly far apart (more than 28 digits): no match
-            continue
+    wants, family, scale, _ = claim_quantity
+    for want in wants:
+        places = Decimal(1).scaleb(want.as_tuple().exponent)      # 15.9 -> 0.1, 16 -> 1
+        for ns, fam, sc, _ in passage_quantities:
+            if fam != family:
+                continue
+            for n in ns:
+                v = n * sc / scale
+                try:
+                    if want in (v.quantize(places, ROUND_HALF_UP), v.quantize(places, ROUND_DOWN)):
+                        return True
+                except InvalidOperation:  # absurdly far apart (more than 28 digits): no match
+                    continue
     return False
 
 
 def unit_supported(claim, passage):
     """Start offsets (in the claim) of numbers that a unit-scaled passage number supports.
     Only numbers written with a unit in the claim can be here."""
-    have = quantities(passage)
+    have = quantities(passage, page=True)
     return {q[3] for q in quantities(claim) if scaled_match(q, have)}
