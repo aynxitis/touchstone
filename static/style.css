@@ -51,8 +51,8 @@ button:disabled { opacity: .45; cursor: default; transform: none; }
 #cards { margin-top: 24px; display: grid; gap: 12px; }
 
 .card {
-  background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--tone);
-  border-radius: 8px; padding: 20px 24px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; padding: 20px 24px;
   animation: enter .5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes enter { from { opacity: 0; transform: translateY(8px); } }
@@ -73,7 +73,7 @@ button:disabled { opacity: .45; cursor: default; transform: none; }
 .parts { list-style: none; padding: 0; margin: 0 0 12px; border-top: 1px solid var(--border); }
 .parts li { padding: 10px 0; border-bottom: 1px solid var(--border); }
 .part-head { display: flex; gap: 10px; align-items: baseline; }
-.tag { flex: none; font: 11px var(--mono); text-transform: uppercase; letter-spacing: .04em; color: var(--tone); min-width: 9.5em; }
+.tag { flex: none; font: 11px var(--mono); text-transform: uppercase; letter-spacing: .04em; color: var(--muted); min-width: 9.5em; }
 blockquote { margin: 6px 0 0 calc(9.5em + 10px); padding-left: 12px; border-left: 2px solid var(--border); font: italic 14px/1.55 var(--serif); color: var(--text); }
 .rejected { margin: 6px 0 0 calc(9.5em + 10px); font-size: 13px; color: var(--muted); }
 .reason { margin: 0 0 10px; font-size: 14px; color: var(--muted); }
