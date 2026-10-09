@@ -98,4 +98,11 @@ assert events[0] == {"type": "start", "cited": 11, "checked": 10, "uncited": 0, 
 assert [e["claim"] for e in events if e["type"] == "claim"] == list(range(1, 11))
 assert [(e["claim"], e["label"]) for e in events if e["type"] == "skipped"] == [(11, "NOT CHECKED")]
 
+# report3 (regression set, labels3.json): 18 cited claims; claim 5 (transport, no digits) was
+# skipped in production by the old numbers-first cap. Report order checks claims 1-10.
+c = cited("report3.txt")
+assert len(c) == 18 and c[4][0].startswith("The transport sector remains a weak point"), c[4]
+from touchstone import select
+assert select(c, 10) == set(range(10))
+
 print("parsing checks passed")

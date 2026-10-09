@@ -1,0 +1,38 @@
+North Africa’s renewable-energy sector in 2026 is expanding quickly but unevenly: Egypt and Morocco dominate deployment, Tunisia is growing, while Algeria and Libya remain heavily fossil-fuel dependent. The region had about **15.9 GW of installed renewable capacity in 2025**, with solar PV the leading technology. [europesays](https://www.europesays.com/africa/173396/)
+
+## Regional picture
+
+- Installed renewable capacity reached **15,925 MW (15.9 GW)** in 2025, according to an analysis of IRENA’s *Renewable Capacity Statistics 2026*. [europesays](https://www.europesays.com/africa/173396/)
+- Renewable electricity generation has grown by more than **40% over the past decade**, driven mainly by wind, solar PV, and solar thermal. [iea](https://www.iea.org/reports/clean-energy-transitions-in-north-africa)
+- Despite this growth, renewables remain a small part of the region’s total primary energy mix: the IEA puts them at **4.6%**, versus a global average of about **25%**. [mei](https://mei.edu/wp-content/uploads/2025/12/Fakir-ed-North-Africas-Power-Shift.pdf)
+- The transport sector remains a weak point, with limited electric-vehicle uptake and little renewable-powered transport. [iea](https://www.iea.org/reports/clean-energy-transitions-in-north-africa)
+
+## Country snapshot
+
+| Country | Installed renewable capacity, 2025 | Renewable share of installed capacity | Main technologies / outlook |
+|---|---:|---:|---|
+| Egypt | **9,258 MW** | **14.6%** | Solar PV 3,267 MW; onshore wind 3,028 MW; hydropower 2,832 MW. Egypt targets **25.1 GW** of renewable capacity by 2030 and reportedly aims for renewables to supply **20% of generation in 2026**, up from 12% in 2024.  [europesays](https://www.europesays.com/africa/173396/) |
+| Morocco | **4,851 MW** | **39.6%** | Wind 2,452 MW; hydropower 2,120 MW; solar 1,086 MW; CSP 540 MW. Morocco has a 2030 target of **52% renewables** in its energy mix.  [europesays](https://www.europesays.com/africa/173396/) |
+| Tunisia | **1,206 MW** | **16.6%** | Solar PV 895 MW; wind 245 MW; hydropower 66 MW. Tunisia’s target is **35% renewables by 2030**.  [europesays](https://www.europesays.com/africa/173396/) |
+| Algeria | **601 MW** | **2.1%** | Mostly solar PV (437 MW), with limited wind and hydropower; deployment remains far behind its potential.  [europesays](https://www.europesays.com/africa/173396/) |
+| Libya | **9 MW** | **0.5%** | Almost entirely solar PV; renewable penetration remains minimal.  [europesays](https://www.europesays.com/africa/173396/) |
+
+## Technology trends
+
+Solar PV is the region’s principal growth technology, accounting for the largest installed-capacity share in every North African market. Egypt leads with more than **3.2 GW** of solar, followed by Morocco and Tunisia. [europesays](https://www.europesays.com/africa/173396/)
+
+Wind is concentrated in Egypt and Morocco, which together hold nearly all regional wind capacity. Morocco is also the regional leader in concentrated solar power, hosting **540 MW** through the Noor complex. [europesays](https://www.europesays.com/africa/173396/)
+
+## 2026 momentum
+
+Morocco authorized roughly **3,000 MW** of renewable projects in the first quarter of 2026 alone—about one-third of its current installed electricity capacity—with estimated investment of nearly **22 billion dirhams**. Its renewable share of installed capacity rose from **37% in 2021 to 46% in 2025**. [northafricapost](https://northafricapost.com/97279-morocco-authorizes-3000-mw-of-renewable-energy-projects-in-q1-2026-alone.html)
+
+Egypt is also scaling rapidly through utility-scale solar and wind, while its 2025–26 budget allocated **EGP 136.3 billion** to electricity and renewable energy, nearly double the previous year’s investment. [tni](https://www.tni.org/en/article/green-industrial-policy-in-north-africa)
+
+## Main constraints
+
+- **Fossil-fuel dependence:** Algeria and Libya still rely overwhelmingly on hydrocarbons, with renewable shares of installed capacity at just **2.1%** and **0.5%** respectively. [europesays](https://www.europesays.com/africa/173396/)
+- **Grid and investment needs:** Scaling utility-scale solar and wind requires stronger grids, storage, and continued independent-power-producer auctions. [egypes](https://www.egypes.com/articles/industry-reports/2026/april/north-africa-s-readiness-to-scale-renewables/)
+- **Export-versus-domestic-benefit tensions:** Green hydrogen and electricity exports aimed at European markets raise concerns that the transition could prioritize external energy security over local development, particularly in Morocco, Algeria, and Tunisia. [tni](https://www.tni.org/en/article/green-industrial-policy-in-north-africa)
+
+Overall, North Africa is moving from pilot-scale projects toward utility-scale deployment, led by Egypt and Morocco; however, the region’s renewable transition is still early relative to its exceptional solar and wind resource base. [europesays](https://www.europesays.com/africa/173396/)

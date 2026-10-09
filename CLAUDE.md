@@ -122,9 +122,10 @@ page names tax advantages and public procurement, not public funding.
 changes below: no label or reason changed (11/13 on that run, same as before).
 
 ## Fresh-report eval 1 (2026-10-09, production): report3.txt, North African renewables
-Perplexity report, 11 cited claims, 10 checked (claim 5 skipped by the old numbers-first cap).
-labels3.json: 10 hand labels verified against the live pages (report3.txt itself is not
-in the repo yet: add it when Anis sends the report text). Result 6/9 scorable (67%;
+Perplexity report, 18 cited claims; production checked 10 (1-4, 6-11: the old numbers-first
+cap skipped claim 5, which has no digits). labels3.json: 10 hand labels (those claims, 5 not
+labelled) verified against the live pages. With the report-order cap, a default audit now
+checks 1-10: claim 5 is in (unlabelled), claim 11 is out; use only=1-11 to replay all labels. Result 6/9 scorable (67%;
 target 85%; claim 4 SOURCE UNREACHABLE not scored). All 3 errors were false alarms from code
 checks: unit-scaled numbers ("15.9 GW" vs "15,925 MW") and the name check (whole-claim
 scope + "PV" read as a name, "Pv not named in its passage"). Both fixed 2026-10-09.
