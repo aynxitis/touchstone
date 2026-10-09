@@ -96,7 +96,10 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    Ooredoo reaches Railway only intermittently). The railway.app URL is never shared.
    Strips client copies of the two X-Touchstone headers, sets them from CF-Connecting-IP and env.PROXY_SECRET; 500 "misconfigured" without ORIGIN_HOST/PROXY_SECRET.
 Parsing regexes must stay linear: every repeated group starts with a literal, whitespace
-runs are capped (a nested \s* marker regex once hung the server on 20,000 spaces).
+runs are capped (a nested \s* marker regex once hung the server on 20,000 spaces). Never
+put a required suffix after a repeated group in one regex run over page text: units.py's
+"number then unit" was quadratic (8,000 digit groups: 28 s); match the number with
+NUMBER_RE, then .match() the suffix at its end. Number tokens over 30 digits get no reading.
 Report parsing runs in a thread pool, never on the event loop.
 Dependencies: requirements.txt. Token-free checks: .venv/bin/python test_parsing.py (parsing,
 bot-page fixtures on a mocked transport, claim cap order, report4 junk passages and

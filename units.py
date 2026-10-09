@@ -4,7 +4,7 @@ the same family (power, energy, or plain magnitude); a number with no unit is ne
 import re
 from decimal import Decimal, InvalidOperation, ROUND_DOWN, ROUND_HALF_UP
 
-from locnum import NUMBER, readings
+from locnum import NUMBER_RE, readings
 
 PREFIX = {"": 1, "k": 10**3, "kilo": 10**3, "M": 10**6, "mega": 10**6, "G": 10**9,
           "giga": 10**9, "T": 10**12, "tera": 10**12}
@@ -18,9 +18,11 @@ UNIT = (r"(?P<wh>[kMGT]?Wh)|(?P<w>[kMGT]?W)"
         r"|(?P<whw>(?i:(?:kilo|mega|giga|tera)?watt[- ]?hours?))"
         r"|(?P<ww>(?i:(?:kilo|mega|giga|tera)?watts?))"
         r"|(?P<mw>(?i:thousand|million|billion|trillion)|mn|mln|bn|tn|[kKMB])")
-# A number in any locale format (locnum.py), at most one space/hyphen, a unit, and no letter
-# right after the unit ("5 Morocco" is not 5 M). Linear: no nested repeats.
-QUANTITY = re.compile(r"(?P<num>" + NUMBER + r")[ \t\u00a0-]?(?:" + UNIT + r")(?![A-Za-z])")
+# A unit right after a number: at most one space/hyphen, then the unit, and no letter
+# after it ("5 Morocco" is not 5 M). Tried with .match() at the end of each NUMBER_RE token:
+# one regex "number then unit" backtracked through every digit group and restarted at each
+# group when no unit followed (quadratic: 8,000 groups of a 3 MB page took 28 s).
+UNIT_AFTER = re.compile(r"[ \t\u00a0-]?(?:" + UNIT + r")(?![A-Za-z])")
 
 
 def _prefix(word):
@@ -32,7 +34,7 @@ def _prefix(word):
 
 
 def _unit(m):
-    """(family, scale) for a QUANTITY match."""
+    """(family, scale) for a UNIT_AFTER match."""
     if m.group("wh"):
         return "Wh", PREFIX[m.group("wh")[:-2]]
     if m.group("w"):
@@ -47,8 +49,13 @@ def _unit(m):
 
 def quantities(text, page=False):
     """[(readings, family, scale, start offset)] for every number with a unit; readings are
-    the number's plausible values (locnum.readings: '1,234' is 1234 or 1.234)."""
-    return [(readings(m, page), *_unit(m), m.start("num")) for m in QUANTITY.finditer(text)]
+    the number's plausible values (locnum.readings: '1,234' is 1234 or 1.234). Linear: each
+    number token is read once and its unit tried once, anchored at the token's end."""
+    out = []
+    for m in NUMBER_RE.finditer(text):
+        if u := UNIT_AFTER.match(text, m.end()):
+            out.append((readings(m, page), *_unit(u), m.start()))
+    return out
 
 
 def scaled_match(claim_quantity, passage_quantities):

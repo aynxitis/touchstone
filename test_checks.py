@@ -193,4 +193,13 @@ assert "1 label(s) changed out of 2." in out and "old 0/1, new 1/1" in out, out
 import rescore
 assert rescore.model_reply({k: v for k, v in run4["claims"][0].items() if k != "model"}) == model4
 
+# 6. Linear time on hostile pages (security review, 2026-10-09): "number then unit" in one
+#    regex backtracked through every digit group (8,000 groups took 28 s; pages go to 3 MB).
+#    A page-long digit run must not overflow Decimal either.
+import time as _time, units as _units
+_t = _time.monotonic()
+_units.quantities("1" + " 234" * 200_000 + " x", page=True)
+missing_numbers("Capacity is 15.9 GW and 2,585,187 cars", "9" * 1_000_000 + " GW\n1" + ",234" * 100_000 + " MW")
+assert _time.monotonic() - _t < 3, _time.monotonic() - _t
+
 print("check tests passed")

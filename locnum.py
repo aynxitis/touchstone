@@ -20,8 +20,13 @@ NUMBER = (r"(?<!\d)(?:(?P<grp>\d{1,3}(?P<g>[" + SPACES + r"'’.,])\d{3}(?:(?P=g
 NUMBER_RE = re.compile(NUMBER)
 
 
+MAX_DIGITS = 30   # no real figure is longer; a page-long digit run would overflow Decimal
+
+
 def readings(m, page=False):
-    """Every plausible value (Decimal) of a NUMBER match."""
+    """Every plausible value (Decimal) of a NUMBER match; none for absurdly long tokens."""
+    if digits(m) > MAX_DIGITS:
+        return set()
     if m.group("grp") is not None:
         grp, g, dec = m.group("grp"), m.group("g"), m.group("dec")
         out = {Decimal(grp.replace(g, "") + ("." + dec[1:] if dec else ""))}
