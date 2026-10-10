@@ -196,10 +196,16 @@ finally:
 assert fetched == many[:TS.MAX_SOURCES] and len(calls) == TS.MAX_SOURCES, (len(fetched), len(calls))
 assert [s["url"] for s in ev["sources"]] == many and ev["urls"] == many
 assert all(s["label"] == "NOT CHECKED" for s in ev["sources"][TS.MAX_SOURCES:])
-assert f"47 of 50 sources not checked (limit of {TS.MAX_SOURCES} per claim)." in ev["reason"], ev["reason"]
+assert ev["reason"].endswith(f"47 more sources not checked (limit of {TS.MAX_SOURCES} per claim)."), ev["reason"]
+assert ev["label"] == "PARTIAL"     # labelled from the 3 checked sources (all page A: F1 only)
 # Checked sources all unreachable: still SOURCE UNREACHABLE, not the limit's NOT CHECKED.
 dead = {u: {"status": "TIMEOUT"} for u in many[:5]}
 ev = [e for e in audit(f"- {CLAIM} " + " ".join(many[:5]), None, pages=dead) if e["type"] == "claim"][0]
-assert ev["label"] == "SOURCE UNREACHABLE" and ev["reason"] == "None of the 3 sources could be read.", ev
+assert ev["label"] == "SOURCE UNREACHABLE", ev
+assert ev["reason"] == "None of the 3 sources could be read. 2 more sources not checked (limit of 3 per claim).", ev
+# Exactly 4 sources: "1 more source" (singular); the first 3 in report order are the checked ones.
+ev = [e for e in audit(f"- {CLAIM} " + " ".join(many[:4]), None, pages=dead) if e["type"] == "claim"][0]
+assert ev["reason"].endswith(" 1 more source not checked (limit of 3 per claim)."), ev["reason"]
+assert [s["label"] for s in ev["sources"]] == ["SOURCE UNREACHABLE"] * 3 + ["NOT CHECKED"]
 
 print("source checks passed")

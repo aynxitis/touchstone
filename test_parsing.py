@@ -191,6 +191,16 @@ assert blocks("Exports rose 9%.\n\nSource: ICO, [Jan report](https://e.com/j).")
 assert blocks("- Brazil: 66 million\n- Vietnam: 29 million\n\nSources: [A](https://e.com/a) and [B](https://e.com/b)") == [
     ("Brazil: 66 million", ("https://e.com/a", "https://e.com/b")), ("Vietnam: 29 million", ("https://e.com/a", "https://e.com/b"))]
 assert blocks("## Results\n\nSource: [A](https://e.com/a)") == []     # nothing above to attach to
+# French spacing: "Source :" / "Sources :" (space, NBSP, narrow NBSP) on its own line after a
+# bullet gives its link(s) to that bullet; under the last bullet of a list, to that bullet only.
+for sep in (" ", "\u00a0", "\u202f"):
+    fr = (f"Les marchés ont évolué.\n\n- Les ventes ont augmenté de 12 % en 2025.\n  Source{sep}: [Le Monde](https://lemonde.fr/a)\n"
+          f"- Les prix ont baissé de 3 %.\n  Sources{sep}: [Insee](https://insee.fr/x), [Banque de France](https://bdf.fr/y)\n")
+    assert blocks(fr) == [("Les marchés ont évolué.", ()),
+                          ("Les ventes ont augmenté de 12 % en 2025.", ("https://lemonde.fr/a",)),
+                          ("Les prix ont baissé de 3 %.", ("https://insee.fr/x", "https://bdf.fr/y"))], (repr(sep), blocks(fr))
+    last = f"- Hausse de 5 %.\n- Baisse de 2 %.\n  Source{sep}: [X](https://x.fr/1)"
+    assert blocks(last) == [("Hausse de 5 %.", ()), ("Baisse de 2 %.", ("https://x.fr/1",))], blocks(last)
 # Number headings are stat values; numbered or year-led section titles are not.
 assert [stat_value(x) for x in ("# 354.32¢/lb", "# +94.6%", "## $3.5B", "# 12 million bags",
                                 "## 1. What happened in 2025?", "## 2026 outlook", "# Results")] == [

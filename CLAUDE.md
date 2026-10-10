@@ -29,8 +29,9 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    per value ("February 2025 monthly average: 354.32¢/lb — US dollars: $3.54 per pound"); a
    "Source:"/"Sources:" line gives ALL its links to the block right above it (paragraph, stat
    block + a one-line caption under it, table: every row "Header: cell — ...", list: every
-   item); text after its last link is a claim with those sources, the source name before
-   them is not. blocks() returns (text, urls tuple); segments() = first URL only (app's
+   item; an INDENTED source line under a list goes to the last bullet only); French spacing
+   "Source :" / "Sources :" (space, NBSP, U+202F) counts; text after its last link is a claim
+   with those sources, the source name before them is not. blocks() returns (text, urls tuple); segments() = first URL only (app's
    zero-cited check, tests). Links separated only by connectors/punctuation ("[A] and [B]",
    "u1 u2") form one group: one claim, several sources; a trailing "Sources:" label is
    stripped from the claim; connector-only fragments ("and", ", and") are never claims.
@@ -132,8 +133,8 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
 4. touchstone.py: audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
    pacer=None, clock, sleep, provider=None)
    is the importable pipeline. Multi-source claims (2026-10-10): the first MAX_SOURCES (3)
-   sources of a claim are fetched and checked, the rest listed as NOT CHECKED ("limit of 3 per
-   claim") and never fetched: without the cap one claim line with 1,000 URLs made the server
+   sources of a claim (report order) are fetched and checked, the rest listed as NOT CHECKED
+   and never fetched; the reason ends "N more source(s) not checked (limit of 3 per claim)": without the cap one claim line with 1,000 URLs made the server
    fetch them all (security review, SSRF/quota amplification); a web audit fetches at most
    10 x 3 = 30 URLs. Each reachable source is
    checked (Groq: one call per claim AND source; Gemini: the claim joins each page's call),
@@ -291,6 +292,14 @@ vague notes, friendly reasons). Now 21 cited claims; of the first 10, 7 reach th
 Reuters, blocked). Zero-token check: "December 2025: 304.68¢/lb" is in none of its 3 cited
 reports, and claim 8's 304.68 is not in the November report. No hand labels yet; report5 has
 been seen while fixing parsing, so it is a REGRESSION set for parsing, not an accuracy eval.
+
+## Held-out accuracy set (2026-10-10): heldout/perplexity.txt, heldout/gemini_fr.txt
+Parse-only check so far (no fetch, no model call, pages never opened): perplexity 12 cited
+claims (lead, 6 table rows, 4 bullets, final note) + 1 uncited; gemini_fr 7 cited (one per
+bullet) + 1 uncited. gemini_fr's claim 1 carries the list's lead-in ("Voici les chiffres
+clés..., accompagnés de leurs sources :") by the ':' lead-in rule; not changed, since the same
+rule gives report4's first EV-model bullet its "Jan–Oct 2025" context. Never tune code on
+these two files' content; they are for the next accuracy eval (hand labels + 2 runs).
 
 ## Open issues, in order
 1. DONE: Claims 4 and 9 false rejections. Cause: U+2011 hyphens and '...'-shortened quotes; fixed in

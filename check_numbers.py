@@ -147,6 +147,8 @@ def copy_cleanup(report):
 
 
 # ---- "Source:" lines and stat blocks ----
+# "Source:", "**Sources:**", French "Source :" / "Sources :" (space, NBSP or U+202F before the
+# colon: \s covers all three).
 SOURCE_LINE = re.compile(r"^\s{0,8}(?:[-*+]\s{1,4})?[*_]{0,2}(?:sources?|references?)[*_]{0,2}\s{0,3}:", re.I)
 RULE = re.compile(r"\|?[\s:\-|]*|[*_\s]{3,40}")
 NUMBERED_TITLE = re.compile(r"\d{1,2}[.)]\s")       # "## 1. What happened in 2025?"
@@ -308,7 +310,9 @@ def attach_sources(report):
             for i in pidx:
                 out[i] = None
             out[pidx[0]] = "\n".join(r + suffix for r in rows if HAS_WORD.search(r))
-        else:                                # a paragraph, or every item of a list
+        else:                                # a paragraph, or every item of a list, but an
+            if pkind == "list" and line[:1].isspace():   # indented "Source :" under a bullet
+                pidx = pidx[-1:]                 # belongs to that bullet alone
             for i in pidx:
                 out[i] = lines[i].rstrip() + suffix
     return "\n".join(x for i, line in enumerate(lines)

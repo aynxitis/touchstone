@@ -209,6 +209,9 @@ def combine(claim, per, pages):
         out = ({"label": "SOURCE UNREACHABLE", "quote": "",
                 "reason": f"None of the {len(tried)} sources could be read."} if len(lost) == len(tried)
                else {**next(r for r in tried if r["label"] == "NOT CHECKED")})
+        over = len(per) - len(tried)
+        if over:
+            out["reason"] += f" {over} more source{'s' if over > 1 else ''} not checked (limit of {MAX_SOURCES} per claim)."
     elif len(usable) == 1:
         out = {k: v for k, v in usable[0][1].items() if k != "model"}
         for f in out.get("facts") or []:
@@ -220,8 +223,8 @@ def combine(claim, per, pages):
         late = sum(r["label"] == "NOT CHECKED" and not r.get("over_limit") for _, r in per)
         over = sum(bool(r.get("over_limit")) for _, r in per)
         if over:
-            out["reason"] = (out.get("reason", "") + f" {over} of {len(per)} sources not checked "
-                             f"(limit of {MAX_SOURCES} per claim).").strip()
+            out["reason"] = (out.get("reason", "") + f" {over} more source{'s' if over > 1 else ''} "
+                             f"not checked (limit of {MAX_SOURCES} per claim).").strip()
         if lost:
             out["reason"] = (out.get("reason", "") + f" {lost} of {len(per)} sources couldn't be read.").strip()
         if late:
