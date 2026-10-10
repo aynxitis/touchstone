@@ -181,4 +181,25 @@ with tempfile.TemporaryDirectory() as d:
     c = rescore.load_run(path)[0]
     assert rescore.rescore_multi(c, rescore.get_pages([A, B, C], cache))[0] == "SOURCED"
 
+# 9. Security: one claim with many URLs never fans out. Only MAX_SOURCES are fetched and
+#    checked; the rest are listed as not checked, never fetched (SSRF / quota amplification).
+import touchstone as TS
+many = [f"https://s{i}.example/p" for i in range(50)]
+fetched = []
+real_fetch = TS.fetch_many
+TS.fetch_many = lambda urls: fetched.extend(urls) or [{"url": u, "status": "OK", "text": PAGE_A} for u in urls]
+try:
+    client, calls = fake_groq(groq_reply)
+    ev = [e for e in audit(f"- {CLAIM} " + " ".join(many), client) if e["type"] == "claim"][0]
+finally:
+    TS.fetch_many = real_fetch
+assert fetched == many[:TS.MAX_SOURCES] and len(calls) == TS.MAX_SOURCES, (len(fetched), len(calls))
+assert [s["url"] for s in ev["sources"]] == many and ev["urls"] == many
+assert all(s["label"] == "NOT CHECKED" for s in ev["sources"][TS.MAX_SOURCES:])
+assert f"47 of 50 sources not checked (limit of {TS.MAX_SOURCES} per claim)." in ev["reason"], ev["reason"]
+# Checked sources all unreachable: still SOURCE UNREACHABLE, not the limit's NOT CHECKED.
+dead = {u: {"status": "TIMEOUT"} for u in many[:5]}
+ev = [e for e in audit(f"- {CLAIM} " + " ".join(many[:5]), None, pages=dead) if e["type"] == "claim"][0]
+assert ev["label"] == "SOURCE UNREACHABLE" and ev["reason"] == "None of the 3 sources could be read.", ev
+
 print("source checks passed")

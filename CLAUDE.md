@@ -131,7 +131,11 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    ~17K tokens. Smoke test 2026-10-09 (2 claims, IANA page): 1 request, 798 tokens.
 4. touchstone.py: audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
    pacer=None, clock, sleep, provider=None)
-   is the importable pipeline. Multi-source claims (2026-10-10): each reachable source is
+   is the importable pipeline. Multi-source claims (2026-10-10): the first MAX_SOURCES (3)
+   sources of a claim are fetched and checked, the rest listed as NOT CHECKED ("limit of 3 per
+   claim") and never fetched: without the cap one claim line with 1,000 URLs made the server
+   fetch them all (security review, SSRF/quota amplification); a web audit fetches at most
+   10 x 3 = 30 URLs. Each reachable source is
    checked (Groq: one call per claim AND source; Gemini: the claim joins each page's call),
    then combine(): one source -> its result unchanged; several -> quote_check.merge(): the
    most-supported source's fact list, each fact taking the best status any source gives the

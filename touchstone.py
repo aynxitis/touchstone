@@ -10,6 +10,8 @@ from fetch_links import BOT_BLOCKED, fetch_many
 from pacing import DAY_FULL, TokenPacer, retry_after
 from quote_check import best_excerpts, merge, quote_on_page
 
+MAX_SOURCES = 3            # sources checked per claim: one claim must not fan out into many
+                           # fetches/model calls (10 claims x 3 = at most 30 URLs per web audit)
 MAX_MINUTE_RETRIES = 5     # per claim, only without a deadline (CLI); with one, the deadline decides
 MAX_ERROR_RETRIES = 2      # timeouts, connection errors, 5xx: what the SDK's own retries did
 NOT_CHECKED_TIME = {"label": "NOT CHECKED", "quote": "", "reason": "Audit time limit reached.", "tokens": 0}
@@ -202,10 +204,11 @@ def combine(claim, per, pages):
     if not multi:
         out = dict(per[0][1])
     elif not usable:
-        lost = [r for _, r in per if r["label"] == "SOURCE UNREACHABLE"]
+        tried = [r for _, r in per if not r.get("over_limit")]
+        lost = [r for r in tried if r["label"] == "SOURCE UNREACHABLE"]
         out = ({"label": "SOURCE UNREACHABLE", "quote": "",
-                "reason": f"None of the {len(per)} sources could be read."} if len(lost) == len(per)
-               else {**next(r for _, r in per if r["label"] == "NOT CHECKED")})
+                "reason": f"None of the {len(tried)} sources could be read."} if len(lost) == len(tried)
+               else {**next(r for r in tried if r["label"] == "NOT CHECKED")})
     elif len(usable) == 1:
         out = {k: v for k, v in usable[0][1].items() if k != "model"}
         for f in out.get("facts") or []:
@@ -214,7 +217,11 @@ def combine(claim, per, pages):
         out = merge(claim, usable, [pages[u]["text"] for u, _ in usable])
     if multi and usable:
         lost = sum(r["label"] == "SOURCE UNREACHABLE" for _, r in per)
-        late = sum(r["label"] == "NOT CHECKED" for _, r in per)
+        late = sum(r["label"] == "NOT CHECKED" and not r.get("over_limit") for _, r in per)
+        over = sum(bool(r.get("over_limit")) for _, r in per)
+        if over:
+            out["reason"] = (out.get("reason", "") + f" {over} of {len(per)} sources not checked "
+                             f"(limit of {MAX_SOURCES} per claim).").strip()
         if lost:
             out["reason"] = (out.get("reason", "") + f" {lost} of {len(per)} sources couldn't be read.").strip()
         if late:
@@ -265,7 +272,8 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
            "uncited": len(segs) - len(cited), "limit": max_claims}
 
     if pages is None:
-        urls = list(dict.fromkeys(u for i in sorted(chosen) if i < len(cited) for u in cited[i][1]))
+        urls = list(dict.fromkeys(u for i in sorted(chosen) if i < len(cited)
+                                  for u in cited[i][1][:MAX_SOURCES]))
         pages = dict(zip(urls, fetch_many(urls)))
 
     tokens, n, index, out_of_capacity = 0, 0, 0, False
@@ -282,8 +290,9 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
                    "label": "NOT CHECKED"}
             continue
         index += 1
-        per = []
-        for url in urls:
+        per = [(u, {"label": "NOT CHECKED", "quote": "", "tokens": 0, "over_limit": True,
+                    "reason": f"Limit of {MAX_SOURCES} sources per claim."}) for u in urls[MAX_SOURCES:]]
+        for url in urls[:MAX_SOURCES]:
             page = pages.get(url) or {}
             meta = {"title": page.get("title"), "headings": page.get("headings")}
             if (n, url) in batch:
@@ -298,7 +307,7 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
                 # Gemini: this page's first claim. Send every remaining chosen claim citing it in
                 # one call; claims with no passage on the page are UNVERIFIED without the model.
                 group = [m for m in sorted(chosen) if m + 1 >= n and m < len(cited)
-                         and url in cited[m][1] and (m + 1, url) not in batch]
+                         and url in cited[m][1][:MAX_SOURCES] and (m + 1, url) not in batch]
                 send = [m for m in group if best_excerpts(cited[m][0], page["text"])]
                 for m in group:
                     if m not in send:
@@ -336,7 +345,7 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
                 else:
                     r = got if outcome == "ok" else error_result(got)
                 pacer.record(r["tokens"])
-            per.append((url, r))
+            per.insert(len(per) - len(urls[MAX_SOURCES:]), (url, r))
         r = combine(text, per, pages)
         tokens += r["tokens"]
         yield {"type": "claim", "index": index, "claim": n, "text": text, "url": urls[0],
