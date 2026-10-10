@@ -222,4 +222,12 @@ its own daily quota). See CLAUDE.md open issue 10.
   closes after 5 minutes with no data. An audit streams a line per claim (plus a heartbeat after
   15 s of silence) and is capped at 300 s, so it fits. Cloudflare in front drops connections
   idle for ~100 s; the heartbeat keeps the stream under that.
+- PDFs (pypdf, in requirements.txt): parsed in a child process capped at 512 MB address space
+  and 20 s (CPU and wall clock), one at a time, first 60 pages, downloads over 15 MB refused.
+  With the app's own ~300 MB that stays under the 1 GB plan; a hostile PDF only kills its
+  child. Six PDFs in one audit add ~5 s.
+- Claims citing several URLs: every reachable source is checked. On Groq that is one call per
+  claim AND source (report5's first 10 claims: 12 calls), so a source-heavy report spends
+  more of the 7.5K tokens/minute and can hit the 300 s limit (later claims NOT CHECKED); on
+  Gemini it adds no requests (one call per cited page either way).
 - Every push to the connected branch redeploys (and resets the in-memory counters).

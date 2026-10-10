@@ -7,10 +7,34 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
 ## Pipeline (Python 3.14, venv in .venv)
 1. fetch_links.py REPORT: extract URLs, fetch pages (httpx + trafilatura), SSRF-safe
    (public IPs only, re-checked on every redirect). Writes fetch_results.json.
-2. check_numbers.py: resolve_footnotes() first turns footnote citations ([1], [1][2], [^1],
-   【1】 + a numbered/bracketed source list or Sources/References section) into inline URLs
-   and drops the source list; a run of markers gives the text its FIRST source only.
-   segments() splits the report per line; a link owns its line's text
+   PDFs (2026-10-10, pdf_text.py, pypdf: pure Python, maintained, no native deps; pdfminer.six
+   extracts slightly better layouts but is slower and larger): content-type pdf, or a .pdf
+   URL served as octet-stream. Hostile input: 15 MB download cap (Content-Length and while
+   streaming), first 60 pages, parsed in a child process (`python -I pdf_text.py`) with
+   RLIMIT_AS 512 MB + RLIMIT_CPU 20 s, killed after 20 s wall clock, one parse at a time
+   (PARSE_LOCK), outside the 30 s download clock. Encrypted (non-empty user password) ->
+   "PDF is password-protected"; < 200 chars -> "PDF has no extractable text (likely
+   scanned)". Lines are rejoined into paragraphs (prose lines 60+ chars; table rows and
+   bullets never joined); "page_starts" keeps each page's offset so quotes show "p. N".
+   Status codes: PDF_ERROR (detail = the reason). 401 joined BLOCK_STATUSES (reuters.com:
+   401 + x-datadome). Detection only: blocks are never evaded.
+2. check_numbers.py: copy_cleanup() first (ChatGPT copy button): HTML entities decoded (only
+   with ';': "&copy=" in a URL stays), markdown "\&" unescaped, favicon chips
+   ([image](...favicon...)) and the caption lines after them (a domain, "Reuters", "+1")
+   dropped, chart-axis residue ("200¢/lb250¢/lb...") dropped. Then resolve_footnotes() turns
+   footnote citations ([1], [1][2], [^1], 【1】 + a numbered/bracketed source list or
+   Sources/References section) into inline URLs and drops the source list; a run of markers
+   gives the text ALL its sources. attach_sources(): a stat block (short label lines around
+   number headings "# 354.32¢/lb"; numbered/year-led titles are not stats) becomes one claim
+   per value ("February 2025 monthly average: 354.32¢/lb — US dollars: $3.54 per pound"); a
+   "Source:"/"Sources:" line gives ALL its links to the block right above it (paragraph, stat
+   block + a one-line caption under it, table: every row "Header: cell — ...", list: every
+   item); text after its last link is a claim with those sources, the source name before
+   them is not. blocks() returns (text, urls tuple); segments() = first URL only (app's
+   zero-cited check, tests). Links separated only by connectors/punctuation ("[A] and [B]",
+   "u1 u2") form one group: one claim, several sources; a trailing "Sources:" label is
+   stripped from the claim; connector-only fragments ("and", ", and") are never claims.
+   blocks() splits the report per line; a link group owns its line's text
    (a ':' lead-in + its bullets form one block); uncited text -> NO SOURCE GIVEN; passages
    with no letter or digit (the "." after "([Name](url)).") and rules (---, ***, ___) are
    dropped; link stripping keeps balanced parentheses ("(+23.9%) ([Eleport](url))" ->
@@ -107,7 +131,22 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    ~17K tokens. Smoke test 2026-10-09 (2 claims, IANA page): 1 request, 798 tokens.
 4. touchstone.py: audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
    pacer=None, clock, sleep, provider=None)
-   is the importable pipeline. Yields events: start {cited, checked, uncited, limit}, claim
+   is the importable pipeline. Multi-source claims (2026-10-10): each reachable source is
+   checked (Groq: one call per claim AND source; Gemini: the claim joins each page's call),
+   then combine(): one source -> its result unchanged; several -> quote_check.merge(): the
+   most-supported source's fact list, each fact taking the best status any source gives the
+   same fact (same_fact: identical numbers + token_set_ratio >= 80): "stated" if ANY source
+   states it with a verified quote, "contradicted" only if one contradicts and none states;
+   then the same verdict() (judge() = fact checks + verdict()), claim numbers checked against
+   all pages. Some unreachable -> "1 of 3 sources couldn't be read"; all -> SOURCE
+   UNREACHABLE. Claim events carry url (first), urls, sources [{url, label, reason, detail?,
+   note?, model? (multi only: rescore replays it)}] and notes. Facts carry "source" (multi)
+   and "page" (PDF). Vague citations (vague_note): path "/" -> "Cites a homepage, not a
+   specific page"; a search/library path or filter keys with a query -> "Cites a listing
+   page, not a document"; still checked. Unreachable reasons (unreachable()): bot block ->
+   "<site> blocked the checker (bot protection or paywall)", other 401/403 -> "The site
+   refused the checker (login, paywall or bot protection)", 404, timeout, PDF reasons...;
+   the raw status ("HTTP_ERR 401") only in "detail" (card: "Details: ..."). Yields events: start {cited, checked, uncited, limit}, claim
    (one per segment, uncited ones with claim: null), skipped {label: NOT CHECKED}, done
    {tokens}. pages=None fetches live. max_claims keeps the FIRST N cited claims in report
    order (until 2026-10-09 it checked claims containing digits ahead of the others, which
@@ -161,7 +200,10 @@ NUMBER_RE, then .match() the suffix at its end. Number tokens over 30 digits get
 Report parsing runs in a thread pool, never on the event loop.
 Dependencies: requirements.txt. Token-free checks: .venv/bin/python test_parsing.py (parsing,
 bot-page fixtures on a mocked transport, claim cap order, report4 junk passages and
-parentheses), test_checks.py (unit-scaled and locale numbers, name check scope/acronyms,
+parentheses, report5's pinned claim list + copy-format rules), test_pdf.py (generated
+text/encrypted/blank PDFs, size/time/memory limits, page numbers, the real ICO report cached in
+gitignored testdata/), test_sources.py (merge rules, partly/fully unreachable, Groq + Gemini
+multi-source, vague notes, unreachable reasons, rescore of a multi-source claim), test_checks.py (unit-scaled and locale numbers, name check scope/acronyms,
 VOLZ/Moustachir, anchor passage selection, rescore.py end to end) and
 test_security.py (network: rebinding, TLS, SSRF blocks; client IP + proxy secret, table
 pruning, heartbeat with a fake slow model, examples/ui_check.txt makes no model call,
@@ -176,7 +218,7 @@ NO SOURCE GIVEN / NOT CHECKED / ERROR. Verdicts judge factual parts only; editor
 - PROXY_SECRET (openssl rand -hex 32) lives only in Railway's variables and the Worker's
   secrets. Never in code, git, logs, chats or prompts; never ask Anis to paste it.
 - Page text is untrusted (prompt injection). Keep it delimited; never put secrets in prompts.
-- Never commit fetch_results.json, runs/ or *.pages.json (copies of other sites' pages).
+- Never commit fetch_results.json, runs/, testdata/ or *.pages.json (copies of other sites' pages).
 - Free tier: Groq 30 RPM, 1K RPD, 8K TPM, 200K tokens/day. ~900 tokens per claim.
   Gemini 3.5 Flash Lite (free, per project): 15 RPM, 250K TPM, 500 RPD. Free-tier Gemini API
   content may be used by Google to improve its products (check the current terms).
@@ -237,6 +279,14 @@ Also: 19 junk "." passages in the uncited list and "(+23.9%" truncation. All fix
 2026-10-09 (locnum.py, segments()). No hand labels file yet. report4 is now a REGRESSION
 set too; re-score the production run with rescore.py, then the next eval is a fresh report. The next eval must use
 fresh reports run after these fixes, scored with both metrics.
+
+## Fresh report 5 (2026-10-10, production): report5.txt, ChatGPT copy button, coffee prices
+Production: 9 of 10 checked claims SOURCE UNREACHABLE (6 ICO PDFs unsupported, Reuters 401),
+3 junk claims ("and", ", and", "Sources:"). Fixed 2026-10-10 (PDFs, copy format, multi-source,
+vague notes, friendly reasons). Now 21 cited claims; of the first 10, 7 reach the model (3 are
+Reuters, blocked). Zero-token check: "December 2025: 304.68¢/lb" is in none of its 3 cited
+reports, and claim 8's 304.68 is not in the November report. No hand labels yet; report5 has
+been seen while fixing parsing, so it is a REGRESSION set for parsing, not an accuracy eval.
 
 ## Open issues, in order
 1. DONE: Claims 4 and 9 false rejections. Cause: U+2011 hyphens and '...'-shortened quotes; fixed in

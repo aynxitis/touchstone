@@ -86,7 +86,8 @@ url = "https://example.com/page"
 ev = [e for e in audit(f"- Algeria has 7,800 startups {url}", None,
                        pages={url: {"url": url, "status": "BLOCKED", "detail": F.BOT_BLOCKED}})
       if e["type"] == "claim"][0]
-assert ev["label"] == "SOURCE UNREACHABLE" and ev["reason"] == "The site blocked the checker (bot protection).", ev
+assert ev["label"] == "SOURCE UNREACHABLE" and ev["reason"] == "example.com blocked the checker (bot protection or paywall).", ev
+assert ev["detail"] == "BLOCKED " + F.BOT_BLOCKED and "HTTP" not in ev["reason"]
 
 
 # Claim cap: the first max_claims cited claims in report order are checked (a claim without
@@ -126,5 +127,81 @@ for line, want in (("* **Spain:** 20,000 EVs sold (+3.1%) ([Eleport](https://e.c
                    ("Sales rose (see [chart](https://e.com/d)).", "Sales rose (see")):
     assert seg(line) == [(want, line[line.index("https"):].split(")")[0])], (line, seg(line))
 assert seg("Intro.\n\n---\n***\n___\n\nEnd. https://e.com/x\n.\n- (\n") == [("Intro.", None), ("End.", "https://e.com/x")]
+
+# report5 (ChatGPT copy button, coffee prices): favicon chips + captions, HTML entities,
+# "Source:"/"Sources:" lines under stat blocks / tables / paragraphs, inline "Sources: [A] and
+# [B]", number headings as stats. The whole claim list is pinned.
+from check_numbers import blocks, copy_cleanup, stat_value
+b5 = blocks(open("report5.txt", encoding="utf-8").read())
+ICO = "https://www.ico.org/documents/"
+cmr = lambda name: ICO + ("cy2024-25/" if name == "0225" else "cy2025-26/") + f"cmr-{name}-e.pdf"
+REUT1 = "https://www.reuters.com/markets/commodities/coffee-new-york-jumps-6-new-record-amid-panic-buying-2025-02-10/"
+REUT2 = "https://www.reuters.com/business/why-are-coffee-prices-trading-near-half-century-highs-2024-12-04/"
+LISTING = "https://ico.org/ico-document-library/?coffeemeeting=Monthly+Coffee+Market&coffeeyear=2025%2F2026"
+CAPTION = " — ICO composite indicator; US cents per pound of green coffee. Monthly averages."
+want5 = [
+    ("February 2025 monthly average: 354.32¢/lb — US dollars: $3.54 per pound", (cmr("0225"),)),
+    ("Year-on-year change: +94.6% — Compared with February 2024", (cmr("0225"),)),
+    ("The ICO reported a record-high monthly average for its composite indicator at the time.", (cmr("0225"),)),
+    ("Drought and heat in Brazil.", (REUT1,)),
+    ("Weather problems in Vietnam.", (REUT2,)),
+    ("Tight inventories and reduced export flows.", (cmr("0225"),)),
+    ("Market buying amplified the move.", (REUT1,)),
+    ("Prices remained elevated through much of the year", (cmr("1125"), LISTING)),
+    ("December 2025: 304.68¢/lb" + CAPTION, (cmr("0126"), cmr("0226"), cmr("0326"))),
+    ("January 2026: 296.89¢/lb" + CAPTION, (cmr("0126"), cmr("0226"), cmr("0326"))),
+    ("February 2026: 267.57¢/lb" + CAPTION, (cmr("0126"), cmr("0226"), cmr("0326"))),
+    ("March 2026: 273.70¢/lb" + CAPTION, (cmr("0126"), cmr("0226"), cmr("0326"))),
+    ("Improved Brazilian crop outlook.", (cmr("0226"),)),
+    ("Better rainfall in Vietnam.", (cmr("0226"),)),
+    ("More export supply.", (cmr("0126"),)),
+    ("Month: March 2026 — Global benchmark: 273.70¢/lb — Monthly change: +2.3%", (cmr("0326"), "https://ico.org/")),
+    ("Month: April 2026 — Global benchmark: 266.24¢/lb — Monthly change: −2.7%", (cmr("0326"), "https://ico.org/")),
+    ("Month: August 2026 — Global benchmark: 287.29¢/lb — Monthly change: Essentially unchanged", (cmr("0326"), "https://ico.org/")),
+    ("Month: September 2026 — Global benchmark: 262.18¢/lb — Monthly change: −8.7%", (cmr("0326"), "https://ico.org/")),
+    ("Selected monthly averages of the ICO Composite Indicator Price", ("https://ico.org/resources/public-market-information/",)),
+    ("Three distinctions matter:", (cmr("0226"),)),
+]
+got5 = [(t, u) for t, u in b5 if u]
+assert len(got5) == len(want5), [t[:50] for t, _ in got5]
+for (t, u), (wt, wu) in zip(got5, want5):
+    assert t.startswith(wt) and u == wu, ((t, u), (wt, wu))
+assert got5[7][0].endswith("as supply concerns eased and export flows strengthened."), got5[7][0]   # "Sources:" stripped
+uncited5 = [t for t, u in b5 if not u]
+assert len(uncited5) == 10 and uncited5[0].startswith("Global coffee prices went through")
+assert "Global green coffee benchmark, 2025–2026" in uncited5
+for t, _ in b5:     # chips, captions, connectors, entities, chart axes: never claims or passages
+    assert t not in ("and", ", and", "Sources:", "Reuters", "icocoffee.org", "International Coffee Organization",
+                     "+1", "+2", "cmr-1225-e"), t
+    assert "&#x20;" not in t and "favicon" not in t and "Sources:" not in t and "¢/lb250" not in t, t
+assert not any("google.com" in u for _, us in b5 for u in us)
+
+# Copy-format rules, one at a time.
+assert copy_cleanup("A&nbsp;B &amp; C&#x20;D &copy x https://e.com/?a=1&copy=2") == "A B & C D &copy x https://e.com/?a=1&copy=2"
+assert blocks("Sales rose 5% [x](https://e.com/a\\&b=1).") == [("Sales rose 5%", ("https://e.com/a&b=1",))]
+chip = "Text one [S](https://e.com/1).\n\n[image](https://www.google.com/s2/favicons?domain=https://e.com\\&sz=32)\n\nReuters\n\n+3\n\nShort tail"
+assert blocks(chip) == [("Text one", ("https://e.com/1",)), ("Short tail", ())], blocks(chip)
+assert blocks("Up 5%. Sources: [A](https://e.com/1), [B](https://e.com/2), and [C](https://e.com/3).") == [
+    ("Up 5%.", ("https://e.com/1", "https://e.com/2", "https://e.com/3"))]
+assert blocks("Tesla sold 9 [a](https://e.com/1) and BYD sold 7 [b](https://e.com/2)") == [
+    ("Tesla sold 9", ("https://e.com/1",)), ("and BYD sold 7", ("https://e.com/2",))]
+assert blocks("and\n, and\n,\nReal text.") == [("Real text.", ())]
+# "Source:" under a paragraph, a list (every item) and a table without links stays as written.
+assert blocks("Exports rose 9%.\n\nSource: ICO, [Jan report](https://e.com/j).") == [("Exports rose 9%.", ("https://e.com/j",))]
+assert blocks("- Brazil: 66 million\n- Vietnam: 29 million\n\nSources: [A](https://e.com/a) and [B](https://e.com/b)") == [
+    ("Brazil: 66 million", ("https://e.com/a", "https://e.com/b")), ("Vietnam: 29 million", ("https://e.com/a", "https://e.com/b"))]
+assert blocks("## Results\n\nSource: [A](https://e.com/a)") == []     # nothing above to attach to
+# Number headings are stat values; numbered or year-led section titles are not.
+assert [stat_value(x) for x in ("# 354.32¢/lb", "# +94.6%", "## $3.5B", "# 12 million bags",
+                                "## 1. What happened in 2025?", "## 2026 outlook", "# Results")] == [
+    "354.32¢/lb", "+94.6%", "$3.5B", "12 million bags", None, None, None]
+# Footnote runs give the text every source.
+fn = "Algeria has 7,800 startups [1][2].\n\nSources:\n1. A https://e.com/1\n2. B https://e.com/2"
+assert blocks(fn) == [("Algeria has 7,800 startups.", ("https://e.com/1", "https://e.com/2"))], blocks(fn)
+# Linear on hostile input (CLAUDE.md): 20,000-char lines of the characters these rules look at.
+import time as _t
+for junk in ("[" * 20000, "](" * 10000, "&#" * 10000, "a1" * 10000, "# " + "1" * 20000, "Sources:" * 2500,
+             "| " * 10000, "\\&" * 10000, ("[i](https://x.com/" + "f" * 50 + ")") * 300):
+    t0 = _t.time(); blocks(junk); assert _t.time() - t0 < 2, junk[:20]
 
 print("parsing checks passed")

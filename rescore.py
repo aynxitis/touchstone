@@ -11,13 +11,15 @@ Cache files are copies of other sites' pages: never commit them (*.pages.json is
 Limits: the model's reply is replayed as it was, so a change to passage selection or the
 prompt is not measured (the model would have seen other passages). A page that changed since
 the run can move a label by itself. Older runs without the "model" field are rebuilt from
-their facts (a fact a code check demoted is replayed as the model's "stated")."""
+their facts (a fact a code check demoted is replayed as the model's "stated"). Claims citing
+several URLs replay each source's saved reply and merge them as the audit does."""
 import argparse
 import json
 import os
 
 from fetch_links import fetch_many
 from quote_check import best_excerpts, judge
+from touchstone import combine
 
 SKIP = {"SOURCE UNREACHABLE", "NOT CHECKED", "NO SOURCE GIVEN"}
 META_NOTE = " Judged from the page's meta description only (the page body loads with JavaScript)."
@@ -88,6 +90,26 @@ def rescore(c, page):
     return r["label"], r["reason"]
 
 
+def rescore_multi(c, pages):
+    """A claim citing several sources: each source's saved model reply through the current
+    judge(), merged with touchstone.combine() as in an audit."""
+    if c["label"] in SKIP - {"SOURCE UNREACHABLE"}:
+        return None, "not judged in the run"
+    per = []
+    for s in c["sources"]:
+        page = pages.get(s["url"]) or {}
+        if s["label"] in ("SOURCE UNREACHABLE", "NOT CHECKED") or s.get("model") is None:
+            per.append((s["url"], {"label": s["label"], "quote": "", "reason": s.get("reason", ""),
+                                   "tokens": 0, **({"detail": s["detail"]} if s.get("detail") else {})}))
+        elif not page.get("text"):
+            return None, f"page unreadable now ({page.get('status')}): {s['url']}"
+        else:
+            per.append((s["url"], judge(s["model"], c["text"], page["text"], s["url"],
+                                        meta={"title": page.get("title"), "headings": page.get("headings")})))
+    r = combine(c["text"], per, pages)
+    return r["label"], r["reason"]
+
+
 def main():
     ap = argparse.ArgumentParser(description="Re-score a saved Touchstone run with zero tokens.")
     ap.add_argument("run")
@@ -96,7 +118,8 @@ def main():
     args = ap.parse_args()
 
     claims = load_run(args.run)
-    pages = get_pages(list(dict.fromkeys(c["url"] for c in claims)), args.cache)
+    urls = [s["url"] for c in claims for s in (c.get("sources") or [{"url": c["url"]}])]
+    pages = get_pages(list(dict.fromkeys(urls)), args.cache)
     labels = {}
     if args.labels:
         with open(args.labels, encoding="utf-8") as f:
@@ -104,7 +127,10 @@ def main():
 
     changed, results = 0, {}
     for c in claims:
-        new, reason = rescore(c, pages.get(c["url"]) or {})
+        if len(c.get("sources") or []) > 1:
+            new, reason = rescore_multi(c, pages)
+        else:
+            new, reason = rescore(c, pages.get(c["url"]) or {})
         results[c["claim"]] = new or c["label"]
         mark = "  " if new in (None, c["label"]) else "->"
         changed += mark == "->"

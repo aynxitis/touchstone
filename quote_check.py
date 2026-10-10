@@ -7,7 +7,7 @@ import re
 from dotenv import load_dotenv
 from rapidfuzz import fuzz
 
-from check_numbers import NUM_RE, segments
+from check_numbers import NUM_RE, blocks
 from entities import check_fact, entities, named_in, paragraph_of
 from units import unit_supported
 import locnum
@@ -414,10 +414,17 @@ def judge(out, claim, page, url="", raw="", meta=None):
             fact.update(status="possible", evidence=line)
         facts.append(fact)
 
+    v = verdict(facts, framing, demoted, missing_numbers(claim, page), bool(out), raw)
+    return {**v, "facts": facts, "framing": framing,
+            "model": {"opinion": False, "parts": parts_in} if out else None}
+
+
+def verdict(facts, framing, demoted, missing, ok=True, raw=""):
+    """Label, quote and reason from checked facts: shared by judge() (one source) and merge()
+    (several). missing: the claim's numbers on none of the pages; ok: the reply parsed."""
     statuses = [f["status"] for f in facts]
-    missing = missing_numbers(claim, page)
     soft = ("unconfirmed", "possible")
-    if not out:
+    if not ok:
         label = "ERROR"        # unparseable model output
     elif not facts:
         label = "UNVERIFIED"   # no checkable fact identified: we can't say either way
@@ -459,8 +466,47 @@ def judge(out, claim, page, url="", raw="", meta=None):
         parts.insert(0, "No checkable fact identified in the claim.")
     reason = " ".join(parts) or raw[:200]
     quote = next((f["quote"] for f in facts if f["status"] in ("contradicted", "stated")), "")
-    return {"label": label, "quote": quote, "reason": reason, "facts": facts, "framing": framing,
-            "model": {"opinion": False, "parts": parts_in} if out else None}
+    return {"label": label, "quote": quote, "reason": reason}
+
+
+# Several sources (a claim citing 2+ URLs): each source is judged on its own, then merged.
+RANK = {"stated": 5, "contradicted": 4, "unconfirmed": 3, "possible": 2, "missing": 1}
+SAME_FACT_MIN = 80          # token_set_ratio: the same fact, worded by two separate calls
+
+
+def same_fact(a, b):
+    """Two calls' wordings of one fact: identical numbers and near-identical words."""
+    if numbers_not_in(a, b, min_digits=1) or numbers_not_in(b, a, min_digits=1):
+        return False
+    return fuzz.token_set_ratio(normalize(a), normalize(b)) >= SAME_FACT_MIN
+
+
+def merge(claim, results, texts):
+    """One verdict from several sources' judge() results [(url, result)] (texts: those pages).
+    The source with the most support gives the claim's fact list; each of its facts takes the
+    best status any source gives the same fact: "stated" if ANY source states it with a
+    verified quote, "contradicted" only if one contradicts it and none states it. Then the
+    usual verdict(), with "numbers not on page" meaning on none of the pages."""
+    with_facts = [(u, r) for u, r in results if r.get("facts")]
+    if not with_facts:
+        pick = next((r for want in ("OPINION", "UNVERIFIED") for _, r in results if r["label"] == want),
+                    results[0][1])
+        return {k: v for k, v in pick.items() if k not in ("model", "tokens")}
+    count = lambda r, sts: sum(f["status"] in sts for f in r["facts"])
+    base_url, base = max(with_facts, key=lambda ur: (count(ur[1], ("stated",)),
+                                                    count(ur[1], ("unconfirmed", "possible")),
+                                                    -count(ur[1], ("contradicted",))))
+    facts = []
+    for f in base["facts"]:
+        best, src = f, base_url
+        for u, r in with_facts:
+            for g in r["facts"] if u != base_url else []:
+                if RANK.get(g["status"], 0) > RANK.get(best["status"], 0) and same_fact(f["fact"], g["fact"]):
+                    best, src = g, u
+        facts.append({**best, "fact": f["fact"], "source": src})
+    demoted = any(f.get("rejected_quote") for f in facts)
+    v = verdict(facts, base["framing"], demoted, missing_numbers(claim, "\n".join(texts)))
+    return {**v, "facts": facts, "framing": base["framing"]}
 
 
 def main():
@@ -495,7 +541,7 @@ def main():
     if os.path.exists(args.cache):
         with open(args.cache, encoding="utf-8") as f:
             pages = {r["url"]: r for r in json.load(f)}
-    urls = list(dict.fromkeys(u for _, u in segments(report) if u))
+    urls = list(dict.fromkeys(u for _, us in blocks(report) for u in us))
     if todo := [u for u in urls if u not in pages]:
         print(f"Fetching {len(todo)} page(s) into {args.cache} (no model call)...")
         pages.update(zip(todo, fetch_many(todo)))
@@ -551,6 +597,9 @@ def main():
         for x in r.get("framing", []):
             print(f"      - {'framing':<12} {x}")
         print(f"    why:    {r['reason']}")
+        if len(r.get("sources") or []) > 1:
+            for src in r["sources"]:
+                print(f"    source: {src['label']:<18} {src['url'][:90]}")
 
     run["tokens"] = total_tokens
     print(f"\nTokens used: {total_tokens} ({provider.name}, {provider.model})")

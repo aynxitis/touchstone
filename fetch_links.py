@@ -11,6 +11,8 @@ import httpx
 import trafilatura
 from html import unescape
 
+import pdf_text
+
 URL_RE = re.compile(r"https?://[^\s<>\"'\)\]]+")
 TIMEOUT = 15            # seconds per request (connect/read)
 MAX_SECONDS = 30        # hard wall clock per URL: DNS, all redirect hops, body
@@ -20,10 +22,11 @@ MIN_TEXT_CHARS = 200    # less than this = no usable text
 MIN_META_CHARS = 50     # a meta description shorter than this is useless
 HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Touchstone/0.1"}
 BOT_BLOCKED = "blocked the checker (bot protection)"
-BLOCK_STATUSES = (403, 429, 503)
+BLOCK_STATUSES = (401, 403, 429, 503)   # reuters.com: 401 + x-datadome
 # Challenge/block pages must never reach the model as "page text". Titles of Cloudflare's own
 # interstitials count on any status; body markers only on a 403/429/503, because normal pages
 # behind Cloudflare load /cdn-cgi/challenge-platform/ scripts too, and articles can mention them.
+# Detection only: a blocked page is reported as unreachable, never retried or worked around.
 CF_TITLES = ("just a moment...", "attention required! | cloudflare")
 BLOCK_MARKERS = ("cf-chl", "challenge-platform", "cf-error-details",   # Cloudflare
                  "captcha-delivery.com", "datadome",                    # DataDome
@@ -78,16 +81,6 @@ def decode(body, encoding):
         return body.decode(encoding, errors="replace")
     except LookupError:
         return body.decode("utf-8", errors="replace")
-
-
-def extract_urls(text):
-    """Find every unique link in the report, in order."""
-    urls = []
-    for u in URL_RE.findall(text):
-        u = u.rstrip(".,;:!?")
-        if u not in urls:
-            urls.append(u)
-    return urls
 
 
 BLOCKED_V6 = [ipaddress.ip_network(n) for n in ("::/96", "64:ff9b::/96", "64:ff9b:1::/48")]
@@ -162,14 +155,33 @@ def peer_ok(r):
         return False
 
 
-async def read_capped(r):
-    """Read the body, stopping at MAX_BYTES."""
+async def read_capped(r, cap=MAX_BYTES):
+    """Read the body, stopping after cap bytes (returns at most cap + 1, so a caller can tell
+    a body that hit the cap)."""
     body = bytearray()
     async for chunk in r.aiter_bytes():
         body += chunk
-        if len(body) > MAX_BYTES:
+        if len(body) > cap:
             break
-    return bytes(body[:MAX_BYTES])
+    return bytes(body[:cap + 1])
+
+
+def is_pdf(url, headers):
+    ctype = headers.get("content-type", "").lower()
+    return "pdf" in ctype or (urlsplit(url).path.lower().endswith(".pdf")
+                              and ctype.split(";")[0].strip() in ("", "application/octet-stream",
+                                                                  "binary/octet-stream", "application/download"))
+
+
+def pdf_result(url, body):
+    """Parse a downloaded PDF (pdf_text: subprocess with memory/CPU/time limits)."""
+    got = pdf_text.extract(body)
+    if "error" in got:
+        return {"url": url, "status": "PDF_ERROR", "detail": got["error"]}
+    text = got["text"]
+    title = got["title"] or text.split("\n", 1)[0][:300]
+    return {"url": url, "status": "OK", "detail": f"PDF, {got['pages']} pages, {len(text)} chars",
+            "text": text, "title": title, "headings": [], "pdf": True, "page_starts": got["page_starts"]}
 
 
 async def fetch_one(url):
@@ -185,6 +197,10 @@ async def fetch_one(url):
         return {"url": url, "status": "ERROR", "detail": type(e).__name__}
     if isinstance(got, dict):
         return got
+    if isinstance(got, bytes):
+        # Parsed outside the download's wall clock, in a thread (the subprocess has its own
+        # PDF_SECONDS limit), so the event loop keeps serving other fetches meanwhile.
+        return await asyncio.to_thread(pdf_result, url, got)
     html = got
     title, headings = outline(html)
     text = trafilatura.extract(html) or ""
@@ -204,7 +220,7 @@ async def fetch_one(url):
 
 
 async def _get(url):
-    """The page's HTML as a string, or a result dict if the page can't be used."""
+    """The page's HTML as a string, a PDF's bytes, or a result dict if it can't be used."""
     current = url
     try:
         async with httpx.AsyncClient(timeout=TIMEOUT, headers=HEADERS, follow_redirects=False) as client:
@@ -228,9 +244,16 @@ async def _get(url):
                             if bot_blocked(r.status_code, r.headers, html):
                                 return blocked
                         return {"url": url, "status": "HTTP_ERR", "detail": str(r.status_code)}
-                    if "pdf" in r.headers.get("content-type", ""):
-                        return {"url": url, "status": "PDF", "detail": "not handled yet"}
-                    html = decode(await read_capped(r), r.encoding or "utf-8")
+                    if is_pdf(current, r.headers):
+                        too_big = {"url": url, "status": "PDF_ERROR", "detail": pdf_text.TOO_BIG}
+                        try:
+                            if int(r.headers.get("content-length") or 0) > pdf_text.PDF_MAX_BYTES:
+                                return too_big
+                        except ValueError:
+                            pass
+                        body = await read_capped(r, pdf_text.PDF_MAX_BYTES)
+                        return too_big if len(body) > pdf_text.PDF_MAX_BYTES else body
+                    html = decode((await read_capped(r))[:MAX_BYTES], r.encoding or "utf-8")
                     return blocked if bot_blocked(r.status_code, r.headers, html) else html
             return {"url": url, "status": "ERROR", "detail": "too many redirects"}
     except httpx.TimeoutException:
@@ -262,8 +285,9 @@ def main():
     if len(sys.argv) != 2:
         print("usage: python fetch_links.py report.txt")
         sys.exit(1)
+    from check_numbers import blocks       # favicon chips etc. are never sources
     with open(sys.argv[1], encoding="utf-8") as f:
-        urls = extract_urls(f.read())
+        urls = list(dict.fromkeys(u for _, us in blocks(f.read()) for u in us))
     if not urls:
         print("No links found in the report.")
         return

@@ -27,6 +27,7 @@ const $ = (id) => document.getElementById(id);
 const str = (v) => (typeof v === "string" ? v : "");
 const arr = (v) => (Array.isArray(v) ? v : []);
 const int = (v) => (Number.isInteger(v) && v >= 0 ? v : null);
+const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return str(u); } };
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -88,7 +89,10 @@ function renderCard(ev) {
   card.append(head);
 
   card.append(el("p", "claim", str(ev.text)));
+  for (const note of arr(ev.notes)) if (str(note)) card.append(el("p", "note", str(note)));
 
+  const sources = arr(ev.sources).filter((s) => s && typeof s === "object");
+  const multi = sources.length > 1;
   const parts = el("ul", "parts");
   for (const f of arr(ev.facts)) {
     if (!f || typeof f !== "object") continue;
@@ -97,10 +101,18 @@ function renderCard(ev) {
     const ph = el("div", "part-head");
     ph.append(el("span", "tag", STATUS_TEXT[status] || "unclear"), el("span", "", str(f.fact)));
     li.append(ph);
-    if (str(f.quote)) li.append(el("blockquote", "", `“${str(f.quote)}”`));
+    // Where the quote is from: the PDF page, and the site when the claim cites several.
+    const where = [multi && str(f.source) ? host(f.source) : "", int(f.page) ? `p. ${f.page}` : ""]
+      .filter(Boolean).join(", ");
+    const quote = (text) => {
+      const q = el("blockquote", "", `“${text}”`);
+      if (where) q.append(el("span", "where", ` (${where})`));
+      return q;
+    };
+    if (str(f.quote)) li.append(quote(str(f.quote)));
     if (str(f.evidence)) {
       li.append(el("p", "rejected", "Not in the passages checked, but this line on the page has its figures. Check it:"));
-      li.append(el("blockquote", "", `“${str(f.evidence)}”`));
+      li.append(quote(str(f.evidence)));
     }
     if (str(f.rejected_quote)) {
       li.append(el("p", "rejected", `Quote given by the model, not found on the page: “${str(f.rejected_quote)}”`));
@@ -119,6 +131,32 @@ function renderCard(ev) {
   if (parts.childElementCount) card.append(parts);
 
   if (str(ev.reason)) card.append(el("p", "reason", str(ev.reason)));
+  if (str(ev.detail)) card.append(el("p", "detail", `Details: ${str(ev.detail)}`));
+
+  // Several sources: each with its own outcome ("SOURCED", "SOURCE UNREACHABLE: ...").
+  if (multi) {
+    const list = el("ul", "sources");
+    for (const s of sources) {
+      const li = el("li");
+      const href = safeUrl(str(s.url));
+      if (href) {
+        const a = el("a", "source", href);
+        a.href = href;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        li.append(a);
+      } else {
+        li.append(el("span", "source-plain", str(s.url)));
+      }
+      const outcome = str(s.label) === "SOURCE UNREACHABLE" ? str(s.reason) || "Could not be read." : str(s.label);
+      li.append(el("span", "outcome", ` \u2014 ${outcome}`));
+      if (str(s.note)) li.append(el("span", "outcome", ` (${str(s.note)})`));
+      if (str(s.detail)) li.append(el("span", "detail", ` Details: ${str(s.detail)}`));
+      list.append(li);
+    }
+    card.append(list);
+    return card;
+  }
 
   const href = safeUrl(str(ev.url));
   if (href) {

@@ -1,5 +1,6 @@
 """Touchstone step 2 (code-only, zero tokens): do the numbers in each claim
 appear in the page that claim cites?"""
+import html
 import json
 import re
 import sys
@@ -88,33 +89,264 @@ def resolve_footnotes(report):
             named_only += 1
 
     def to_url(m):
-        found = [urls[n] for n in re.findall(r"\d+", m.group(1)) if n in urls]
-        # One claim, one source (like inline links): a run "[1][2]" gives the text the first
-        # URL; the others stay out so they don't become empty claims of their own.
-        return m.group(2) + (f" {found[0]} " if found else "")
+        found = list(dict.fromkeys(urls[n] for n in re.findall(r"\d+", m.group(1)) if n in urls))
+        # A run "[1][2]" gives the text all its URLs; links separated only by spaces form one
+        # group in blocks(), so they never become empty claims of their own.
+        return m.group(2) + (f" {' '.join(found)} " if found else "")
 
     body = [MARKER.sub(to_url, line) for i, line in enumerate(lines) if i not in defs]
     return "\n".join(body), named_only
 
 
-def segments(report):
-    """Split the report into (text, url) in document order; url is None for uncited text.
-    A link only owns the text on its own line (paragraph, bullet or table row) since the
-    previous link, so uncited paragraphs never get merged into the next claim.
+# ---- Copy-format cleanup (ChatGPT's copy button), before any parsing ----
+# HTML entities, only with their ';' ("&#x20;", "&nbsp;", "&amp;"): html.unescape alone would
+# also turn "?a=1&copy=2" in a URL into "?a=1©=2".
+ENTITY = re.compile(r"&(?:#\d{1,7}|#[xX][0-9a-fA-F]{1,6}|[a-zA-Z][a-zA-Z0-9]{1,31});")
+MD_ESCAPE = re.compile(r"\\([&_#=?%+~])")          # "\&sz=32": markdown escapes in URLs
+# A markdown image/link; a favicon chip when its URL holds "favicon" (Google's s2/favicons).
+MD_LINK = re.compile(r"!?\[[^\[\]\n]{0,300}\]\(\s{0,3}(https?://[^\s()]{1,2000})\s{0,3}\)")
+CHIP_COUNT = re.compile(r"\+\d{1,3}")              # "+1", "+2" after a chip
+# Chart axis labels pasted as one line: "200¢/lb250¢/lb300¢/lbFeb 2025Nov 2025...".
+GLUED = re.compile(r"[a-z%\u00a2]\d|\d[A-Z]")
+GLUED_MIN = 4
+
+
+def unescape_entities(text):
+    return ENTITY.sub(lambda m: html.unescape(m.group()), text)
+
+
+def is_chip_label(s):
+    """A favicon chip's caption: a bare domain, a source name ("Reuters", "International
+    Coffee Organization"), a file stem ("cmr-1225-e"). Short, no link, no sentence end."""
+    return (0 < len(s) <= 60 and not URL_RE.search(s) and not s.startswith(("#", "|"))
+            and not LIST_ITEM.match(s) and s[-1] not in ".!?:;")
+
+
+def copy_cleanup(report):
+    """Decode HTML entities, drop favicon chips and the caption lines right after them, drop
+    chart-axis residue. None of these are claims, uncited passages or sources."""
+    text = MD_ESCAPE.sub(r"\1", unescape_entities(report)).replace("\u00a0", " ")
+    out, after_chip = [], 0
+    for line in text.split("\n"):
+        stripped = MD_LINK.sub(lambda m: "" if "favicon" in m.group(1).lower() else m.group(), line)
+        if stripped != line and not stripped.strip():
+            after_chip = 2                       # a line of chips only: captions may follow
+            continue
+        s = stripped.strip()
+        if not s:
+            out.append("")
+            continue
+        if after_chip and (CHIP_COUNT.fullmatch(s) or (after_chip == 2 and is_chip_label(s))):
+            after_chip = 0 if CHIP_COUNT.fullmatch(s) else 1
+            continue
+        after_chip = 0
+        if not URL_RE.search(s) and len(GLUED.findall(s)) >= GLUED_MIN:
+            continue                             # chart axis labels glued together
+        out.append(stripped)
+    return "\n".join(out)
+
+
+# ---- "Source:" lines and stat blocks ----
+SOURCE_LINE = re.compile(r"^\s{0,8}(?:[-*+]\s{1,4})?[*_]{0,2}(?:sources?|references?)[*_]{0,2}\s{0,3}:", re.I)
+RULE = re.compile(r"\|?[\s:\-|]*|[*_\s]{3,40}")
+NUMBERED_TITLE = re.compile(r"\d{1,2}[.)]\s")       # "## 1. What happened in 2025?"
+STAT_LINE_CHARS = 80
+
+
+def stat_value(s):
+    """The value of a stat heading ("# 354.32¢/lb", "# +94.6%"), or None for a section title.
+    Numbers in headings are figures, not titles ("## 1. What happened" / "## 2026 outlook" are
+    titles)."""
+    if not s.startswith("#"):
+        return None
+    t = s.lstrip("#").strip()
+    if (len(t) > 30 or not re.match(r"[+\-\u2212~\u2248\u00b1$\u20ac\u00a3\u00a5]{0,2}\d", t)
+            or NUMBERED_TITLE.match(t) or t.endswith("?")):
+        return None
+    words = re.findall(r"[^\W\d_]{3,}", t)
+    if len(words) > 2 or (re.match(r"(?:19|20)\d\d\b", t) and words):
+        return None
+    return t
+
+
+def kind_of(line):
+    s = line.strip()
+    if stat_value(s) is not None:
+        return "value"
+    if s.startswith("|"):
+        return "table"                                      # separator rows included
+    if s.startswith("#") or RULE.fullmatch(s):
+        return "heading"                                    # a boundary
+    if SOURCE_LINE.match(line):
+        return "source"
+    if LIST_ITEM.match(line):
+        return "list"
+    return "para"
+
+
+def units_of(lines):
+    """[(kind, [line indices])]: one unit per line, except that table rows (consecutive) and
+    list items (blank lines allowed between them) form one unit each."""
+    units, prev_blank = [], False
+    for i, line in enumerate(lines):
+        if not line.strip():
+            prev_blank = True
+            continue
+        k = kind_of(line)
+        if units and k == units[-1][0] and ((k == "table" and not prev_blank) or k == "list"):
+            units[-1][1].append(i)
+        else:
+            units.append((k, [i]))
+        prev_blank = False
+    return units
+
+
+def stat_ish(kind, lines, idx):
+    s = lines[idx[0]].strip()
+    return kind == "value" or (kind == "para" and len(idx) == 1 and len(s) <= STAT_LINE_CHARS
+                               and not URL_RE.search(s) and s[-1] not in ".!?:;,")
+
+
+def stat_texts(lines, run):
+    """One claim text per value in a stat block: "label: value — sub-line — ...". The line
+    just before a value is its label; lines after it (up to the next label) are its details."""
+    items = [(k, lines[idx[0]].strip()) for k, idx in run]
+    vals = [j for j, (k, _) in enumerate(items) if k == "value"]
+    out, label = [], items[vals[0] - 1][1] if vals[0] > 0 else None
+    for n, j in enumerate(vals):
+        stop = vals[n + 1] if n + 1 < len(vals) else len(items)
+        between = [t for _, t in items[j + 1:stop]]
+        subs, nxt = (between[:-1], between[-1] if between else None) if n + 1 < len(vals) else (between, None)
+        value = stat_value(items[j][1])
+        out.append(" \u2014 ".join([f"{label}: {value}" if label else value] + subs))
+        label = nxt
+    return out, items[:max(vals[0] - 1, 0)]
+
+
+def table_rows(lines, idx):
+    """A table's data rows as claim texts "Header: cell — Header: cell"."""
+    cells = lambda i: [c.strip() for c in lines[i].strip().strip("|").split("|")]
+    rows = [i for i in idx if not RULE.fullmatch(lines[i].strip())]
+    has_header = len(idx) > 1 and RULE.fullmatch(lines[idx[1]].strip())
+    if not has_header:
+        return [" \u2014 ".join(c for c in cells(i) if c) for i in rows]
+    head = cells(rows[0])
+    out = []
+    for i in rows[1:]:
+        out.append(" \u2014 ".join(f"{h}: {c}" if h else c for h, c in zip(head, cells(i)) if c))
+    return out
+
+
+def link_urls(line):
+    return list(dict.fromkeys(m.group().rstrip(".,;:!?") for m in URL_RE.finditer(line)))
+
+
+def attach_sources(report):
+    """Rewrite stat blocks and "Source:" lines into ordinary cited lines for blocks():
+      - A stat block (short label lines around number headings like "# 354.32¢/lb") becomes
+        one line per value: "February 2025 monthly average: 354.32¢/lb — US dollars: ...".
+      - A line starting "Source:"/"Sources:" gives ALL its links to the content block right
+        above it: a paragraph, a stat block (with a one-line caption under it), a table (every
+        data row becomes a claim) or a list (every item). Text after its last link is a claim
+        with the same sources; the source's name before the links is not.
+    """
+    lines = report.split("\n")
+    units = units_of(lines)
+    out = {}                                 # line index -> replacement (None = drop)
+    done = set()                             # unit indices already rewritten
+    targets = {}                             # first line of a stat block -> its claim texts
+    stat_of = {}                             # unit index -> first line of its stat block
+    k = 0
+    while k < len(units):                    # stat blocks
+        j = k
+        while j < len(units) and stat_ish(units[j][0], lines, units[j][1]):
+            j += 1
+        run = units[k:j]
+        if any(kind == "value" for kind, _ in run):
+            texts, title = stat_texts(lines, run)
+            nxt = units[j] if j < len(units) else None
+            if (nxt and nxt[0] == "para" and len(nxt[1]) == 1 and j + 1 < len(units)
+                    and units[j + 1][0] == "source" and len(lines[nxt[1][0]].strip()) <= 200
+                    and not URL_RE.search(lines[nxt[1][0]])):
+                caption = lines[nxt[1][0]].strip()     # "ICO composite indicator; US cents..."
+                texts = [f"{t} \u2014 {caption}" for t in texts]
+                out[nxt[1][0]] = None
+                done.add(j)
+            keep = len(title)
+            for kind, idx in run[keep:]:
+                out[idx[0]] = None
+            first = run[keep][1][0]
+            targets[first] = texts
+            stat_of.update({u: first for u in range(k + keep, j)})
+            out[first] = "\n".join(texts)
+            k = j
+        else:
+            k = max(j, k + 1)
+
+    for n, (kind, idx) in enumerate(units):  # "Source:" lines
+        if kind != "source":
+            continue
+        line = lines[idx[0]]
+        urls = link_urls(line)
+        if not urls:
+            continue                         # a source named without a link: uncited text
+        tail = clean(line[list(URL_RE.finditer(line))[-1].end():]).lstrip(" .,;:")
+        out[idx[0]] = f"{tail} {' '.join(urls)}" if HAS_WORD.search(tail) and not connector(tail) else None
+        p = n - 1
+        while p >= 0 and p in done:
+            p -= 1
+        if p < 0:
+            continue
+        pkind, pidx = units[p]
+        suffix = " " + " ".join(urls)
+        if p in stat_of:                     # a stat block
+            out[stat_of[p]] = "\n".join(t + suffix for t in targets[stat_of[p]])
+        elif any(URL_RE.search(lines[i]) for i in pidx) or pkind in ("heading", "source", "value"):
+            continue                         # already cited, or nothing to attach to
+        elif pkind == "table":
+            rows = table_rows(lines, pidx)
+            for i in pidx:
+                out[i] = None
+            out[pidx[0]] = "\n".join(r + suffix for r in rows if HAS_WORD.search(r))
+        else:                                # a paragraph, or every item of a list
+            for i in pidx:
+                out[i] = lines[i].rstrip() + suffix
+    return "\n".join(x for i, line in enumerate(lines)
+                     for x in ([line] if i not in out else [] if out[i] is None else [out[i]]))
+
+
+# ---- Splitting into claims ----
+CONNECTORS = {"and", "or", "plus", "also"}
+SOURCE_LABEL = re.compile(r"(?:^|(?<=[\s.;,(]))(?:sources?|references?)[ \t]{0,3}:?[ \t]{0,3}$", re.I)
+
+
+def connector(text):
+    """Only connectors and punctuation ("and", ", and", ","): never a claim."""
+    words = re.findall(r"[^\W_]+", text)
+    return len(words) <= 3 and all(w.lower() in CONNECTORS for w in words)
+
+
+def blocks(report):
+    """Split the report into (text, urls) in document order; urls is a tuple of the claim's
+    sources (empty for uncited text). A link group only owns the text on its own line
+    (paragraph, bullet or table row) since the previous group, so uncited paragraphs never get
+    merged into the next claim. Links separated only by connectors or punctuation ("[A](u1)
+    and [B](u2)", "u1 u2") form one group: one claim with several sources.
     Exception: a lead-in line ending in ':' plus the bullets right after it form one block,
-    owned by the link that ends the block."""
-    report, _ = resolve_footnotes(report)
+    owned by the link group that ends the block."""
+    report, _ = resolve_footnotes(copy_cleanup(report))
+    report = attach_sources(report)
     out, block = [], []          # block: uncited lead-in + bullets waiting for a link
 
     def flush():                 # block ended without a link: each line is uncited
-        out.extend((t, None) for t in block)
+        out.extend((t, ()) for t in block if not connector(t))
         block.clear()
 
     for line in report.split("\n"):
         s = line.strip()
         if not s:
             continue                                   # blank lines don't end a block
-        if s.startswith("#") or re.fullmatch(r"\|?[\s:\-|]*|[*_\s]{3,40}", s):
+        if s.startswith("#") or RULE.fullmatch(s):
             flush()
             continue                                   # heading, table separator, rule
         links = list(URL_RE.finditer(line))
@@ -123,24 +355,37 @@ def segments(report):
             continue                                   # uncited table row = header
         if block and not LIST_ITEM.match(line):
             flush()                                    # a non-bullet line ends the block
-        last = 0
+        groups, last = [], 0
         for m in links:
-            text = clean(line[last:m.start()])
+            between = line[last:m.start()]
+            if groups and connector(clean(between)):
+                groups[-1][1].append(m)                # "[A](u1) and [B](u2)": one group
+            else:
+                groups.append((between, [m]))
             last = m.end()
+        for between, ms in groups:
+            text = clean(between)
+            if SOURCE_LABEL.search(text):                  # "... strengthened. Sources: [A] and [B]"
+                text = clean(SOURCE_LABEL.sub("", text)).rstrip(" ,;(")
             if block:
                 text = " ".join(block + [text]).strip()
                 block.clear()
-            if HAS_WORD.search(text):
-                out.append((text, m.group().rstrip(".,;:!?")))
+            if HAS_WORD.search(text) and not connector(text):
+                out.append((text, tuple(dict.fromkeys(m.group().rstrip(".,;:!?") for m in ms))))
         tail = clean(line[last:])
-        if not HAS_WORD.search(tail):
+        if not HAS_WORD.search(tail) or connector(tail):
             continue                                   # "." left after "([Name](url))."
         if links or not (block or tail.endswith(":")):
-            out.append((tail, None))
+            out.append((tail, ()))
         else:
             block.append(tail)                         # start or extend a list block
     flush()
     return out
+
+
+def segments(report):
+    """blocks() with each claim's first source only: (text, url or None)."""
+    return [(t, urls[0] if urls else None) for t, urls in blocks(report)]
 
 
 def claims_with_sources(report):
