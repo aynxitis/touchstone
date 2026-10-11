@@ -13,9 +13,9 @@ The service's `*.up.railway.app` domain and a custom domain CNAMEd to Railway ti
 Ooredoo on 2026-10-08 even with clean DNS (1.1.1.1), and worked on 2026-10-09. The Worker
 loads fine on Ooredoo, so it stays permanently: all public traffic goes
 user -> Worker -> Railway, and **the railway.app URL is never shared**. It is not in the repo
-either: the real hostname lives only in the Worker's `ORIGIN_HOST` variable. With
-`PROXY_SECRET` set, Railway answers every request that lacks the Worker's secret with 403,
-except `/healthz` (Railway's health check).
+either: the real hostname lives only in the Worker's `ORIGIN_HOST` variable. Railway can be
+made to refuse (403) every request without the Worker's secret, except the health checks, but
+only with `REQUIRE_PROXY_SECRET=1`, turned on by the procedure below (off by default).
 
 Known minor issue (not triggered today): if the app ever answers with a redirect (e.g.
 Starlette's `/static` -> `/static/`), its `Location` names the railway.app host, and the Worker
@@ -26,20 +26,45 @@ Behind the Worker, Railway's `X-Real-IP` is the Worker's Cloudflare egress IP, s
 would share one rate-limit bucket. The Worker therefore sends the visitor's IP
 (`CF-Connecting-IP`) in `X-Touchstone-Client-IP`, plus a shared secret in
 `X-Touchstone-Proxy-Secret`. app.py trusts `X-Touchstone-Client-IP` only when the secret
-matches its `PROXY_SECRET` (constant-time compare), and refuses (403) any other request but
-`/healthz`. Without `PROXY_SECRET` (local runs) it uses `X-Real-IP` as before. The Worker
-deletes any client-sent copies of both headers first.
+matches its `PROXY_SECRET` (constant-time compare); otherwise it uses `X-Real-IP` as before.
+The Worker deletes any client-sent copies of both headers first.
 
 **The secret.** Generate it once: `openssl rand -hex 32`. The same value goes in the Railway
 variable `PROXY_SECRET` and in the Worker secret `PROXY_SECRET`. Never commit it, and never
 paste it into chats or prompts (including AI assistants); type it straight into the two
 dashboards. If it leaks, generate a new one and set it in both places.
 
-**Deploy order.** Deploy the Worker with its secret first: while only the Worker has it,
-nothing changes (app.py ignores the header). Then set the Railway variable (Railway
-redeploys): from then on Railway answers only the Worker, and direct railway.app requests get
-403. The other way round, the site is down until the Worker has the secret. A Worker deployed
-without `PROXY_SECRET` or `ORIGIN_HOST` answers 500 "misconfigured" and forwards nothing.
+**Deploy order.** Set the Railway variable and the Worker secret in either order: app.py
+only trusts the header when both match, and refuses nothing unless `REQUIRE_PROXY_SECRET=1`.
+A Worker deployed without `PROXY_SECRET` or `ORIGIN_HOST` answers 500 "misconfigured" and
+forwards nothing.
+
+**Origin lockdown (`REQUIRE_PROXY_SECRET`), off by default.** On 2026-10-11 enforcement went
+live unconditionally with a deploy: the whole site answered `{"error":"Forbidden."}` while
+`/healthz` (exempt) kept the deploy "healthy", until a rollback. It is now a separate switch,
+turned on only after the handshake is proven:
+1. Deploy with `REQUIRE_PROXY_SECRET` unset. Nothing is refused (as before 2026-10-11).
+2. Through the Worker: `curl https://touchstone.aynx.dev/healthz/proxy` must print
+   `{"via_worker":true}`. If it prints `false`, stop: Railway's deploy log has a line
+   `touchstone INFO healthz/proxy: via_worker false (...)` saying `missing header` (the
+   Worker isn't sending it, or something strips it), `mismatch` (the two values differ:
+   regenerate one value and type it into both dashboards again) or `PROXY_SECRET unset on
+   the server`. The log never shows the values.
+3. Set `REQUIRE_PROXY_SECRET=1` in Railway's variables (Railway redeploys). The app refuses to
+   start if `PROXY_SECRET` is empty, so a half-configured switch fails the deploy instead of
+   locking everyone out.
+4. Verify: https://touchstone.aynx.dev loads and the example audit runs; a direct request
+   gets 403:
+   ```sh
+   curl -s -w " %{http_code}\n" -X POST URL/api/audit -H "Content-Type: application/json" \
+     -d '{"report":"Algeria has 7,800 startups."}'
+   ```
+   (`URL` = the railway.app domain; expected `{"error":"Forbidden."} 403`). Each refusal
+   logs `touchstone WARNING proxy check refused <METHOD> <path>: <reason>` (missing header,
+   mismatch or malformed client IP), never header values.
+5. Rollback: delete `REQUIRE_PROXY_SECRET` in Railway (Railway redeploys; nothing refused).
+`/healthz` and `/healthz/proxy` are never refused, so `/healthz` alone can't tell you the site
+works: check the page through the Worker after any change to these variables.
 
 **Worker setup** (dash.cloudflare.com -> Workers & Pages -> the worker): paste
 `cloudflare/worker.js` as the code, then Settings -> Variables and Secrets:
@@ -110,8 +135,8 @@ share buckets, limits get stricter, never bypassable); step 3 detects it.
 
 ## 3. After the first deploy (token-free checks)
 Replace `URL` with the generated domain (`https://<service>.up.railway.app`) and `WORKER`
-with `https://touchstone.aynx.dev`. With `PROXY_SECRET` set, only `URL/healthz` answers
-directly; every other check goes through `WORKER`.
+with `https://touchstone.aynx.dev`. With `REQUIRE_PROXY_SECRET=1`, only `URL/healthz` and
+`URL/healthz/proxy` answer directly; run the checks through `WORKER` then (3(a) expects 403).
 
 1. Build log shows Python 3.14; deploy log shows `Uvicorn running on http://0.0.0.0:<port>`.
    If the log shows another start command, paste the command above into Custom Start
@@ -121,8 +146,8 @@ directly; every other check goes through `WORKER`.
    30 per IP per hour.
 
    (a) Direct to Railway (`URL` = the railway.app domain), with a forged
-   `X-Touchstone-Client-IP` and a wrong secret. The secret check must refuse every one
-   (expected: thirty-one `403`):
+   `X-Touchstone-Client-IP` and a wrong secret. The forged IP must be ignored: thirty `200`
+   then one `429` (with `REQUIRE_PROXY_SECRET=1`: thirty-one `403`):
    ```sh
    for i in $(seq 1 31); do
      curl -s -o /dev/null -w "%{http_code} " -X POST URL/api/audit \
@@ -144,7 +169,9 @@ directly; every other check goes through `WORKER`.
    ```
    Expected for (b): thirty `200` then one `429`. If all 31 are `200`, a forged header got
    through: stop and fix before launch (the per-IP limit is bypassable; the daily cap still
-   protects the Groq budget). A `200` in (a) means Railway's `PROXY_SECRET` is unset. Verified
+   protects the Groq budget). 3(b) alone does NOT prove the secret matches: with a mismatch,
+   app.py keys on `X-Real-IP` (the Worker's egress IP), which a single tester also sees as
+   thirty `200` then `429`. `/healthz/proxy` (above) or step 4 proves it. Verified
    on 2026-10-08 before the Worker existed: Railway overwrites `X-Real-IP` (31 forged requests
    gave 30x200 then 429).
 4. Buckets are per visitor, not shared. Right after 3(b), from a different network (phone

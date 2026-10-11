@@ -8,15 +8,16 @@
 // visitor's IP (CF-Connecting-IP) in X-Touchstone-Client-IP, plus a shared secret in
 // X-Touchstone-Proxy-Secret. app.py trusts the IP header only when that secret matches its
 // own PROXY_SECRET; anything a client sends in those two headers is deleted here first.
-// With PROXY_SECRET set, the origin refuses (403) every request without it except /healthz.
+// With REQUIRE_PROXY_SECRET=1 on Railway (opt-in, see DEPLOY.md), the origin refuses (403)
+// every request without it except /healthz and /healthz/proxy.
 //
 // Setup (Worker -> Settings -> Variables and Secrets):
 //   ORIGIN_HOST   plain-text variable = the Railway service's domain (<service>.up.railway.app;
 //                 the real value lives only in this variable, never in the repo)
 //   PROXY_SECRET  encrypted secret, the same value as Railway's PROXY_SECRET variable
 //                 (generate with: openssl rand -hex 32; never commit it or paste it anywhere)
-// Deploy order: deploy this Worker with PROXY_SECRET first, then set it on Railway (from then
-// on Railway answers only the Worker).
+// Check https://touchstone.aynx.dev/healthz/proxy shows {"via_worker":true} before turning on
+// REQUIRE_PROXY_SECRET.
 
 const ALLOWED = new Set(["GET", "HEAD", "POST"]);
 

@@ -213,7 +213,14 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    twice toward the daily cap (CountingClient counts the first call attempt). The daily cap counts an audit at its first model call attempt.
    Client IP: X-Touchstone-Client-IP is trusted only if X-Touchstone-Proxy-Secret matches env
    PROXY_SECRET (hmac.compare_digest); else CLIENT_IP_HEADER (X-Real-IP), else the socket.
-   With PROXY_SECRET set, every request without it gets 403, except /healthz (2026-10-11).
+   Origin lockdown is opt-in: REQUIRE_PROXY_SECRET=1 refuses (403) every request without the
+   secret (or with a malformed client IP) except /healthz and /healthz/proxy, each refusal
+   logged with reason + path (never values); the app won't start with it set and no
+   PROXY_SECRET. /healthz/proxy -> {"via_worker": bool}, reason of a false in the server log.
+   2026-10-11 incident: unconditional enforcement (a40f4f4) answered 403 to the whole site
+   while /healthz stayed green; rolled back. The code accepts a Worker-shaped request with
+   the right secret (tests, real uvicorn): the header Railway got didn't match its
+   PROXY_SECRET. Enable only via DEPLOY.md's procedure.
    fetch_links: httpx trust_env=False (no env proxies); a private IP shows only as "private
    address", never the address.
    Bot protection (fetch_links.bot_blocked): cf-mitigated: challenge, Cloudflare challenge

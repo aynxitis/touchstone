@@ -91,19 +91,101 @@ assert A.rate_limited(a) and not A.rate_limited(b)                    # separate
 v6 = [A.rate_key(A.client_ip(W("s3cret-test-value", ip))) for ip in ("2001:db8:1:2::1", "2001:db8:1:2::9")]
 assert v6[0] == v6[1] == "2001:db8:1:2::/64"                          # /64 bucketing kept
 A.hits.clear()
-# S2: with PROXY_SECRET set, the origin answers only requests carrying it (the Worker), plus
-#     /healthz for the platform's health check.
-import warnings
+# S2 (2026-10-11 incident: enforced on deploy, production answered 403 to everything).
+# Enforcement is opt-in (REQUIRE_PROXY_SECRET=1); off = exactly the pre-a40f4f4 behaviour.
+import logging, warnings
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")                 # starlette's TestClient deprecation notice
     from fastapi.testclient import TestClient
-    with TestClient(A.app) as tc:
-        assert tc.get("/healthz").status_code == 200
-        for hdrs in ({}, {"x-touchstone-proxy-secret": "wrong"}, {"x-touchstone-proxy-secret": ""}):
-            assert tc.get("/", headers=hdrs).status_code == 403
-            assert tc.get("/api/example", headers=hdrs).status_code == 403
-            assert tc.post("/api/audit", json={"report": "x"}, headers=hdrs).status_code == 403
-        assert tc.get("/", headers={"x-touchstone-proxy-secret": "s3cret-test-value"}).status_code == 200
+
+def worker_shaped(client_ip, secret):
+    """A request as cloudflare/worker.js sends it (same header names and casing), plus the
+    headers Cloudflare and Railway's edge add on the way."""
+    return {"Host": "example-service.up.railway.app", "X-Touchstone-Client-IP": client_ip,
+            "X-Touchstone-Proxy-Secret": secret, "CF-Connecting-IP": client_ip,
+            "CF-Ray": "8c1d2e3f4a5b6c7d-AMS", "CF-Worker": "aynx.dev", "X-Real-IP": "172.71.0.9",
+            "X-Forwarded-For": f"{client_ip}, 172.71.0.9", "X-Forwarded-Proto": "https",
+            "X-Forwarded-Host": "example-service.up.railway.app", "User-Agent": "Mozilla/5.0"}
+
+class Logs(logging.Handler):
+    def __init__(self):
+        super().__init__(); self.lines = []
+    def emit(self, record):
+        self.lines.append(record.getMessage())
+logs = Logs(); A.log.addHandler(logs)
+SECRET = "s3cret-test-value"
+paths = [("GET", "/"), ("GET", "/static/app.js"), ("GET", "/static/style.css?v=" + A.ASSET_VERSIONS["style.css"]),
+         ("GET", "/api/example")]
+with TestClient(A.app) as tc:
+    # Flag off (default): nothing is refused, with or without a secret.
+    A.REQUIRE_PROXY_SECRET = False
+    for hdrs in ({}, {"X-Touchstone-Proxy-Secret": "wrong"}, worker_shaped("197.112.4.25", SECRET)):
+        assert all(tc.request(m, p, headers=hdrs).status_code == 200 for m, p in paths)
+    assert tc.get("/healthz/proxy").json() == {"via_worker": False}
+    assert tc.get("/healthz/proxy", headers=worker_shaped("197.112.4.25", SECRET)).json() == {"via_worker": True}
+    assert tc.get("/healthz/proxy", headers=worker_shaped("197.112.4.25", "wrong")).json() == {"via_worker": False}
+    # A false answer logs why (server side only), never the value sent.
+    assert logs.lines == ["healthz/proxy: via_worker false (missing header)",
+                          "healthz/proxy: via_worker false (mismatch)"], logs.lines
+    logs.lines.clear()
+    # Flag on: a Worker-shaped request with the right secret passes, IPv6 and IPv4, every route.
+    A.REQUIRE_PROXY_SECRET = True
+    for ip in ("2001:db8:85a3::8a2e:370:7334", "197.112.4.25"):
+        h = worker_shaped(ip, SECRET)
+        for m, p in paths:
+            assert tc.request(m, p, headers=h).status_code == 200, (ip, m, p)
+        assert tc.post("/api/audit", headers=h, json={"report": "Algeria has 7,800 startups."}).status_code == 200
+        assert tc.get("/healthz/proxy", headers=h).json() == {"via_worker": True}
+    assert logs.lines == []
+    # ...and anything else is refused and logged with reason + path, never a header value.
+    for hdrs, why in (({}, "missing header"), (worker_shaped("197.112.4.25", ""), "missing header"),
+                      (worker_shaped("197.112.4.25", "wrong-value"), "mismatch"),
+                      (worker_shaped("not-an-ip", SECRET), "malformed client IP")):
+        for m, p in paths:
+            assert tc.request(m, p, headers=hdrs).status_code == 403, (why, p)
+        assert tc.post("/api/audit", json={"report": "x"}, headers=hdrs).status_code == 403
+        assert logs.lines[-1] == f"proxy check refused POST /api/audit: {why}", logs.lines[-1]
+    assert all(SECRET not in l and "wrong-value" not in l and "197.112" not in l for l in logs.lines)
+    # Health checks are never refused.
+    assert tc.get("/healthz").status_code == 200 and tc.get("/healthz/proxy").json() == {"via_worker": False}
+    A.PROXY_SECRET = ""                             # unset on the server: said so in the log
+    A.REQUIRE_PROXY_SECRET = False
+    assert tc.get("/healthz/proxy", headers=worker_shaped("197.112.4.25", SECRET)).json() == {"via_worker": False}
+    assert logs.lines[-1] == "healthz/proxy: via_worker false (PROXY_SECRET unset on the server)"
+    A.PROXY_SECRET = SECRET
+A.log.removeHandler(logs)
+
+# The same through a real uvicorn process started as railpack does, with a trailing newline
+# in the env value: the incident's request shape over real HTTP.
+import os as _os, subprocess as _sp, sys as _sys, socket as _sock
+with _sock.socket() as _s:
+    _s.bind(("127.0.0.1", 0)); port = _s.getsockname()[1]
+env = {**_os.environ, "PROXY_SECRET": SECRET + "\n", "REQUIRE_PROXY_SECRET": "1", "PROVIDER": "groq"}
+srv = _sp.Popen([_os.path.join(_os.path.dirname(_sys.executable), "uvicorn"), "app:app", "--host", "127.0.0.1",
+                 "--port", str(port), "--workers", "1", "--no-proxy-headers"], env=env,
+                stdout=_sp.DEVNULL, stderr=_sp.PIPE, text=True)
+try:
+    import httpx as _hx
+    base = f"http://127.0.0.1:{port}"
+    for _ in range(100):
+        try:
+            _hx.get(base + "/healthz", trust_env=False); break
+        except _hx.HTTPError:
+            time.sleep(0.1)
+    with _hx.Client(base_url=base, trust_env=False) as c:
+        for ip in ("2001:db8:85a3::8a2e:370:7334", "197.112.4.25"):
+            assert c.get("/", headers=worker_shaped(ip, SECRET)).status_code == 200
+            assert c.post("/api/audit", headers=worker_shaped(ip, SECRET),
+                          json={"report": "Algeria has 7,800 startups."}).status_code == 200
+        assert c.get("/", headers={"X-Touchstone-Proxy-Secret": "nope"}).status_code == 403
+        assert c.get("/healthz/proxy", headers=worker_shaped("197.112.4.25", SECRET)).json() == {"via_worker": True}
+finally:
+    srv.terminate(); err = srv.communicate(timeout=10)[1]
+assert "proxy check refused GET /: mismatch" in err and SECRET not in err, err[-500:]
+# Enforcing with no secret would lock everyone out: the app refuses to start instead.
+bad = _sp.run([_sys.executable, "-c", "import app"], env={**_os.environ, "REQUIRE_PROXY_SECRET": "1", "PROXY_SECRET": ""},
+              capture_output=True, text=True)
+assert bad.returncode != 0 and "REQUIRE_PROXY_SECRET=1 needs PROXY_SECRET" in bad.stderr, bad.stderr[-300:]
 A.CLIENT_IP_HEADER, A.PROXY_SECRET = "", ""
 
 # 5. IPv6: one /64 is one visitor, so rotating addresses inside it doesn't reset the limit.

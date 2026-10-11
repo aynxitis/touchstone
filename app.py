@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import ipaddress
 import json
+import logging
 import queue
 import math
 import os
@@ -35,11 +36,6 @@ HEARTBEAT_SECONDS = 15         # idle stream -> {"type":"heartbeat"} (Cloudflare
 # Behind a proxy (Railway), the socket peer is the proxy. CLIENT_IP_HEADER names the one header
 # the proxy sets to the real visitor IP (Railway: X-Real-IP; Cloudflare: CF-Connecting-IP). Never the
 # leftmost X-Forwarded-For entry: the client can set it, which would dodge the rate limit.
-CLIENT_IP_HEADER = os.environ.get("CLIENT_IP_HEADER", "").strip()
-# Public traffic goes through a Cloudflare Worker (Ooredoo can't reach Railway), so X-Real-IP is
-# the Worker's egress IP. The Worker sends the visitor's IP in X-Touchstone-Client-IP plus a
-# shared secret; that header is trusted only when the secret matches. Unset = header ignored.
-PROXY_SECRET = os.environ.get("PROXY_SECRET", "").strip()
 PRUNE_EVERY = 300              # seconds between sweeps of the rate-limit tables
 # Daily cap across all visitors, matched to Groq's free budget (~200K tokens/day; a 10-claim
 # audit is up to ~20K). New audits are refused up front once it's reached, rather than failing
@@ -47,6 +43,26 @@ PRUNE_EVERY = 300              # seconds between sweeps of the rate-limit tables
 # audit whose links are all unreachable costs nothing and must not use up the day for everyone.
 HERE = Path(__file__).parent
 load_dotenv(HERE / ".env")
+CLIENT_IP_HEADER = os.environ.get("CLIENT_IP_HEADER", "").strip()   # after .env (local runs)
+# Public traffic goes through a Cloudflare Worker (Ooredoo can't reach Railway), so X-Real-IP is
+# the Worker's egress IP. The Worker sends the visitor's IP in X-Touchstone-Client-IP plus a
+# shared secret; that header is trusted only when the secret matches. Unset = header ignored.
+PROXY_SECRET = os.environ.get("PROXY_SECRET", "").strip()
+# Refusing every request without the Worker's secret is opt-in (2026-10-11 incident: enforced
+# on deploy, it answered 403 to the whole site while /healthz kept the deploy "healthy").
+# Turn it on only after /healthz/proxy shows via_worker true through the Worker (DEPLOY.md).
+REQUIRE_PROXY_SECRET = os.environ.get("REQUIRE_PROXY_SECRET", "").strip() == "1"
+if REQUIRE_PROXY_SECRET and not PROXY_SECRET:
+    # Enforcing with no secret would refuse everyone: fail the deploy instead (the platform
+    # keeps the previous one running).
+    raise SystemExit("REQUIRE_PROXY_SECRET=1 needs PROXY_SECRET")
+UNGUARDED = {"/healthz", "/healthz/proxy"}       # platform health checks, never refused
+log = logging.getLogger("touchstone")
+if not log.handlers:                             # uvicorn configures only its own loggers
+    _h = logging.StreamHandler()                 # stderr: Railway's deploy log
+    _h.setFormatter(logging.Formatter("touchstone %(levelname)s %(message)s"))
+    log.addHandler(_h)
+    log.setLevel(logging.INFO)
 # PROVIDER=groq (default) | gemini: see providers.py. Each has its own daily audit cap:
 # Groq GLOBAL_AUDITS_PER_DAY (7: ~20K tokens per audit vs 200K tokens/day); Gemini
 # GEMINI_AUDITS_PER_DAY (40: an audit sends one request per cited page, at most 10, and the
@@ -100,10 +116,13 @@ CSP = ("default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self';
 
 @app.middleware("http")
 async def guard(request: Request, call_next):
-    if PROXY_SECRET and request.url.path != "/healthz" and not from_worker(request):
-        # The origin answers only the Worker (and the platform's health check): direct
-        # requests to the railway.app URL get nothing, not even the page.
-        return JSONResponse({"error": "Forbidden."}, status_code=403)
+    if REQUIRE_PROXY_SECRET and request.url.path not in UNGUARDED:
+        # The origin answers only the Worker (and the health checks): direct requests to the
+        # railway.app URL get nothing, not even the page. Every refusal is logged with its
+        # reason and path, never a header value.
+        if problem := proxy_problem(request):
+            log.warning("proxy check refused %s %s: %s", request.method, request.url.path[:200], problem)
+            return JSONResponse({"error": "Forbidden."}, status_code=403)
     if int(request.headers.get("content-length") or 0) > MAX_BODY_BYTES:
         return JSONResponse({"error": "Request too large."}, status_code=413)
     response = await call_next(request)
@@ -136,6 +155,18 @@ def valid_ip(value):
 def from_worker(request):
     sent = request.headers.get("x-touchstone-proxy-secret", "")
     return bool(PROXY_SECRET) and hmac.compare_digest(sent.encode(), PROXY_SECRET.encode())
+
+
+def proxy_problem(request):
+    """Why a request doesn't prove it came through the Worker, or None if it does:
+    "missing header", "mismatch" or "malformed client IP" (secret right, IP header not an IP)."""
+    if not request.headers.get("x-touchstone-proxy-secret"):
+        return "missing header"
+    if not from_worker(request):
+        return "mismatch"
+    if not valid_ip(request.headers.get("x-touchstone-client-ip", "")):
+        return "malformed client IP"
+    return None
 
 
 def client_ip(request):
@@ -232,6 +263,18 @@ def rate_limited(ip, table=hits, limit=RATE_LIMIT):
 @app.get("/healthz")
 def healthz():
     return {"ok": True}       # platform health check: no fetch, no model call
+
+
+@app.get("/healthz/proxy")
+def healthz_proxy(request: Request):
+    """Whether this request carried the Worker's valid secret: check it through the Worker
+    before setting REQUIRE_PROXY_SECRET=1. Reveals nothing else to the caller; when false, the
+    reason ("missing header" / "mismatch") goes to the server log only."""
+    ok = from_worker(request)
+    if not ok:
+        log.info("healthz/proxy: via_worker false (%s)",
+                 "PROXY_SECRET unset on the server" if not PROXY_SECRET else proxy_problem(request))
+    return {"via_worker": ok}
 
 
 @app.get("/")
