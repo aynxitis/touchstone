@@ -4,7 +4,7 @@ the same family (power, energy, or plain magnitude); a number with no unit is ne
 import re
 from decimal import Decimal, InvalidOperation, ROUND_DOWN, ROUND_HALF_UP
 
-from locnum import NUMBER_RE, readings
+import locnum
 
 PREFIX = {"": 1, "k": 10**3, "kilo": 10**3, "M": 10**6, "mega": 10**6, "G": 10**9,
           "giga": 10**9, "T": 10**12, "tera": 10**12}
@@ -47,14 +47,18 @@ def _unit(m):
     return "x", MAGNITUDE.get(word) or MAGNITUDE[word.lower()]
 
 
-def quantities(text, page=False):
+def quantities(text, page=False, euro=None):
     """[(readings, family, scale, start offset)] for every number with a unit; readings are
-    the number's plausible values (locnum.readings: '1,234' is 1234 or 1.234). Linear: each
-    number token is read once and its unit tried once, anchored at the token's end."""
+    the number's plausible values (locnum.tokens: page side, table rows, locale convention).
+    Linear: each number token is read once and its unit tried once, anchored at the token's
+    end. Offsets are into the text (claim side) or into the token's line (page side, unused)."""
     out = []
-    for m in NUMBER_RE.finditer(text):
-        if u := UNIT_AFTER.match(text, m.end()):
-            out.append((readings(m, page), *_unit(u), m.start()))
+    lines = text.split("\n") if page else [text]
+    euro = locnum.european(text) if euro is None else euro
+    for line in lines:
+        for m, rs in locnum.tokens(line, page=page, euro=euro):
+            if u := UNIT_AFTER.match(line, m.end()):
+                out.append((rs, *_unit(u), m.start()))
     return out
 
 
@@ -78,8 +82,8 @@ def scaled_match(claim_quantity, passage_quantities):
     return False
 
 
-def unit_supported(claim, passage):
+def unit_supported(claim, passage, euro=None):
     """Start offsets (in the claim) of numbers that a unit-scaled passage number supports.
-    Only numbers written with a unit in the claim can be here."""
-    have = quantities(passage, page=True)
+    Only numbers written with a unit in the claim can be here. euro: as locnum.missing()."""
+    have = quantities(passage, page=True, euro=euro)
     return {q[3] for q in quantities(claim) if scaled_match(q, have)}

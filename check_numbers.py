@@ -62,6 +62,7 @@ def resolve_footnotes(report):
     lines = report.split("\n")
     used = {n for m in MARKER.finditer(report) for n in re.findall(r"\d+", m.group(1))}
     urls, defs, named_only, in_sources = {}, set(), 0, False
+    defined = set()                       # marker numbers with a source entry (URL or not)
     for i, line in enumerate(lines):
         s_ = line.strip()
         if SOURCES_HEADING.match(s_):
@@ -82,6 +83,8 @@ def resolve_footnotes(report):
         elif n is None:
             continue
         defs.add(i)
+        if n is not None:
+            defined.add(n)
         link = URL_RE.search(rest)
         if link and n is not None:
             urls.setdefault(n, link.group().rstrip(".,;:!?"))
@@ -89,6 +92,8 @@ def resolve_footnotes(report):
             named_only += 1
 
     def to_url(m):
+        if not any(n in defined for n in re.findall(r"\d+", m.group(1))):
+            return m.group()              # no such source: "[2023]" is text, kept as written
         found = list(dict.fromkeys(urls[n] for n in re.findall(r"\d+", m.group(1)) if n in urls))
         # A run "[1][2]" gives the text all its URLs; links separated only by spaces form one
         # group in blocks(), so they never become empty claims of their own.
@@ -104,7 +109,32 @@ def resolve_footnotes(report):
 ENTITY = re.compile(r"&(?:#\d{1,7}|#[xX][0-9a-fA-F]{1,6}|[a-zA-Z][a-zA-Z0-9]{1,31});")
 MD_ESCAPE = re.compile(r"\\([&_#=?%+~])")          # "\&sz=32": markdown escapes in URLs
 # A markdown image/link; a favicon chip when its URL holds "favicon" (Google's s2/favicons).
-MD_LINK = re.compile(r"!?\[[^\[\]\n]{0,300}\]\(\s{0,3}(https?://[^\s()]{1,2000})\s{0,3}\)")
+# Linear: the regex stops at the URL; the closing ")" is checked separately (LINK_END at the
+# URL's end), so a URL with no ")" after it is never backtracked through char by char.
+MD_LINK = re.compile(r"!?\[[^\[\]\n]{0,300}\]\(\s{0,3}(https?://[^\s()]{1,2000})")
+LINK_END = re.compile(r"\s{0,3}\)")
+
+
+def md_links(line):
+    """(start, end, url) of each complete markdown link/image in the line."""
+    out, pos = [], 0
+    while m := MD_LINK.search(line, pos):
+        if end := LINK_END.match(line, m.end()):
+            out.append((m.start(), end.end(), m.group(1)))
+            pos = end.end()
+        else:
+            pos = m.start() + 1
+    return out
+
+
+def drop_favicons(line):
+    """The line without its favicon chips."""
+    out, pos = [], 0
+    for a, b, url in md_links(line):
+        if "favicon" in url.lower():
+            out.append(line[pos:a])
+            pos = b
+    return "".join(out) + line[pos:]
 CHIP_COUNT = re.compile(r"\+\d{1,3}")              # "+1", "+2" after a chip
 # Chart axis labels pasted as one line: "200¢/lb250¢/lb300¢/lbFeb 2025Nov 2025...".
 GLUED = re.compile(r"[a-z%\u00a2]\d|\d[A-Z]")
@@ -128,7 +158,7 @@ def copy_cleanup(report):
     text = MD_ESCAPE.sub(r"\1", unescape_entities(report)).replace("\u00a0", " ")
     out, after_chip = [], 0
     for line in text.split("\n"):
-        stripped = MD_LINK.sub(lambda m: "" if "favicon" in m.group(1).lower() else m.group(), line)
+        stripped = drop_favicons(line)
         if stripped != line and not stripped.strip():
             after_chip = 2                       # a line of chips only: captions may follow
             continue

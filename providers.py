@@ -8,7 +8,7 @@ import os
 
 from pydantic import BaseModel, Field
 
-from quote_check import MODEL as GROQ_MODEL, SYSTEM_MULTI, best_excerpts, check, judge
+from quote_check import MODEL as GROQ_MODEL, SYSTEM_MULTI, ask, best_excerpts, finish, safe_judge
 
 GEMINI_MODEL = "gemini-3.5-flash-lite"   # verified in Google's model list, 2026-10-09
 PAGE_CHARS = 100_000                     # page text per Gemini call (~25K tokens)
@@ -106,14 +106,21 @@ def gemini_prompt(claims, text):
 
 
 class Groq:
-    """One call per claim (quote_check.check): unchanged behaviour."""
+    """One call per claim (quote_check.check): unchanged behaviour. audit() retries ask()
+    only; finish() runs the code checks once, outside the retries."""
     name, model, per_source = "groq", GROQ_MODEL, False
 
     def __init__(self, client):
         self.client = client
 
+    def ask(self, claim, page):
+        return ask(self.client, claim, page)
+
+    def finish(self, got, claim, page, url, meta=None):
+        return finish(got, claim, page, url, meta)
+
     def check(self, claim, page, url, meta=None):
-        return check(self.client, claim, page, url, meta)
+        return self.finish(self.ask(claim, page), claim, page, url, meta)
 
 
 class Gemini:
@@ -129,9 +136,8 @@ class Gemini:
         sent = len(SYSTEM_MULTI) + len(gemini_prompt(claims, page_for_model(page, claims)))
         return sent // 4 + OUTPUT_TOKENS_PER_CLAIM * len(claims)
 
-    def check_source(self, claims, page, url, meta=None):
-        """Results for `claims` (all citing this page), same order, and the call's tokens.
-        Each result is judge() output plus "tokens" (the call's total, split evenly)."""
+    def ask_source(self, claims, page):
+        """The model call (retried by audit()): (raw reply, tokens)."""
         from google.genai import types
         text = page_for_model(page, claims)
         resp = self.client.models.generate_content(
@@ -143,8 +149,16 @@ class Gemini:
         if self.show_raw:
             print("---- raw Gemini reply ----\n" + raw + "\n--------------------------")
         usage = getattr(resp, "usage_metadata", None)
-        tokens = (getattr(usage, "total_token_count", 0) or 0) if usage else 0
+        return raw, (getattr(usage, "total_token_count", 0) or 0) if usage else 0
+
+    def finish_source(self, got, claims, page, url, meta=None):
+        """Results for `claims` (all citing this page), same order, and the call's tokens.
+        Each result is judge() output plus "tokens" (the call's total, split evenly)."""
+        raw, tokens = got
         return map_results(raw, claims, page, url, meta, tokens), tokens
+
+    def check_source(self, claims, page, url, meta=None):
+        return self.finish_source(self.ask_source(claims, page), claims, page, url, meta)
 
 
 def map_results(raw, claims, page, url, meta, tokens):
@@ -168,7 +182,7 @@ def map_results(raw, claims, page, url, meta, tokens):
                  "facts": [], "framing": [], "model": None}
         else:
             reply = {"opinion": item.get("opinion") is True, "parts": item.get("parts")}
-            r = judge(reply, claim, page, url, json.dumps(item)[:200], meta)
+            r = safe_judge(reply, claim, page, url, json.dumps(item)[:200], meta)
         r["tokens"] = share[i - 1]
         out.append(r)
     return out

@@ -24,7 +24,7 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    dropped, chart-axis residue ("200¢/lb250¢/lb...") dropped. Then resolve_footnotes() turns
    footnote citations ([1], [1][2], [^1], 【1】 + a numbered/bracketed source list or
    Sources/References section) into inline URLs and drops the source list; a run of markers
-   gives the text ALL its sources. attach_sources(): a stat block (short label lines around
+   gives the text ALL its sources; a marker with no source entry is text ("[2023]" stays). attach_sources(): a stat block (short label lines around
    number headings "# 354.32¢/lb"; numbered/year-led titles are not stats) becomes one claim
    per value ("February 2025 monthly average: 354.32¢/lb — US dollars: $3.54 per pound"); a
    "Source:"/"Sources:" line gives ALL its links to the block right above it (paragraph, stat
@@ -52,9 +52,18 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    overlap only, which dropped report3 claim 2's "analysis of IRENA's ..." sentence), Groq openai/gpt-oss-120b splits the claim into one list of parts, each marked
    fact or framing (<=5 facts: stated/missing/contradicted, each with its own quote; a part
    with a number is always a fact). Code verifies every quote (exact, else
-   rapidfuzz partial_ratio >= 92 with identical numbers; unverified -> missing) and derives
+   rapidfuzz partial_ratio >= 92 with identical numbers; unverified -> missing) inside ONE page
+   line (paragraph, list item, table row, PDF block); a "..." quote's pieces must all be in
+   that line, in order (2026-10-11 review L1: pieces anywhere could stitch a Tesla sentence to
+   a BYD figure); paragraph_of() returns None for an unverified quote, never the quote itself,
+   so no check runs on the model's own text. Then code derives
    the label: any contradicted -> CONTRADICTED, all stated -> SOURCED, some -> PARTIAL,
    none -> UNSUPPORTED. Framing never affects the label.
+   COVERAGE (2026-10-11 L2): the model's parts must cover the claim. A non-year claim number
+   in no part, < 60% of the claim's content words (accents folded, filler words skipped) in
+   the parts, or more than 12 facts (the first 12 are checked, never silently dropped) caps
+   SOURCED at COULDN'T CONFIRM with the reason; amber only, never redder. A ':' lead-in's
+   number ("Top 5 ...: Tesla Model Y: 116,989") must therefore appear in some part.
    SAFEGUARDS (2026-10-09, fresh-report errors were all too harsh):
    A1 a code heuristic alone never accuses. A fact the model found "stated" with a verified
    quote that a code check (numbers, units, years, names) rejects becomes "unconfirmed"
@@ -86,8 +95,9 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    never names on their own ("European Union" still is). "About someone else" never fires
    when the fact's subject is in the passage (BYD's quote in a paragraph opening "Tesla").
    Prompt also requires facts to name their subject.
-   Key-term check: a stated fact's numbers (2+ digits) must be in its quote or the quote's
-   paragraph, else missing. Number matching (claim-level "Numbers not on page" too) accepts
+   Key-term check: a stated fact's numbers (single digits too, since 2026-10-11 L4: "$5
+   million" vs "$3 million"; a digit written out, "one billion", counts) must be in its quote
+   or the quote's paragraph, else unconfirmed. Page-wide checks keep 2+ digits. Number matching (claim-level "Numbers not on page" too) accepts
    a unit-scaled form (units.py): both numbers carry an explicit unit of one family
    (W/kW/MW/GW/TW + written-out; Wh..TWh; thousand/million/billion/trillion, k/M/bn/B), and
    the page number converts to the claim's at its stated precision, rounded or cut off
@@ -96,8 +106,13 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    (claim-wide, per fact, units, quote matcher, excerpt keywords/anchors): a token is
    grouped (1-3 digits, then groups of exactly 3 after one separator kind: space, NBSP,
    U+202F, U+2009, ' or ’, '.', ',') or plain (digits with an optional ',' or '.' decimal).
-   Each token gets every plausible reading: "1,234"/"545.142" = thousands or decimal;
-   "29,7" = 29.7; space-grouped page tokens also yield each group (table rows). Two numbers
+   Each token gets every plausible reading: "1,234" = 1234, "545.142" = 545.142, plus the
+   decimal-comma (1.234) / dot-thousands (545142) reading only when the text shows the
+   European convention (locnum.european: "29,7", "1.234.567", "1.234,5"; per-fact checks use
+   the whole page's convention); "29,7" = 29.7; space-grouped page tokens also yield each
+   group only on a table-like line (a "|" row, a tab, or 3+ numbers and as many numbers as
+   words, a grouped token counting once) and never if a group starts with 0, so "585" is not
+   in "2 585 187" and "23" not in "1 023 456" (2026-10-11 L3/L5). Two numbers
    match if any readings are equal (unit-scaled: at the claim's precision). A 4-digit start
    never groups, so "2025 2 585 187" is 2025 and 2585187. Reasons quote the number as the
    claim wrote it ("2,585,187 not in its passage"). Framing lexicon (EVALUATIVE): a part with no number, an evaluative
@@ -143,7 +158,8 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    same fact (same_fact: identical numbers + token_set_ratio >= 80): "stated" if ANY source
    states it with a verified quote, "contradicted" only if one contradicts and none states;
    then the same verdict() (judge() = fact checks + verdict()), claim numbers checked against
-   all pages. Some unreachable -> "1 of 3 sources couldn't be read"; all -> SOURCE
+   all pages. A fact one source states and another contradicts: "Sources disagree" (card note
+   + reason), capped at COULDN'T CONFIRM (2026-10-11 L6). Some unreachable -> "1 of 3 sources couldn't be read"; all -> SOURCE
    UNREACHABLE. Claim events carry url (first), urls, sources [{url, label, reason, detail?,
    note?, model? (multi only: rescore replays it)}] and notes. Facts carry "source" (multi)
    and "page" (PDF). Vague citations (vague_note): path "/" -> "Cites a homepage, not a
@@ -186,10 +202,15 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    {"type":"wait","seconds","claim"} -> "Waiting for capacity... (Xs)", a live countdown that
    any later status replaces and that never survives the audit's end; heartbeats continue.
    A wait that would pass the 300 s deadline isn't taken: the rest are NOT CHECKED. Groq SDK
-   max_retries=0 (audit() retries: 429s as above, timeouts/5xx twice). Retries never count
+   max_retries=0 (audit() retries: 429s as above, timeouts/5xx twice). Only the model call
+   (provider.ask / ask_source) is retried; judge() runs once after it (finish / finish_source,
+   safe_judge): a bug in the checks is ERROR "Internal check error.", tokens still counted. Retries never count
    twice toward the daily cap (CountingClient counts the first call attempt). The daily cap counts an audit at its first model call attempt.
    Client IP: X-Touchstone-Client-IP is trusted only if X-Touchstone-Proxy-Secret matches env
    PROXY_SECRET (hmac.compare_digest); else CLIENT_IP_HEADER (X-Real-IP), else the socket.
+   With PROXY_SECRET set, every request without it gets 403, except /healthz (2026-10-11).
+   fetch_links: httpx trust_env=False (no env proxies); a private IP shows only as "private
+   address", never the address.
    Bot protection (fetch_links.bot_blocked): cf-mitigated: challenge, Cloudflare challenge
    titles, or a 403/429/503 with Cloudflare/DataDome/Akamai/PerimeterX markers -> BLOCKED
    "blocked the checker (bot protection)" -> SOURCE UNREACHABLE, never sent to the model.
@@ -197,11 +218,12 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    domain; workers.dev + Preview URLs disabled; user -> Worker -> Railway, permanently, since
    Ooredoo reaches Railway only intermittently). The railway.app URL is never shared.
    Strips client copies of the two X-Touchstone headers, sets them from CF-Connecting-IP and env.PROXY_SECRET; 500 "misconfigured" without ORIGIN_HOST/PROXY_SECRET.
+   The Railway hostname is never in the repo: only in the Worker's ORIGIN_HOST variable.
 Parsing regexes must stay linear: every repeated group starts with a literal, whitespace
 runs are capped (a nested \s* marker regex once hung the server on 20,000 spaces). Never
 put a required suffix after a repeated group in one regex run over page text: units.py's
 "number then unit" was quadratic (8,000 digit groups: 28 s); match the number with
-NUMBER_RE, then .match() the suffix at its end. Number tokens over 30 digits get no reading.
+NUMBER_RE, then .match() the suffix at its end (same for MD_LINK: URL, then LINK_END). Number tokens over 30 digits get no reading.
 Report parsing runs in a thread pool, never on the event loop.
 Dependencies: requirements.txt. Token-free checks: .venv/bin/python test_parsing.py (parsing,
 bot-page fixtures on a mocked transport, claim cap order, report4 junk passages and
@@ -333,7 +355,7 @@ these two files' content; they are for the next accuracy eval (hand labels + 2 r
    Hosting (2026-10-08): Railway full trial (Render needed a card), EU West Amsterdam.
    railpack.json pins Python 3.14 + start command; dashboard sets healthcheck, region,
    variables (Railway Config as Code / railway.json is deprecated for new services).
-   Deployed 2026-10-08 (touchstone-project.up.railway.app, 1 replica, CLIENT_IP_HEADER=
+   Deployed 2026-10-08 (a *.up.railway.app domain, named only in the Worker's ORIGIN_HOST; 1 replica, CLIENT_IP_HEADER=
    X-Real-IP). Verified: Railway overwrites X-Real-IP (31 forged requests: 30x200, then 429).
    Ooredoo: reaching Railway is intermittent (railway.app and a custom domain CNAMEd to
    Railway timed out on 2026-10-08 even with 1.1.1.1 DNS, worked on 2026-10-09); the

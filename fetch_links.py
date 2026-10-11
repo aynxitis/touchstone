@@ -122,7 +122,7 @@ async def check_url(url):
         except ValueError:
             return False, "bad IP", None
         if not is_public(ip):
-            return False, f"private IP {ip}", None
+            return False, "private address", None   # never the IP itself: it reaches the browser
         ips.append(ip)
     if not ips:
         return False, "DNS failed", None
@@ -223,7 +223,10 @@ async def _get(url):
     """The page's HTML as a string, a PDF's bytes, or a result dict if it can't be used."""
     current = url
     try:
-        async with httpx.AsyncClient(timeout=TIMEOUT, headers=HEADERS, follow_redirects=False) as client:
+        # trust_env=False: no proxy, netrc or CA settings from the environment (HTTP_PROXY would
+        # route every fetch, past the pinned-IP check, through whatever it names)
+        async with httpx.AsyncClient(timeout=TIMEOUT, headers=HEADERS, follow_redirects=False,
+                                     trust_env=False) as client:
             for _ in range(MAX_REDIRECTS + 1):
                 ok, reason, ip = await check_url(current)
                 if not ok:

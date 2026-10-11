@@ -9,11 +9,13 @@ records there are DNS-only (not proxied). The Worker's workers.dev URL and its P
 are disabled, so the custom domain is the only way in through the Worker.
 
 Why a Worker: Ooredoo Algeria mobile data reaches Railway only intermittently.
-`touchstone-project.up.railway.app` and a custom domain CNAMEd to Railway timed out on
+The service's `*.up.railway.app` domain and a custom domain CNAMEd to Railway timed out on
 Ooredoo on 2026-10-08 even with clean DNS (1.1.1.1), and worked on 2026-10-09. The Worker
 loads fine on Ooredoo, so it stays permanently: all public traffic goes
-user -> Worker -> Railway, and **the railway.app URL is never shared** (it stays reachable,
-but only for the checks below).
+user -> Worker -> Railway, and **the railway.app URL is never shared**. It is not in the repo
+either: the real hostname lives only in the Worker's `ORIGIN_HOST` variable. With
+`PROXY_SECRET` set, Railway answers every request that lacks the Worker's secret with 403,
+except `/healthz` (Railway's health check).
 
 Known minor issue (not triggered today): if the app ever answers with a redirect (e.g.
 Starlette's `/static` -> `/static/`), its `Location` names the railway.app host, and the Worker
@@ -24,25 +26,27 @@ Behind the Worker, Railway's `X-Real-IP` is the Worker's Cloudflare egress IP, s
 would share one rate-limit bucket. The Worker therefore sends the visitor's IP
 (`CF-Connecting-IP`) in `X-Touchstone-Client-IP`, plus a shared secret in
 `X-Touchstone-Proxy-Secret`. app.py trusts `X-Touchstone-Client-IP` only when the secret
-matches its `PROXY_SECRET` (constant-time compare); otherwise it ignores it and uses
-`X-Real-IP` as before. The Worker deletes any client-sent copies of both headers first.
+matches its `PROXY_SECRET` (constant-time compare), and refuses (403) any other request but
+`/healthz`. Without `PROXY_SECRET` (local runs) it uses `X-Real-IP` as before. The Worker
+deletes any client-sent copies of both headers first.
 
 **The secret.** Generate it once: `openssl rand -hex 32`. The same value goes in the Railway
 variable `PROXY_SECRET` and in the Worker secret `PROXY_SECRET`. Never commit it, and never
 paste it into chats or prompts (including AI assistants); type it straight into the two
 dashboards. If it leaks, generate a new one and set it in both places.
 
-**Deploy order.** Set the Railway variable first (Railway redeploys), then deploy the Worker
-code. While only Railway has it, nothing changes (Railway traffic never carries the secret);
-a Worker deployed without `PROXY_SECRET` or `ORIGIN_HOST` answers 500 "misconfigured" and
-forwards nothing.
+**Deploy order.** Deploy the Worker with its secret first: while only the Worker has it,
+nothing changes (app.py ignores the header). Then set the Railway variable (Railway
+redeploys): from then on Railway answers only the Worker, and direct railway.app requests get
+403. The other way round, the site is down until the Worker has the secret. A Worker deployed
+without `PROXY_SECRET` or `ORIGIN_HOST` answers 500 "misconfigured" and forwards nothing.
 
 **Worker setup** (dash.cloudflare.com -> Workers & Pages -> the worker): paste
 `cloudflare/worker.js` as the code, then Settings -> Variables and Secrets:
 
 | Name | Type | Value |
 |---|---|---|
-| `ORIGIN_HOST` | Text | `touchstone-project.up.railway.app` |
+| `ORIGIN_HOST` | Text | the service's Railway domain, `<service>.up.railway.app` (only here, never in the repo) |
 | `PROXY_SECRET` | Secret (encrypted) | the generated value |
 
 The Worker allows GET, HEAD and POST only, forwards with `redirect: "manual"`, and returns
@@ -105,18 +109,20 @@ bug where `X-Real-IP` held the CDN edge IP instead of the visitor's. That fails 
 share buckets, limits get stricter, never bypassable); step 3 detects it.
 
 ## 3. After the first deploy (token-free checks)
-Replace `URL` with the generated domain (`https://touchstone-production-xxxx.up.railway.app`).
+Replace `URL` with the generated domain (`https://<service>.up.railway.app`) and `WORKER`
+with `https://touchstone.aynx.dev`. With `PROXY_SECRET` set, only `URL/healthz` answers
+directly; every other check goes through `WORKER`.
 
 1. Build log shows Python 3.14; deploy log shows `Uvicorn running on http://0.0.0.0:<port>`.
    If the log shows another start command, paste the command above into Custom Start
    Command (it then overrides `railpack.json`).
 2. Health: `curl URL/healthz` → `{"ok":true}`.
 3. Forged headers are ignored. Link-less reports are free (no fetch, no model) and limited to
-   30 per IP per hour. Two tests, each from one machine, 31 requests each. Wait an hour
-   between (a) and (b), or run them from different networks: both count against your IP.
+   30 per IP per hour.
 
    (a) Direct to Railway (`URL` = the railway.app domain), with a forged
-   `X-Touchstone-Client-IP` and a wrong secret. The secret check must reject them:
+   `X-Touchstone-Client-IP` and a wrong secret. The secret check must refuse every one
+   (expected: thirty-one `403`):
    ```sh
    for i in $(seq 1 31); do
      curl -s -o /dev/null -w "%{http_code} " -X POST URL/api/audit \
@@ -136,10 +142,11 @@ Replace `URL` with the generated domain (`https://touchstone-production-xxxx.up.
        -d '{"report":"Algeria has 7,800 startups."}'
    done; echo
    ```
-   Expected for both: thirty `200` then one `429`. If all 31 are `200`, a forged header got
+   Expected for (b): thirty `200` then one `429`. If all 31 are `200`, a forged header got
    through: stop and fix before launch (the per-IP limit is bypassable; the daily cap still
-   protects the Groq budget). Verified on 2026-10-08 before the Worker existed: Railway
-   overwrites `X-Real-IP` (31 forged requests gave 30x200 then 429).
+   protects the Groq budget). A `200` in (a) means Railway's `PROXY_SECRET` is unset. Verified
+   on 2026-10-08 before the Worker existed: Railway overwrites `X-Real-IP` (31 forged requests
+   gave 30x200 then 429).
 4. Buckets are per visitor, not shared. Right after 3(b), from a different network (phone
    on mobile data, Wi-Fi off), send one more through the Worker:
    ```sh
@@ -152,7 +159,7 @@ Replace `URL` with the generated domain (`https://touchstone-production-xxxx.up.
 5. Outbound network works (full trial), still without tokens. This claim shares no words with
    the cited page, so the page is fetched but the model is never called:
    ```sh
-   curl -s -X POST URL/api/audit -H "Content-Type: application/json" \
+   curl -s -X POST WORKER/api/audit -H "Content-Type: application/json" \
      -d '{"report":"- Zzqvx flarnbeck 4242 https://www.iana.org/help/example-domains"}'
    ```
    Expected: a claim with `"label": "UNVERIFIED"` and "No relevant passage found on the

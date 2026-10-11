@@ -229,6 +229,9 @@ def combine(claim, per, pages):
             out["reason"] = (out.get("reason", "") + f" {lost} of {len(per)} sources couldn't be read.").strip()
         if late:
             out["reason"] = (out.get("reason", "") + f" {late} of {len(per)} sources not checked (time limit).").strip()
+    if out.get("disagree"):
+        notes = ["Sources disagree"] + notes   # one source states a fact another contradicts
+    out.pop("disagree", None)
     if multi:
         out.pop("detail", None)              # per-source details live in "sources"
     out.update(tokens=tokens, sources=sources, notes=notes)
@@ -318,14 +321,14 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
                 if send:
                     claims = [cited[m][0] for m in send]
                     outcome, got = yield from attempt(
-                        lambda: provider.check_source(claims, page["text"], url, meta), pacer,
+                        lambda: provider.ask_source(claims, page["text"]), pacer,
                         provider.estimate(claims, page["text"]), deadline, clock, sleep, n)
                     if outcome == "quota":
                         yield {"type": "quota", "scope": got, "checked": index - 1}
                         yield {"type": "done", "tokens": tokens}
                         return
-                    if outcome == "ok":
-                        results, used = got
+                    if outcome == "ok":       # code checks outside the retries (C1)
+                        results, used = provider.finish_source(got, claims, page["text"], url, meta)
                         pacer.record(used)
                     elif outcome == "late":
                         out_of_capacity, results = True, [dict(NOT_CHECKED_WAIT) for _ in send]
@@ -335,7 +338,7 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
                 r = batch.pop((n, url))
             else:
                 outcome, got = yield from attempt(
-                    lambda: provider.check(text, page["text"], url, meta), pacer, None,
+                    lambda: provider.ask(text, page["text"]), pacer, None,
                     deadline, clock, sleep, n)
                 if outcome == "quota":
                     # Out of capacity: every later claim would fail the same way. Stop cleanly
@@ -346,7 +349,8 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
                 if outcome == "late":
                     out_of_capacity, r = True, dict(NOT_CHECKED_WAIT)
                 else:
-                    r = got if outcome == "ok" else error_result(got)
+                    # code checks outside the retries (C1): their bugs are never retried
+                    r = provider.finish(got, text, page["text"], url, meta) if outcome == "ok" else error_result(got)
                 pacer.record(r["tokens"])
             per.insert(len(per) - len(urls[MAX_SOURCES:]), (url, r))
         r = combine(text, per, pages)

@@ -3,12 +3,13 @@ The model proposes a quote; code confirms the quote really exists on the page.""
 import json
 import os
 import re
+import sys
 
 from dotenv import load_dotenv
 from rapidfuzz import fuzz
 
 from check_numbers import NUM_RE, blocks
-from entities import check_fact, entities, named_in, paragraph_of
+from entities import check_fact, entities, fold, named_in, paragraph_of
 from units import unit_supported
 import locnum
 from locnum import NUMBER_RE
@@ -67,28 +68,67 @@ QUOTE_MATCH_MIN = 92   # % similarity: tolerates small slips, not invented quote
 
 
 def quote_on_page(quote, page):
-    """True if the quote is on the page. The model sometimes shortens a quote with '...';
-    then each piece must be on the page on its own."""
-    pieces = [x for x in re.split(r"\.\.\.|\u2026", quote) if x.strip(" .,;:")]
-    return bool(pieces) and all(piece_on_page(x, page) for x in pieces)
+    """The page line holding the quote (truthy), or None: the quote must be inside ONE page
+    line (paragraph, list item, table row, PDF block). The model sometimes shortens a quote
+    with '...'; then its pieces must all be in that one line, in order. Pieces found anywhere
+    on the page could stitch a Tesla sentence to a BYD figure (review 2026-10-11).
+    entities.paragraph_of() uses the returned line."""
+    return quote_line(quote, page)
 
 
-def piece_on_page(quote, page):
-    """Exact match first; otherwise near-exact (survives a typo or changed punctuation)."""
-    q, p = normalize(quote), normalize(page)
-    if len(q) < 20:          # short quotes must match exactly, or they'd match anything
-        return q in p
-    if q in p:
-        return True
-    m = fuzz.partial_ratio_alignment(q, p)
-    if m.score < QUOTE_MATCH_MIN:
-        return False
+_memo = {"page": None, "lines": {}}   # last page only: judge() asks about one quote many times
+
+
+def quote_line(quote, page):
+    """The page line holding the quote (see quote_on_page), or None."""
+    if _memo["page"] is not page:
+        _memo.update(page=page, lines={})
+    if quote in _memo["lines"]:
+        return _memo["lines"][quote]
+    found = None
+    pieces = [normalize(x) for x in re.split(r"\.\.\.|\u2026", quote) if x.strip(" .,;:")]
+    for line in page.split("\n") if pieces else ():
+        if line.strip() and pieces_in_line(pieces, normalize(line)):
+            found = line
+            break
+    _memo["lines"][quote] = found
+    return found
+
+
+def pieces_in_line(pieces, p):
+    """True if every (normalized) piece is in the line p, each after the previous one."""
+    pos = 0
+    for q in pieces:
+        end = piece_at(q, p, pos)
+        if end is None:
+            return False
+        pos = end
+    return True
+
+
+def piece_at(q, p, pos):
+    """End offset in p of the piece q found at or after pos, or None. Exact match first;
+    otherwise near-exact (survives a typo or changed punctuation)."""
+    i = p.find(q, pos)
+    if i >= 0:
+        return i + len(q)
+    rest = p[pos:]
+    if len(q) < 20 or not rest:   # short quotes must match exactly, or they'd match anything
+        return None
+    if len(rest) >= len(q):
+        m = fuzz.partial_ratio_alignment(q, rest)
+        score, span, end = m.score, rest[m.dest_start:m.dest_end], m.dest_end
+    else:                         # never the line inside a longer quote: compare whole
+        score, span, end = fuzz.ratio(q, rest), rest, len(rest)
+    if score < QUOTE_MATCH_MIN:
+        return None
     # A fuzzy match may forgive a typo, never a changed figure: the quote's numbers must
     # equal those in the matched passage, in any locale format (1,500 == 1 500 == 1500).
-    span = p[m.dest_start:m.dest_end]
     count = lambda t: sum(1 for _ in NUMBER_RE.finditer(t))
-    return (count(q) == count(span) and not locnum.missing(q, span, min_digits=1)
-            and not locnum.missing(span, q, min_digits=1))
+    if (count(q) == count(span) and not locnum.missing(q, span, min_digits=1)
+            and not locnum.missing(span, q, min_digits=1)):
+        return pos + end
+    return None
 
 def keywords(text):
     words = re.findall(r"[a-zA-Z][a-zA-Z\-]{2,}", text.lower())
@@ -240,11 +280,11 @@ def is_evaluative(text, names=()):
     return bool(EVALUATIVE.search(text)) and len(rest) < EVALUATIVE_MAX_WORDS
 
 
-def numbers_not_in(text, passage, min_digits=2):
+def numbers_not_in(text, passage, min_digits=2, euro=None):
     """Numbers in text (min_digits+ digits), as written, that are neither in the passage in
     any locale format (2,585,187 = 2 585 187; 29.7 = 29,7; locnum.py) nor a unit-scaled form
     of a passage number (15.9 GW = 15,925 MW; units.py)."""
-    return locnum.missing(text, passage, min_digits, scaled=unit_supported(text, passage))
+    return locnum.missing(text, passage, min_digits, scaled=unit_supported(text, passage, euro), euro=euro)
 
 
 def is_year(token):
@@ -263,7 +303,7 @@ def year_context(quote, page, meta=None):
     almost every page). meta: {"title", "headings": [[level, text]]} from fetch_links."""
     meta = meta or {}
     lines = page.split("\n")
-    para = paragraph_of(quote, page, quote_on_page)
+    para = paragraph_of(quote, page, quote_on_page) or ""
     idx = next((i for i, l in enumerate(lines) if l.strip() and l.strip() == para.strip()), None)
     out = [quote, para, meta.get("title") or ""]
     if idx is not None:
@@ -285,11 +325,22 @@ def year_context(quote, page, meta=None):
     return "\n".join(x for x in out if x and not COPYRIGHT.search(x))
 
 
+DIGIT_WORDS = "zero one two three four five six seven eight nine".split()
+
+
 def numbers_not_in_passage(fact, quote, page, meta=None):
-    """Numbers in the fact (2+ digits) that are neither in its quote nor the quote's paragraph.
-    A year may also come from the page title, a heading above the passage, or the header /
-    caption of the quoted row's table ("| Tesla | 238,656 |" under "| Brand | Sales 2025 |")."""
-    gone = numbers_not_in(fact, quote + " " + paragraph_of(quote, page, quote_on_page))
+    """Numbers in the fact (single digits too: "$5 million" vs a quote's "$3 million") that
+    are neither in its quote nor the quote's paragraph. A year may also come from the page
+    title, a heading above the passage, or the header / caption of the quoted row's table
+    ("| Tesla | 238,656 |" under "| Brand | Sales 2025 |"). Page-wide checks keep 2+ digits."""
+    para = paragraph_of(quote, page, quote_on_page)
+    if para is None:             # unverified quote: none of the fact's numbers are backed
+        return numbers_not_in(fact, "", min_digits=1)
+    # The page's convention decides how "2,500" / "545.142" read in its paragraph.
+    gone = numbers_not_in(fact, quote + "\n" + para, min_digits=1, euro=locnum.european(page))
+    # A single digit may be written out on the page ("one billion dinars" for "1 billion").
+    words = set(re.findall(r"[a-z]+", (quote + " " + para).lower()))
+    gone = [n for n in gone if not (n.isdigit() and len(n) == 1 and DIGIT_WORDS[int(n)] in words)]
     years = [n for n in gone if is_year(n)]
     if not years:
         return gone
@@ -314,9 +365,10 @@ def line_on_page(fact, page, names=()):
     if not any(locnum.digits(m) >= 2 for m in nums):
         return None
     subject = next((n for n in names if named_in(n, fact)), None)
+    euro = locnum.european(page)
     for line in page.split("\n"):
         line = line.strip()
-        if (line and not [n for n in numbers_not_in(fact, line, min_digits=1) if not is_year(n)]
+        if (line and not [n for n in numbers_not_in(fact, line, min_digits=1, euro=euro) if not is_year(n)]
                 and (subject is None or named_in(subject, line))):
             return line
     return None
@@ -327,12 +379,60 @@ def missing_numbers(claim, page):
     return numbers_not_in(claim, page)
 
 
+# Coverage of the claim by the model's parts (review 2026-10-11, L2): a reply that leaves out
+# part of the claim ("raised $5M ... and was acquired by Yassir" -> only the true half) must
+# not turn the unchecked rest green. These caps are amber only: SOURCED becomes COULDN'T
+# CONFIRM, never anything redder.
+TOO_MANY = "The model split the claim into"
+MAX_FACTS = 12             # the prompt asks for at most 5; beyond 12 the claim is capped
+COVERAGE_MIN = 0.6         # share of the claim's content words found in the model's parts
+FILLER = set("""much also still just very respectively although though because other another
+among generally roughly reportedly reported particularly beyond such into over only while where
+when been were will would could should there these those then them what who whom being both
+each most less""".split())
+
+
+def content_words(text):
+    """The claim's content words, accents folded ("Algérie" -> "algerie")."""
+    return [w for w in re.findall(r"[a-z]{3,}", fold(normalize(text)))
+            if w not in STOPWORDS and w not in FILLER]
+
+
+def coverage_caps(claim, parts):
+    """Reasons the model's parts (texts of facts and framing) don't cover the claim: a
+    non-year number of the claim in no part, or under COVERAGE_MIN of its content words.
+    Empty if covered."""
+    caps, joined = [], "\n".join(parts)
+    words = set(re.findall(r"[a-z]+", joined.lower()))
+    nums = [n for n in numbers_not_in(claim, joined, min_digits=1) if not is_year(n)
+            and not (n.isdigit() and len(n) == 1 and DIGIT_WORDS[int(n)] in words)]
+    if nums:
+        caps.append(f"The model's breakdown of the claim leaves out {', '.join(nums)}, so that was not checked.")
+    want = set(content_words(claim))
+    if want:
+        have = " ".join(content_words(joined))
+        # "finishing" is covered by "finished": compare a stem (all but the last 3 letters, min 4)
+        hit = {w for w in want if re.search(r"(?<![a-z])" + re.escape(w[:max(4, len(w) - 3)]), have)}
+        if len(hit) / len(want) < COVERAGE_MIN:
+            caps.append(f"The model's breakdown covers only {round(100 * len(hit) / len(want))}% "
+                        "of the claim's wording; the rest was not checked.")
+    return caps
+
+
+NO_PASSAGE_REASON = "No relevant passage found on the page."
+
+
 def check(client, claim, page, url="", meta=None):
+    """One claim against one page: the model call (ask) then the code checks (finish)."""
+    return finish(ask(client, claim, page), claim, page, url, meta)
+
+
+def ask(client, claim, page):
+    """The model-call half of check(), the only part worth retrying: (parsed reply, raw text,
+    tokens), or None when the page has no passage for the claim (no call made)."""
     excerpts = best_excerpts(claim, page)
     if not excerpts:
-        return {"label": "UNVERIFIED", "quote": "", "tokens": 0,
-                "reason": "No relevant passage found on the page."}
-
+        return None
     user = "CLAIM:\n" + claim + "\n\nEXCERPTS:\n<<<\n" + "\n\n".join(excerpts) + "\n>>>"
     resp = client.chat.completions.create(
         model=MODEL, temperature=0, seed=0, reasoning_effort="low",   # seed: best-effort repeatability
@@ -344,12 +444,32 @@ def check(client, claim, page, url="", meta=None):
         out = json.loads(m.group()) if m else {}
     except json.JSONDecodeError:
         out = {}
-
     if not isinstance(out, dict):
         out = {}
-    r = judge(out, claim, page, url, raw, meta)
-    r["tokens"] = resp.usage.total_tokens if resp.usage else 0
+    return out, raw, (resp.usage.total_tokens if resp.usage else 0)
+
+
+def finish(got, claim, page, url="", meta=None):
+    """The code half of check(): ask()'s reply through judge(), outside any retry, with the
+    call's tokens kept even if the checks fail."""
+    if got is None:
+        return {"label": "UNVERIFIED", "quote": "", "tokens": 0, "reason": NO_PASSAGE_REASON}
+    out, raw, tokens = got
+    r = safe_judge(out, claim, page, url, raw, meta)
+    r["tokens"] = tokens
     return r
+
+
+def safe_judge(out, claim, page, url="", raw="", meta=None):
+    """judge(), but a bug in the code checks is its own ERROR ("Internal check error"), never a
+    model failure to retry and never a crash of the audit. Logs only the exception type (no
+    page text, no claim)."""
+    try:
+        return judge(out, claim, page, url, raw, meta)
+    except Exception as e:
+        print(f"judge() failed: {type(e).__name__}", file=sys.stderr)
+        return {"label": "ERROR", "quote": "", "reason": "Internal check error.",
+                "facts": [], "framing": [], "model": None}
 
 
 def judge(out, claim, page, url="", raw="", meta=None):
@@ -380,8 +500,13 @@ def judge(out, claim, page, url="", raw="", meta=None):
     raw_facts = [{"fact": x["text"], "status": x.get("status"), "quote": x.get("quote")}
                  for x in parts_in if x["text"] not in framing]
 
+    caps = coverage_caps(claim, [x["text"] for x in parts_in])
+    if len(raw_facts) > MAX_FACTS:
+        # never dropped silently: the rest is unchecked, so the claim can't be SOURCED
+        caps.append(f"{TOO_MANY} {len(raw_facts)} facts; only the first "
+                    f"{MAX_FACTS} were checked.")
     facts, demoted = [], False
-    for f in raw_facts[:5]:
+    for f in raw_facts[:MAX_FACTS]:
         status = f["status"] if f["status"] in ("stated", "missing", "contradicted") else "missing"
         quote = f["quote"] if status != "missing" else ""
         fact = {"fact": f["fact"], "status": status, "quote": quote}
@@ -414,14 +539,17 @@ def judge(out, claim, page, url="", raw="", meta=None):
             fact.update(status="possible", evidence=line)
         facts.append(fact)
 
-    v = verdict(facts, framing, demoted, missing_numbers(claim, page), bool(out), raw)
-    return {**v, "facts": facts, "framing": framing,
+    v = verdict(facts, framing, demoted, missing_numbers(claim, page), bool(out), raw,
+                caps if facts else ())
+    return {**v, "facts": facts, "framing": framing, "caps": caps if facts else [],
             "model": {"opinion": False, "parts": parts_in} if out else None}
 
 
-def verdict(facts, framing, demoted, missing, ok=True, raw=""):
+def verdict(facts, framing, demoted, missing, ok=True, raw="", caps=()):
     """Label, quote and reason from checked facts: shared by judge() (one source) and merge()
-    (several). missing: the claim's numbers on none of the pages; ok: the reply parsed."""
+    (several). missing: the claim's numbers on none of the pages; ok: the reply parsed.
+    caps: reasons the facts don't cover the whole claim (coverage_caps, too many facts,
+    sources disagreeing): SOURCED becomes COULDN'T CONFIRM, nothing else changes."""
     statuses = [f["status"] for f in facts]
     soft = ("unconfirmed", "possible")
     if not ok:
@@ -442,6 +570,8 @@ def verdict(facts, framing, demoted, missing, ok=True, raw=""):
         label = "UNVERIFIED"   # model claimed support but its quotes aren't on the page
     else:
         label = "UNSUPPORTED"
+    if caps and label == "SOURCED":
+        label = "COULDN'T CONFIRM"   # amber only: what was checked holds, the rest wasn't
 
     by = lambda st: "; ".join(f["fact"] for f in facts if f["status"] == st)
     parts = []
@@ -458,6 +588,8 @@ def verdict(facts, framing, demoted, missing, ok=True, raw=""):
     if demoted:
         parts.append("Some quotes from the model are not on the page.")
     parts.extend(dict.fromkeys(f["note"] for f in facts if f.get("note")))
+    if ok and facts:
+        parts.extend(dict.fromkeys(caps))
     if missing and label in ("SOURCED", "PARTIAL", "COULDN'T CONFIRM"):
         parts.append(f"Numbers not on page: {', '.join(missing)}.")
     if framing:
@@ -496,17 +628,40 @@ def merge(claim, results, texts):
     base_url, base = max(with_facts, key=lambda ur: (count(ur[1], ("stated",)),
                                                     count(ur[1], ("unconfirmed", "possible")),
                                                     -count(ur[1], ("contradicted",))))
-    facts = []
+    facts, disagree = [], []
     for f in base["facts"]:
         best, src = f, base_url
+        said = {f["status"]: base_url}           # status -> a source giving it to this fact
         for u, r in with_facts:
             for g in r["facts"] if u != base_url else []:
-                if RANK.get(g["status"], 0) > RANK.get(best["status"], 0) and same_fact(f["fact"], g["fact"]):
+                if not same_fact(f["fact"], g["fact"]):
+                    continue
+                said.setdefault(g["status"], u)
+                if RANK.get(g["status"], 0) > RANK.get(best["status"], 0):
                     best, src = g, u
+        if "stated" in said and "contradicted" in said:
+            # One source states it, another contradicts it: neither wins silently (L6).
+            disagree.append(f"Sources disagree on \"{f['fact']}\": {site(said['stated'])} states it, "
+                            f"{site(said['contradicted'])} contradicts it.")
         facts.append({**best, "fact": f["fact"], "source": src})
     demoted = any(f.get("rejected_quote") for f in facts)
-    v = verdict(facts, base["framing"], demoted, missing_numbers(claim, "\n".join(texts)))
-    return {**v, "facts": facts, "framing": base["framing"]}
+    parts = [p["text"] for _, r in with_facts for p in ((r.get("model") or {}).get("parts") or [])
+             if isinstance(p, dict) and isinstance(p.get("text"), str)]
+    caps = (coverage_caps(claim, parts) if parts else []) + list(dict.fromkeys(
+        c for _, r in with_facts for c in r.get("caps") or [] if c.startswith(TOO_MANY))) + disagree
+    v = verdict(facts, base["framing"], demoted, missing_numbers(claim, "\n".join(texts)), caps=caps)
+    return {**v, "facts": facts, "framing": base["framing"], "caps": caps,
+            **({"disagree": disagree} if disagree else {})}
+
+
+def site(url):
+    """A source's host without "www." (for reasons)."""
+    from urllib.parse import urlsplit
+    try:
+        host = urlsplit(url).hostname
+    except ValueError:
+        host = None
+    return (host or url).removeprefix("www.")
 
 
 def main():

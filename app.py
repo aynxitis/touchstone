@@ -100,6 +100,10 @@ CSP = ("default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self';
 
 @app.middleware("http")
 async def guard(request: Request, call_next):
+    if PROXY_SECRET and request.url.path != "/healthz" and not from_worker(request):
+        # The origin answers only the Worker (and the platform's health check): direct
+        # requests to the railway.app URL get nothing, not even the page.
+        return JSONResponse({"error": "Forbidden."}, status_code=403)
     if int(request.headers.get("content-length") or 0) > MAX_BODY_BYTES:
         return JSONResponse({"error": "Request too large."}, status_code=413)
     response = await call_next(request)

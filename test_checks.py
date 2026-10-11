@@ -136,7 +136,7 @@ for claim, passage in (("2,585,187 cars were sold", "Sales: 2 585 187 cars"),
                        ("1,992,803 in 2024", "1\u202f992\u202f803 en 2024"),
                        ("1,992,803 in 2024", "1\u00a0992\u00a0803 en 2024"),
                        ("1,992,803 in 2024", "1\u2009992\u2009803 en 2024"),
-                       ("545,142 EVs", "545.142 Elektroautos"),
+                       ("545,142 EVs", "545.142 Elektroautos, +43,2%"),   # "43,2": the page's convention
                        ("2,585,187 cars", "2'585'187 Autos"),
                        ("2,585,187 cars", "2\u2019585\u2019187 Autos"),
                        ("60,651 EVs", "Austria 60,651"),
@@ -150,11 +150,12 @@ for claim, passage in (("a 29.7% increase", "une hausse de 27,9%"),
                        ("2,585,187 cars", "2585 187 cars")):          # 4-digit first group: not one number
     assert not found(claim, passage), (claim, passage)
 # A year followed by a number is two numbers, never 20252585187 or 2025258.
-toks = [(m.group(), locnum.readings(m, page=True)) for m in locnum.NUMBER_RE.finditer("In 2025 2 585 187 cars")]
+toks = [(m.group(), locnum.readings(m, split=True)) for m in locnum.NUMBER_RE.finditer("In 2025 2 585 187 cars")]
 assert [t for t, _ in toks] == ["2025", "2 585 187"], toks
 assert D(20252585187) not in locnum.values("In 2025 2 585 187 cars") and D(2025258) not in locnum.values("In 2025 2 585 187 cars")
 # Ambiguous tokens keep both readings; lists stay separate numbers.
-assert locnum.values("1,234") == {D(1234), D("1.234")} and locnum.values("545.142") == {D(545142), D("545.142")}
+assert locnum.values("1,234 / 0,5") == {D(1234), D("1.234"), D("0.5")}
+assert locnum.values("545.142 / 0,5") == {D(545142), D("545.142"), D("0.5")}
 assert locnum.values("10, 20, 30") == {D(10), D(20), D(30)}
 assert [m.group() for m in locnum.NUMBER_RE.finditer("10,20,30 and 1,5,7")] == ["10,20", "30", "1,5", "7"]
 # Reasons name the number as the claim wrote it.
@@ -264,7 +265,8 @@ assert numbers_not_in_passage("Tesla sold 238,656 units in 2019", row_t, brands)
 assert entities(byd, brands) == ["BYD"] and entities("Its European sales") == []
 assert entities("The European Union fund") == ["European Union"]
 assert check_fact("BYD's total European sales rose 268.6%", sent, byd, brands, quote_on_page, brands_url) is None
-r = judge({"parts": [P("BYD's total European sales rose 268.6%", "stated", sent),
+r = judge({"parts": [P("Experienced massive explosive growth", "", kind="framing"),
+                     P("BYD's total European sales rose 268.6%", "stated", sent),
                      P("BYD sold 187,657 units", "stated", row_b)]}, byd, brands, brands_url)
 assert r["label"] == "SOURCED", r
 
@@ -320,7 +322,9 @@ meta5 = {"title": "The Most Popular Electric Cars In Europe 2025, Compared",
                       [2, "The top 5 most popular electric cars 2025 in Europe from 2025 January to October"]]}
 fact_y = P("Tesla Model Y sold 116,989 units in Europe from January to October 2025", "stated", "- Tesla Model Y: 116 989")
 r = judge({"parts": [fact_y]}, claim_y, top5, meta=meta5)
-assert r["label"] == "SOURCED", r
+assert r["facts"][0]["status"] == "stated", r
+# The reply never mentions the claim's "Top 5": unchecked, so amber (review L2), not SOURCED.
+assert r["label"] == "COULDN'T CONFIRM" and "leaves out 5" in r["reason"], r
 # Without title/headings (an old cache), the year can't be dated: amber, never red.
 r = judge({"parts": [fact_y]}, claim_y, top5)
 assert r["label"] == "COULDN'T CONFIRM" and "2025 not in its passage" in r["reason"], r
@@ -370,5 +374,95 @@ with _tf.TemporaryDirectory() as d:
     out = compare_runs.compare(a, b, {1: "PARTIAL", 2: "SOURCED"})
 assert "<>" in out[1] and "<>" not in out[2] and "Same label on 1/2" in out[3], out
 assert out[-2:] == ["Accuracy groq: 1/2", "Accuracy gemini: 2/2"], out
+
+# 12. Review 2026-10-11, L1: a "..." quote verifies only inside ONE page line, pieces in
+#     order; no check ever runs against the model's own text.
+from entities import paragraph_of
+stitch_page = ("Tesla's European registrations fell sharply in 2025 as its line-up aged.\n"
+               "BYD sold 116,989 cars in Europe in 2025, nearly four times its 2024 total.")
+stitched = "Tesla's European registrations fell sharply ... 116,989 cars in Europe"
+assert not quote_on_page(stitched, stitch_page)
+assert paragraph_of(stitched, stitch_page, quote_on_page) is None
+r = judge({"parts": [P("Tesla sold 116,989 cars in Europe in 2025", "stated", stitched)]},
+          "Tesla sold 116,989 cars in Europe in 2025.", stitch_page)
+assert r["facts"][0]["status"] in ("missing", "possible") and r["label"] != "SOURCED", r
+# Same pieces in one line still verify; out of order they don't.
+assert quote_on_page("BYD sold 116,989 cars ... nearly four times its 2024 total", stitch_page)
+assert not quote_on_page("nearly four times its 2024 total ... BYD sold 116,989 cars", stitch_page)
+# A quote spanning two lines is not one passage either.
+assert not quote_on_page("its line-up aged. BYD sold 116,989 cars in Europe", stitch_page)
+# A short page line never matches inside a longer quote.
+assert not quote_on_page("BYD sold 116,989 cars in Europe in 2025 and Tesla sold 90,000", "BYD sold 116,989 cars")
+assert check_fact("In 2025 Tesla sold 116,989 cars", stitched, "In 2025 Tesla sold 116,989 cars.", stitch_page,
+                  quote_on_page) == ("missing", ["Tesla"], None)
+assert numbers_not_in_passage("Tesla sold 116,989 cars", stitched, stitch_page) == ["116,989"]
+
+# 13. L4: the per-fact number check counts single digits ($5M vs $3M); units still convert.
+m_page = "VOLZ raised $3 million in its seed round, led by local investors."
+r = judge({"parts": [P("VOLZ raised $5 million", "stated", m_page)]}, "VOLZ raised $5 million.", m_page)
+assert r["facts"][0]["status"] == "unconfirmed" and r["label"] != "SOURCED", r
+assert numbers_not_in_passage("VOLZ raised $5 million", m_page, m_page) == ["5"]
+assert numbers_not_in_passage("VOLZ raised $3 million", m_page, m_page) == []
+gw_page = "The plant adds 3,000 MW of capacity to the grid by 2027."
+assert numbers_not_in_passage("The plant adds 3 GW of capacity", gw_page, gw_page) == []
+assert numbers_not_in_passage("The plant adds 4 GW of capacity", gw_page, gw_page) == ["4"]
+assert missing_numbers("VOLZ raised $5 million.", m_page) == []     # page-wide: 2+ digits only
+w_page = "The pool is structured as one billion dinars allocated per wilaya, three million for others."
+assert numbers_not_in_passage("DZD 1 billion per wilaya", w_page, w_page) == []           # written out
+assert numbers_not_in_passage("DZD 5 billion per wilaya", w_page, w_page) == ["5"]
+
+# 14. L3: space groups split into separate numbers only on table-like lines, and never when a
+#     group starts with 0. In prose "2 585 187" is one number.
+assert missing_numbers("Model Y sold 585 units.", "Sales reached 2 585 187 cars in 2025.") == ["585"]
+assert missing_numbers("It sold 23 units.", "| Total | 1 023 456 | 2025 |") == ["23"]
+assert missing_numbers("It sold 23 units.", "Total 1 023 456 cars sold in 2025 here") == ["23"]
+assert missing_numbers("It sold 200 units.", "| Q1 | 100 200 300 |") == []          # real row cells
+assert missing_numbers("Robusta averaged 71 cents.", "Robusta 73 356 71 910 71 033") == []   # PDF row
+assert missing_numbers("Tesla Model Y: 116,989 sold.", "| 1 | Tesla Model Y | 116 989 |") == []
+assert missing_numbers("2,585,187 cars", "Sales: 2 585 187 cars") == []
+
+# 15. L5: "2,500" is 2.5 and "545.142" is 545142 only on a page that writes numbers the
+#     European way; elsewhere English readings only.
+assert missing_numbers("Prices rose 2.5%.", "Volume reached 2,500 tonnes.") == ["2.5"]
+assert missing_numbers("Prices rose 2.5%.", "Volume reached 2,500 tonnes, up 29,7%.") == []
+assert missing_numbers("Sales were 545,142.", "Absatz: 545.142 Elektroautos") == ["545,142"]
+assert missing_numbers("Sales were 545,142.", "Absatz: 545.142 Elektroautos.\nAnteil 20,1%") == []
+assert missing_numbers("Sales were 1,234,567.", "Absatz: 1.234.567") == []           # unambiguous
+assert missing_numbers("Share was 29.7%.", "une hausse de 29,7%") == []
+assert locnum.european("29,7%") and locnum.european("1.234.567") and locnum.european("1.234,5")
+assert not locnum.european("2,500 tonnes and 1,234,567 cars at 2.5%")
+# The page's convention also governs the per-fact check of a paragraph.
+eu_page = "Absatz 2025: 545.142 Elektroautos.\nMarktanteil 20,1% (Vorjahr 14,6%)."
+assert numbers_not_in_passage("Germany sold 545,142 EVs", "Absatz 2025: 545.142 Elektroautos.", eu_page) == []
+assert numbers_not_in_passage("Germany sold 545,142 EVs", "Absatz 2025: 545.142 Elektroautos.",
+                              "Absatz 2025: 545.142 Elektroautos.") == ["545,142"]
+
+# 16. L2: the model's parts must cover the claim. A reply with only the true half of
+#     "raised $5M ... and was acquired by Yassir" is amber, never SOURCED, never red.
+y_page = "VOLZ raised $5M in a seed round in 2023, led by local investors."
+y_claim = "VOLZ raised $5M in 2023 and was later acquired by Yassir in 2025."
+r = judge({"parts": [P("VOLZ raised $5M in 2023", "stated", y_page)]}, y_claim, y_page)
+assert r["facts"][0]["status"] == "stated" and r["label"] == "COULDN'T CONFIRM", r
+assert "covers only" in r["reason"], r
+# A dropped number caps too, even when the words are mostly covered.
+n_claim = "VOLZ raised $5M in 2023 from 12 local investors."
+r = judge({"parts": [P("VOLZ raised $5M in 2023 from local investors", "stated", y_page)]}, n_claim, y_page)
+assert r["label"] == "COULDN'T CONFIRM" and "leaves out 12" in r["reason"], r
+# The full breakdown is SOURCED as before; a missing half stays PARTIAL (caps never redden).
+r = judge({"parts": [P("VOLZ raised $5M in 2023", "stated", y_page),
+                     P("VOLZ was acquired by Yassir in 2025", "missing")]}, y_claim, y_page)
+assert r["label"] == "PARTIAL", r
+r = judge({"parts": [P("VOLZ raised $5M in a seed round in 2023", "stated", y_page)]},
+          "VOLZ raised $5M in a seed round in 2023.", y_page)
+assert r["label"] == "SOURCED", r
+# Caps are amber only: an unsupported reply stays UNSUPPORTED.
+r = judge({"parts": [P("VOLZ raised $9M", "missing")]}, y_claim, y_page)
+assert r["label"] == "UNSUPPORTED", r
+# Facts are never dropped silently: over MAX_FACTS, the claim can't be SOURCED.
+from quote_check import MAX_FACTS
+many = [P(f"VOLZ raised $5M in a seed round in 2023", "stated", y_page)] * (MAX_FACTS + 1)
+r = judge({"parts": many}, "VOLZ raised $5M in a seed round in 2023.", y_page)
+assert r["label"] == "COULDN'T CONFIRM" and f"into {MAX_FACTS + 1} facts" in r["reason"], r
+assert len(judge({"parts": many[:7]}, "VOLZ raised $5M in a seed round in 2023.", y_page)["facts"]) == 7
 
 print("check tests passed")

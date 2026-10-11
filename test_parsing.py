@@ -214,4 +214,22 @@ for junk in ("[" * 20000, "](" * 10000, "&#" * 10000, "a1" * 10000, "# " + "1" *
              "| " * 10000, "\\&" * 10000, ("[i](https://x.com/" + "f" * 50 + ")") * 300):
     t0 = _t.time(); blocks(junk); assert _t.time() - t0 < 2, junk[:20]
 
+# C2: a bracketed number with no matching source entry is text, kept as written.
+body, _ = resolve_footnotes("Revenue grew in [2023] by 5% [1].\n\nSources\n1. https://a.example/x")
+assert body.startswith("Revenue grew in [2023] by 5%. https://a.example/x"), body
+body, _ = resolve_footnotes("See table [3] for details.\n\nSources\n1. https://a.example/x")
+assert "table [3] for" in body, body
+# A names-only source entry is still a source: its marker is dropped as before.
+assert "[1]" not in resolve_footnotes("Revenue grew 5% [1].\n\nSources\n1. Reuters")[0]
+
+# S6: MD_LINK stops at the URL; the ")" is checked separately. Same results, linear time.
+from check_numbers import copy_cleanup, md_links
+assert md_links("a [x](https://e.com/p) b ![i](https://g.com/favicon.ico ) c") == [
+    (2, 22, "https://e.com/p"), (25, 57, "https://g.com/favicon.ico")]
+assert md_links("[x](https://e.com/p no close") == []
+assert copy_cleanup("Text [s](https://e.com/a).\n![i](https://g.com/s2/favicons?d=e.com)\nReuters") .strip() == \
+    "Text [s](https://e.com/a)."
+for junk in ("[a](https://" + "x" * 1990 + " " ) * 40, "[a](https://x" * 5000, "[](https://" * 8000:
+    t0 = _t.time(); copy_cleanup(junk); assert _t.time() - t0 < 1, junk[:20]
+
 print("parsing checks passed")

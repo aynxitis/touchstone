@@ -35,7 +35,10 @@ assert [(f["status"], f["source"]) for f in m["facts"]] == [("stated", A), ("sta
 rb_c = judge({"parts": [P(F1, "contradicted", Q_B1), P(F2, "stated", Q_B2)]}, CLAIM, PAGE_B, B)
 assert [f["status"] for f in rb_c["facts"]] == ["contradicted", "stated"] and rb_c["label"] == "CONTRADICTED"
 m = merge(CLAIM, [(A, ra), (B, rb_c)], [PAGE_A, PAGE_B])           # A states F1: not contradicted
-assert m["label"] == "SOURCED" and m["facts"][0]["status"] == "stated" and m["facts"][0]["source"] == A, m
+assert m["facts"][0]["status"] == "stated" and m["facts"][0]["source"] == A, m
+# ...but B contradicts what A states: never silently SOURCED (review L6), amber + a note.
+assert m["label"] == "COULDN'T CONFIRM" and "Sources disagree" in m["reason"], m
+assert "a.example states it, b.example contradicts it" in m["reason"], m
 ra_m = judge({"parts": [P(F1, "missing"), P(F2, "missing")]}, CLAIM, PAGE_A, A)
 m = merge(CLAIM, [(A, ra_m), (B, rb_c)], [PAGE_A, PAGE_B])        # nobody states F1: contradicted
 assert m["label"] == "CONTRADICTED" and m["facts"][0]["source"] == B, m
@@ -143,7 +146,7 @@ cases = {("BLOCKED", "blocked the checker (bot protection)"): "reuters.com block
          ("HTTP_ERR", "403"): "The site refused the checker (login, paywall or bot protection).",
          ("HTTP_ERR", "500"): "The site had a server error.",
          ("BLOCKED", "DNS failed"): "The site's address could not be found.",
-         ("BLOCKED", "private IP 10.0.0.1"): "The link points to a private or invalid address, so it was not fetched.",
+         ("BLOCKED", "private address"): "The link points to a private or invalid address, so it was not fetched.",
          ("NO_TEXT", "JS page or blocked?"): "The page has no readable text (it may need JavaScript).",
          ("ERROR", "ConnectError"): "The site could not be reached."}
 for (status, detail), want in cases.items():
@@ -207,5 +210,30 @@ assert ev["reason"] == "None of the 3 sources could be read. 2 more sources not 
 ev = [e for e in audit(f"- {CLAIM} " + " ".join(many[:4]), None, pages=dead) if e["type"] == "claim"][0]
 assert ev["reason"].endswith(" 1 more source not checked (limit of 3 per claim)."), ev["reason"]
 assert [s["label"] for s in ev["sources"]] == ["SOURCE UNREACHABLE"] * 3 + ["NOT CHECKED"]
+
+# L6 on the card: combine() puts "Sources disagree" in the claim's notes.
+from touchstone import combine
+out = combine(CLAIM, [(A, ra), (B, rb_c)], {A: {"text": PAGE_A}, B: {"text": PAGE_B}})
+assert out["label"] == "COULDN'T CONFIRM" and out["notes"][0] == "Sources disagree", out
+assert "disagree" not in out, out
+
+# C1: a bug in the code checks is "Internal check error", never retried, tokens kept.
+import quote_check as _QC
+_real = _QC.judge
+def _boom(*a, **k):
+    raise KeyError("bug")
+_QC.judge = _boom
+try:
+    client, calls = fake_groq(groq_reply)
+    cl = [e for e in audit(f"- Certified stocks stayed low [A]({A})", client, pages=pages) if e["type"] == "claim"]
+    assert len(calls) == 1 and cl[0]["label"] == "ERROR" and cl[0]["reason"] == "Internal check error.", cl
+    assert cl[0]["tokens"] == 100, cl
+    g = FakeGemini()
+    cl = [e for e in audit(f"- Certified stocks stayed low [A]({A})", g, pages=pages, provider=PV.Gemini(g))
+          if e["type"] == "claim"]
+    assert len(g.calls) == 1 and cl[0]["label"] == "ERROR" and cl[0]["reason"] == "Internal check error.", cl
+    assert cl[0]["tokens"] == 600, cl
+finally:
+    _QC.judge = _real
 
 print("source checks passed")

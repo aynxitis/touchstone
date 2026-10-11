@@ -91,6 +91,19 @@ assert A.rate_limited(a) and not A.rate_limited(b)                    # separate
 v6 = [A.rate_key(A.client_ip(W("s3cret-test-value", ip))) for ip in ("2001:db8:1:2::1", "2001:db8:1:2::9")]
 assert v6[0] == v6[1] == "2001:db8:1:2::/64"                          # /64 bucketing kept
 A.hits.clear()
+# S2: with PROXY_SECRET set, the origin answers only requests carrying it (the Worker), plus
+#     /healthz for the platform's health check.
+import warnings
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")                 # starlette's TestClient deprecation notice
+    from fastapi.testclient import TestClient
+    with TestClient(A.app) as tc:
+        assert tc.get("/healthz").status_code == 200
+        for hdrs in ({}, {"x-touchstone-proxy-secret": "wrong"}, {"x-touchstone-proxy-secret": ""}):
+            assert tc.get("/", headers=hdrs).status_code == 403
+            assert tc.get("/api/example", headers=hdrs).status_code == 403
+            assert tc.post("/api/audit", json={"report": "x"}, headers=hdrs).status_code == 403
+        assert tc.get("/", headers={"x-touchstone-proxy-secret": "s3cret-test-value"}).status_code == 200
 A.CLIENT_IP_HEADER, A.PROXY_SECRET = "", ""
 
 # 5. IPv6: one /64 is one visitor, so rotating addresses inside it doesn't reset the limit.
@@ -447,5 +460,23 @@ with tempfile.TemporaryDirectory() as d:
     v = A.asset_versions(d)
     assert "Google Gemini" in A.versioned_index(d, v, "gemini") and "provider-note" not in A.versioned_index(d, v, "gemini")
     assert "Gemini" not in A.versioned_index(d, v, "groq") and "provider-note" not in A.versioned_index(d, v, "groq")
+
+# S3: a private address never reaches the browser, only "private address".
+r = F.fetch("http://10.0.0.1/x")
+assert r["status"] == "BLOCKED" and r["detail"] == "private address", r
+ev = [e for e in touchstone.audit("- Claim text here http://localhost/x", None) if e["type"] == "claim"]
+assert ev[0]["label"] == "SOURCE UNREACHABLE" and "127.0.0.1" not in json.dumps(ev[0]), ev
+assert ev[0]["sources"][0]["detail"] == "BLOCKED private address", ev
+# S4: the fetch client ignores proxy/netrc settings from the environment.
+_real_client, seen = F.httpx.AsyncClient, []
+def _spy(*a, **k):
+    seen.append(k.get("trust_env", True))
+    return _real_client(*a, **k)
+F.httpx.AsyncClient = _spy
+try:
+    F.fetch("http://10.0.0.1/y")
+finally:
+    F.httpx.AsyncClient = _real_client
+assert seen == [False], seen
 
 print("security checks passed")

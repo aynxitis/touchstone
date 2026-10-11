@@ -168,11 +168,16 @@ def fact_entities(fact, claim_ents):
 
 
 def paragraph_of(quote, page, on_page):
-    """The page paragraph the (already verified) quote comes from, or the quote itself."""
+    """The page paragraph (line) the quote comes from, or None: then the quote is unverified,
+    and no check may run against the model's own text instead. on_page may return the line
+    itself (quote_check.quote_on_page): then it is used as is."""
+    hit = on_page(quote, page)
+    if isinstance(hit, str) or not hit:
+        return hit or None
     for para in page.split("\n"):
         if para.strip() and on_page(quote, para):
             return para
-    return quote
+    return None
 
 
 def publisher(entity, url):
@@ -210,6 +215,8 @@ def check_fact(fact, quote, claim, page, on_page, url=""):
     claim_ents = entities(claim, page)
     need = [e for e in fact_entities(fact, claim_ents) if not publisher(e, url)]
     para = paragraph_of(quote, page, on_page)
+    if para is None:             # unverified quote: nothing here supports any name
+        return ("missing", need, None) if need else None
     absent = [e for e in need if not named_in(e, quote) and not named_in(e, para)]
     if not absent:
         return None
