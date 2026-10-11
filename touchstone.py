@@ -5,7 +5,7 @@ import re
 import time
 from urllib.parse import parse_qsl, urlsplit
 
-from check_numbers import blocks
+from check_numbers import blocks_ctx
 from fetch_links import BOT_BLOCKED, fetch_many
 from pacing import DAY_FULL, TokenPacer, retry_after
 from quote_check import best_excerpts, merge, quote_on_page
@@ -181,7 +181,7 @@ def add_pages(r, page):
 GONE = ("SOURCE UNREACHABLE", "NOT CHECKED")
 
 
-def combine(claim, per, pages):
+def combine(claim, per, pages, context=""):
     """One claim result from its sources' results [(url, result)], in citation order.
     One source: that result unchanged (plus "sources"/"notes"). Several: labelled from the
     reachable ones (merge()); all unreachable -> SOURCE UNREACHABLE; the reason says how
@@ -217,7 +217,7 @@ def combine(claim, per, pages):
         for f in out.get("facts") or []:
             f["source"] = usable[0][0]
     else:
-        out = merge(claim, usable, [pages[u]["text"] for u, _ in usable])
+        out = merge(claim, usable, [pages[u]["text"] for u, _ in usable], context)
     if multi and usable:
         lost = sum(r["label"] == "SOURCE UNREACHABLE" for _, r in per)
         late = sum(r["label"] == "NOT CHECKED" and not r.get("over_limit") for _, r in per)
@@ -266,8 +266,9 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
     from providers import Groq
     provider = provider or Groq(client)
     pacer = pacer or TokenPacer.for_provider(provider.name, clock=clock)
-    segs = blocks(report)
-    cited = [(t, us) for t, us in segs if us]
+    segs = blocks_ctx(report)
+    cited = [(t, us) for t, us, _ in segs if us]
+    contexts = [c for _, us, c in segs if us]
     if only is not None:
         chosen = {i - 1 for i in only}
     elif max_claims is not None:
@@ -284,7 +285,7 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
 
     tokens, n, index, out_of_capacity = 0, 0, 0, False
     batch = {}          # Gemini: (claim number, url) -> result, filled one cited page at a time
-    for text, urls in segs:
+    for text, urls, context in segs:
         if not urls:      # uncited text: nothing to check, costs no tokens
             yield {"type": "claim", "index": None, "claim": None, "text": text, "url": None, "urls": [],
                    "label": "NO SOURCE GIVEN", "quote": "",
@@ -328,7 +329,8 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
                         yield {"type": "done", "tokens": tokens}
                         return
                     if outcome == "ok":       # code checks outside the retries (C1)
-                        results, used = provider.finish_source(got, claims, page["text"], url, meta)
+                        results, used = provider.finish_source(got, claims, page["text"], url, meta,
+                                                               [contexts[m] for m in send])
                         pacer.record(used)
                     elif outcome == "late":
                         out_of_capacity, results = True, [dict(NOT_CHECKED_WAIT) for _ in send]
@@ -350,10 +352,11 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
                     out_of_capacity, r = True, dict(NOT_CHECKED_WAIT)
                 else:
                     # code checks outside the retries (C1): their bugs are never retried
-                    r = provider.finish(got, text, page["text"], url, meta) if outcome == "ok" else error_result(got)
+                    r = (provider.finish(got, text, page["text"], url, meta, context) if outcome == "ok"
+                         else error_result(got))
                 pacer.record(r["tokens"])
             per.insert(len(per) - len(urls[MAX_SOURCES:]), (url, r))
-        r = combine(text, per, pages)
+        r = combine(text, per, pages, context)
         tokens += r["tokens"]
         yield {"type": "claim", "index": index, "claim": n, "text": text, "url": urls[0],
                "urls": list(urls), **r}

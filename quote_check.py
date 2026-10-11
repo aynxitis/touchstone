@@ -398,10 +398,18 @@ def content_words(text):
             if w not in STOPWORDS and w not in FILLER]
 
 
-def coverage_caps(claim, parts):
+def own_text(claim, context=""):
+    """The claim without its lead-in context (check_numbers.blocks_ctx): the bullet, sentence
+    or row itself."""
+    return claim[len(context):].strip() if context and claim.startswith(context) else claim
+
+
+def coverage_caps(claim, parts, context=""):
     """Reasons the model's parts (texts of facts and framing) don't cover the claim: a
     non-year number of the claim in no part, or under COVERAGE_MIN of its content words.
-    Empty if covered."""
+    Only the claim's own text counts: a lead-in's "Top 5 ... (Jan-Oct 2025):" is context the
+    model sees, not something each bullet's breakdown must repeat. Empty if covered."""
+    claim = own_text(claim, context)
     caps, joined = [], "\n".join(parts)
     words = set(re.findall(r"[a-z]+", joined.lower()))
     nums = [n for n in numbers_not_in(claim, joined, min_digits=1) if not is_year(n)
@@ -422,9 +430,9 @@ def coverage_caps(claim, parts):
 NO_PASSAGE_REASON = "No relevant passage found on the page."
 
 
-def check(client, claim, page, url="", meta=None):
+def check(client, claim, page, url="", meta=None, context=""):
     """One claim against one page: the model call (ask) then the code checks (finish)."""
-    return finish(ask(client, claim, page), claim, page, url, meta)
+    return finish(ask(client, claim, page), claim, page, url, meta, context)
 
 
 def ask(client, claim, page):
@@ -449,34 +457,35 @@ def ask(client, claim, page):
     return out, raw, (resp.usage.total_tokens if resp.usage else 0)
 
 
-def finish(got, claim, page, url="", meta=None):
+def finish(got, claim, page, url="", meta=None, context=""):
     """The code half of check(): ask()'s reply through judge(), outside any retry, with the
     call's tokens kept even if the checks fail."""
     if got is None:
         return {"label": "UNVERIFIED", "quote": "", "tokens": 0, "reason": NO_PASSAGE_REASON}
     out, raw, tokens = got
-    r = safe_judge(out, claim, page, url, raw, meta)
+    r = safe_judge(out, claim, page, url, raw, meta, context)
     r["tokens"] = tokens
     return r
 
 
-def safe_judge(out, claim, page, url="", raw="", meta=None):
+def safe_judge(out, claim, page, url="", raw="", meta=None, context=""):
     """judge(), but a bug in the code checks is its own ERROR ("Internal check error"), never a
     model failure to retry and never a crash of the audit. Logs only the exception type (no
     page text, no claim)."""
     try:
-        return judge(out, claim, page, url, raw, meta)
+        return judge(out, claim, page, url, raw, meta, context)
     except Exception as e:
         print(f"judge() failed: {type(e).__name__}", file=sys.stderr)
         return {"label": "ERROR", "quote": "", "reason": "Internal check error.",
                 "facts": [], "framing": [], "model": None}
 
 
-def judge(out, claim, page, url="", raw="", meta=None):
+def judge(out, claim, page, url="", raw="", meta=None, context=""):
     """Code-only half of check(): turn the model's parsed reply into facts, framing and a
     label. No tokens, so saved runs can be re-scored after a change to the code checks.
     The result's "model" field is the model's reply as judged (sanitized parts; None if it
-    was unparseable): rescore.py feeds it back in here."""
+    was unparseable): rescore.py feeds it back in here. context: the claim's lead-in prefix
+    (blocks_ctx), not required by the coverage caps."""
     if out.get("opinion") is True:
         return {"label": "OPINION", "quote": "", "reason": "Advice or opinion, not a checkable fact.",
                 "facts": [], "framing": [], "model": {"opinion": True, "parts": []}}
@@ -500,7 +509,7 @@ def judge(out, claim, page, url="", raw="", meta=None):
     raw_facts = [{"fact": x["text"], "status": x.get("status"), "quote": x.get("quote")}
                  for x in parts_in if x["text"] not in framing]
 
-    caps = coverage_caps(claim, [x["text"] for x in parts_in])
+    caps = coverage_caps(claim, [x["text"] for x in parts_in], context)
     if len(raw_facts) > MAX_FACTS:
         # never dropped silently: the rest is unchecked, so the claim can't be SOURCED
         caps.append(f"{TOO_MANY} {len(raw_facts)} facts; only the first "
@@ -613,7 +622,7 @@ def same_fact(a, b):
     return fuzz.token_set_ratio(normalize(a), normalize(b)) >= SAME_FACT_MIN
 
 
-def merge(claim, results, texts):
+def merge(claim, results, texts, context=""):
     """One verdict from several sources' judge() results [(url, result)] (texts: those pages).
     The source with the most support gives the claim's fact list; each of its facts takes the
     best status any source gives the same fact: "stated" if ANY source states it with a
@@ -647,7 +656,7 @@ def merge(claim, results, texts):
     demoted = any(f.get("rejected_quote") for f in facts)
     parts = [p["text"] for _, r in with_facts for p in ((r.get("model") or {}).get("parts") or [])
              if isinstance(p, dict) and isinstance(p.get("text"), str)]
-    caps = (coverage_caps(claim, parts) if parts else []) + list(dict.fromkeys(
+    caps = (coverage_caps(claim, parts, context) if parts else []) + list(dict.fromkeys(
         c for _, r in with_facts for c in r.get("caps") or [] if c.startswith(TOO_MANY))) + disagree
     v = verdict(facts, base["framing"], demoted, missing_numbers(claim, "\n".join(texts)), caps=caps)
     return {**v, "facts": facts, "framing": base["framing"], "caps": caps,

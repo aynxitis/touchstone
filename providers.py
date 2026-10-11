@@ -116,11 +116,11 @@ class Groq:
     def ask(self, claim, page):
         return ask(self.client, claim, page)
 
-    def finish(self, got, claim, page, url, meta=None):
-        return finish(got, claim, page, url, meta)
+    def finish(self, got, claim, page, url, meta=None, context=""):
+        return finish(got, claim, page, url, meta, context)
 
-    def check(self, claim, page, url, meta=None):
-        return self.finish(self.ask(claim, page), claim, page, url, meta)
+    def check(self, claim, page, url, meta=None, context=""):
+        return self.finish(self.ask(claim, page), claim, page, url, meta, context)
 
 
 class Gemini:
@@ -151,17 +151,17 @@ class Gemini:
         usage = getattr(resp, "usage_metadata", None)
         return raw, (getattr(usage, "total_token_count", 0) or 0) if usage else 0
 
-    def finish_source(self, got, claims, page, url, meta=None):
+    def finish_source(self, got, claims, page, url, meta=None, contexts=None):
         """Results for `claims` (all citing this page), same order, and the call's tokens.
         Each result is judge() output plus "tokens" (the call's total, split evenly)."""
         raw, tokens = got
-        return map_results(raw, claims, page, url, meta, tokens), tokens
+        return map_results(raw, claims, page, url, meta, tokens, contexts), tokens
 
-    def check_source(self, claims, page, url, meta=None):
-        return self.finish_source(self.ask_source(claims, page), claims, page, url, meta)
+    def check_source(self, claims, page, url, meta=None, contexts=None):
+        return self.finish_source(self.ask_source(claims, page), claims, page, url, meta, contexts)
 
 
-def map_results(raw, claims, page, url, meta, tokens):
+def map_results(raw, claims, page, url, meta, tokens, contexts=None):
     """Model JSON -> one judge() result per claim, by id. Untrusted: anything malformed or
     missing becomes that claim's ERROR, never a verdict."""
     try:
@@ -182,7 +182,8 @@ def map_results(raw, claims, page, url, meta, tokens):
                  "facts": [], "framing": [], "model": None}
         else:
             reply = {"opinion": item.get("opinion") is True, "parts": item.get("parts")}
-            r = safe_judge(reply, claim, page, url, json.dumps(item)[:200], meta)
+            r = safe_judge(reply, claim, page, url, json.dumps(item)[:200], meta,
+                           (contexts or [""] * len(claims))[i - 1])
         r["tokens"] = share[i - 1]
         out.append(r)
     return out

@@ -361,19 +361,27 @@ def connector(text):
 
 
 def blocks(report):
-    """Split the report into (text, urls) in document order; urls is a tuple of the claim's
+    """(text, urls) per claim: blocks_ctx() without the context."""
+    return [(t, us) for t, us, _ in blocks_ctx(report)]
+
+
+def blocks_ctx(report):
+    """Split the report into (text, urls, context) in document order; urls is a tuple of the claim's
     sources (empty for uncited text). A link group only owns the text on its own line
     (paragraph, bullet or table row) since the previous group, so uncited paragraphs never get
     merged into the next claim. Links separated only by connectors or punctuation ("[A](u1)
     and [B](u2)", "u1 u2") form one group: one claim with several sources.
     Exception: a lead-in line ending in ':' plus the bullets right after it form one block,
-    owned by the link group that ends the block."""
+    owned by the link group that ends the block. context: that block's text before the
+    linked line's own text ("Top 5 Best-Selling EV Models ... (Jan–Oct 2025):"), a prefix of
+    text; "" otherwise. The model sees the whole text; coverage (quote_check.coverage_caps)
+    only requires the claim's own numbers."""
     report, _ = resolve_footnotes(copy_cleanup(report))
     report = attach_sources(report)
     out, block = [], []          # block: uncited lead-in + bullets waiting for a link
 
     def flush():                 # block ended without a link: each line is uncited
-        out.extend((t, ()) for t in block if not connector(t))
+        out.extend((t, (), "") for t in block if not connector(t))
         block.clear()
 
     for line in report.split("\n"):
@@ -401,16 +409,19 @@ def blocks(report):
             text = clean(between)
             if SOURCE_LABEL.search(text):                  # "... strengthened. Sources: [A] and [B]"
                 text = clean(SOURCE_LABEL.sub("", text)).rstrip(" ,;(")
+            context = ""
             if block:
+                context = " ".join(block)
                 text = " ".join(block + [text]).strip()
                 block.clear()
             if HAS_WORD.search(text) and not connector(text):
-                out.append((text, tuple(dict.fromkeys(m.group().rstrip(".,;:!?") for m in ms))))
+                context = context if text.startswith(context + " ") else ""
+                out.append((text, tuple(dict.fromkeys(m.group().rstrip(".,;:!?") for m in ms)), context))
         tail = clean(line[last:])
         if not HAS_WORD.search(tail) or connector(tail):
             continue                                   # "." left after "([Name](url))."
         if links or not (block or tail.endswith(":")):
-            out.append((tail, ()))
+            out.append((tail, (), ""))
         else:
             block.append(tail)                         # start or extend a list block
     flush()

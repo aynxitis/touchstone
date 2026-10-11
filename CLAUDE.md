@@ -62,8 +62,12 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    COVERAGE (2026-10-11 L2): the model's parts must cover the claim. A non-year claim number
    in no part, < 60% of the claim's content words (accents folded, filler words skipped) in
    the parts, or more than 12 facts (the first 12 are checked, never silently dropped) caps
-   SOURCED at COULDN'T CONFIRM with the reason; amber only, never redder. A ':' lead-in's
-   number ("Top 5 ...: Tesla Model Y: 116,989") must therefore appear in some part.
+   SOURCED at COULDN'T CONFIRM with the reason; amber only, never redder. Only the claim's
+   OWN text counts: blocks_ctx() returns each claim's context (the ':' lead-in block joined
+   before its line, "Top 5 Best-Selling EV Models ... (Recorded Jan-Oct 2025):"), which the
+   model still sees and the year / numbers-on-page rules still use, but coverage doesn't
+   require ("Renault 5" in the bullet itself still must be covered). audit() threads it
+   through judge/merge/combine; rescore.py recomputes it from the run's saved report.
    SAFEGUARDS (2026-10-09, fresh-report errors were all too harsh):
    A1 a code heuristic alone never accuses. A fact the model found "stated" with a verified
    quote that a code check (numbers, units, years, names) rejects becomes "unconfirmed"

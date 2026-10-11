@@ -2,6 +2,7 @@
 Run: .venv/bin/python test_checks.py"""
 from entities import check_fact, entities
 from quote_check import judge, missing_numbers, numbers_not_in_passage, quote_on_page
+from quote_check import own_text as QC_own
 
 # 1. Unit-scaled numbers. A claim number matches a page number in the same unit family that
 #    converts to it at the claim's precision (rounded or cut off); never a unitless number.
@@ -323,8 +324,31 @@ meta5 = {"title": "The Most Popular Electric Cars In Europe 2025, Compared",
 fact_y = P("Tesla Model Y sold 116,989 units in Europe from January to October 2025", "stated", "- Tesla Model Y: 116 989")
 r = judge({"parts": [fact_y]}, claim_y, top5, meta=meta5)
 assert r["facts"][0]["status"] == "stated", r
-# The reply never mentions the claim's "Top 5": unchecked, so amber (review L2), not SOURCED.
+# Without its context marked, the claim's "Top 5" counts and is in no part: amber (L2).
 assert r["label"] == "COULDN'T CONFIRM" and "leaves out 5" in r["reason"], r
+# But "Top 5 ... (Recorded Jan-Oct 2025):" is the list's lead-in (blocks_ctx context): only
+# the bullet's own text must be covered, so the 5 doesn't cap it.
+from check_numbers import blocks_ctx
+lead = "**Top 5 Best-Selling EV Models in Europe (Recorded Jan\u2013Oct 2025):**"
+r4 = lead + "\n\n1. **Tesla Model Y:** 116,989 units ([Eleport](https://eleport.com/most-popular-electric-cars/))\n" \
+     "3. **Renault 5:** 67,625 units ([Eleport](https://eleport.com/most-popular-electric-cars/))"
+(t1, _, c1), (t3, _, c3) = blocks_ctx(r4)
+assert t1 == claim_y and c1 == "Top 5 Best-Selling EV Models in Europe (Recorded Jan\u2013Oct 2025):", (t1, c1)
+assert c3 == "" and t3 == "Renault 5: 67,625 units", (t3, c3)       # its own line, no lead-in
+r = judge({"parts": [fact_y]}, claim_y, top5, meta=meta5, context=c1)
+assert r["label"] == "SOURCED", r
+# The year rule still sees the context: the fact's 2025 is dated by the page's heading.
+r = judge({"parts": [fact_y]}, claim_y, top5, context=c1)
+assert r["label"] == "COULDN'T CONFIRM" and "2025 not in its passage" in r["reason"], r
+# A number in the bullet's OWN text that no part carries still caps ("Renault 5").
+fact_r = P("Renault sold 67,625 units", "stated", "- Renault 5 (including Alpine A290): 67 625")
+r = judge({"parts": [fact_r]}, "Top 5 EV models: Renault 5: 67,625 units", top5, context="Top 5 EV models:")
+assert r["label"] == "COULDN'T CONFIRM" and "leaves out 5" in r["reason"], r
+r = judge({"parts": [P("Renault 5 sold 67,625 units", "stated", fact_r["quote"])]},
+          "Top 5 EV models: Renault 5: 67,625 units", top5, context="Top 5 EV models:")
+assert r["label"] == "SOURCED", r
+# A context that isn't the claim's prefix is ignored (whole claim counts).
+assert QC_own("Top 5: X 1", "Other:") == "Top 5: X 1" and QC_own("Top 5: X 1", "Top 5:") == "X 1"
 # Without title/headings (an old cache), the year can't be dated: amber, never red.
 r = judge({"parts": [fact_y]}, claim_y, top5)
 assert r["label"] == "COULDN'T CONFIRM" and "2025 not in its passage" in r["reason"], r

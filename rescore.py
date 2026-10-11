@@ -19,6 +19,7 @@ import os
 
 from fetch_links import fetch_many
 from quote_check import best_excerpts, judge
+from check_numbers import blocks_ctx
 from touchstone import combine
 
 SKIP = {"SOURCE UNREACHABLE", "NOT CHECKED", "NO SOURCE GIVEN"}
@@ -31,6 +32,18 @@ def load_run(path):
         run = json.load(f)
     claims = run["claims"] if isinstance(run, dict) else run      # download | audit.json
     return [c for c in claims if isinstance(c, dict) and c.get("claim") and c.get("url")]
+
+
+def load_contexts(path):
+    """{claim number: lead-in context} from the run's saved report (blocks_ctx); empty when
+    the file has no report (the CLI's audit.json): then the whole claim text counts."""
+    with open(path, encoding="utf-8") as f:
+        run = json.load(f)
+    report = run.get("report") if isinstance(run, dict) else None
+    if not isinstance(report, str):
+        return {}
+    cited = [c for _, us, c in blocks_ctx(report) if us]
+    return {n: c for n, c in enumerate(cited, 1)}
 
 
 def model_reply(c):
@@ -68,7 +81,7 @@ def get_pages(urls, cache):
     return pages
 
 
-def rescore(c, page):
+def rescore(c, page, context=""):
     """New label and reason for one claim, or (None, why) when it can't be re-scored."""
     if c["label"] in SKIP:
         return None, "not judged in the run"
@@ -84,13 +97,13 @@ def rescore(c, page):
         r = {"label": "UNVERIFIED", "reason": "No relevant passage found on the page."}
     else:
         r = judge(reply, c["text"], page["text"], c["url"],
-                  meta={"title": page.get("title"), "headings": page.get("headings")})
+                  meta={"title": page.get("title"), "headings": page.get("headings")}, context=context)
     if page.get("meta_only"):
         r["reason"] = (r.get("reason", "") + META_NOTE).strip()
     return r["label"], r["reason"]
 
 
-def rescore_multi(c, pages):
+def rescore_multi(c, pages, context=""):
     """A claim citing several sources: each source's saved model reply through the current
     judge(), merged with touchstone.combine() as in an audit."""
     if c["label"] in SKIP - {"SOURCE UNREACHABLE"}:
@@ -105,8 +118,9 @@ def rescore_multi(c, pages):
             return None, f"page unreadable now ({page.get('status')}): {s['url']}"
         else:
             per.append((s["url"], judge(s["model"], c["text"], page["text"], s["url"],
-                                        meta={"title": page.get("title"), "headings": page.get("headings")})))
-    r = combine(c["text"], per, pages)
+                                        meta={"title": page.get("title"), "headings": page.get("headings")},
+                                        context=context)))
+    r = combine(c["text"], per, pages, context)
     return r["label"], r["reason"]
 
 
@@ -118,6 +132,7 @@ def main():
     args = ap.parse_args()
 
     claims = load_run(args.run)
+    contexts = load_contexts(args.run)
     urls = [s["url"] for c in claims for s in (c.get("sources") or [{"url": c["url"]}])]
     pages = get_pages(list(dict.fromkeys(urls)), args.cache)
     labels = {}
@@ -128,9 +143,9 @@ def main():
     changed, results = 0, {}
     for c in claims:
         if len(c.get("sources") or []) > 1:
-            new, reason = rescore_multi(c, pages)
+            new, reason = rescore_multi(c, pages, contexts.get(c["claim"], ""))
         else:
-            new, reason = rescore(c, pages.get(c["url"]) or {})
+            new, reason = rescore(c, pages.get(c["url"]) or {}, contexts.get(c["claim"], ""))
         results[c["claim"]] = new or c["label"]
         mark = "  " if new in (None, c["label"]) else "->"
         changed += mark == "->"
