@@ -496,17 +496,25 @@ LANG_WORDS = {
     "fr": set("""le la les des du de un une et est sont en au aux pour par sur dans avec que qui
               ce cette ces son sa ses leur leurs ne pas plus ont été selon entre""".split()),
 }
-LANG_MIN_HITS = 2          # fewer function words than this: too short to tell
+# Fail-safe: a language counts as detected only if it is clear; otherwise None, and the
+# word-coverage cap stays. Short, number-heavy text ("Algérie : 45 % en 2024") is None.
+LANG_MIN_HITS = 3          # at least this many of the language's function words
+LANG_MIN_SHARE = 0.2       # ... making up at least 20% of the text's tokens (numbers count)
+LANG_MAJORITY = 3          # ... and at least 3x the other language's function words
+LANG_TOKEN = re.compile(r"[a-zàâçéèêëîïôûùüÿœæ']+|\d+(?:[.,\u00a0\u202f ]\d+)*")
 
 
 def language(text):
-    """"en", "fr" or None (too short, or no clear majority)."""
-    words = re.findall(r"[a-zàâçéèêëîïôûùüÿœ']+", text.lower())
-    words = [w.split("'")[-1] for w in words]          # l'énergie -> énergie, d'un -> un
-    hits = {lang: sum(w in vocab for w in words) for lang, vocab in LANG_WORDS.items()}
+    """"en" or "fr" when the text is clearly in it, else None (too short, mostly numbers,
+    too few function words, or mixed)."""
+    tokens = [t.split("'")[-1] for t in LANG_TOKEN.findall(text.lower())]   # l'énergie -> énergie
+    hits = {lang: sum(t in vocab for t in tokens) for lang, vocab in LANG_WORDS.items()}
     best = max(hits, key=hits.get)
     rest = max(v for k, v in hits.items() if k != best)
-    return best if hits[best] >= LANG_MIN_HITS and hits[best] >= 2 * rest else None
+    if (hits[best] >= LANG_MIN_HITS and hits[best] >= LANG_MIN_SHARE * len(tokens)
+            and hits[best] >= LANG_MAJORITY * rest):
+        return best
+    return None
 
 
 def coverage_caps(claim, parts, context="", quotes=()):
@@ -525,6 +533,7 @@ def coverage_caps(claim, parts, context="", quotes=()):
     if nums:
         caps.append(f"The model's breakdown of the claim leaves out {', '.join(nums)}, so that was not checked.")
     want = set(content_words(claim))
+    # skipped only when BOTH sides are confidently detected and differ; unsure -> capped
     lang_claim, lang_parts = language(claim), language(joined)
     if want and not (lang_claim and lang_parts and lang_claim != lang_parts):
         have = " ".join(content_words(joined))

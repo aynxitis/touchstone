@@ -65,8 +65,10 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    the parts, or more than 12 facts (the first 12 are checked, never silently dropped) caps
    SOURCED at COULDN'T CONFIRM with the reason; amber only, never redder. Cross-language
    (2026-10-11): the prompt (shared RULES, both providers) asks for parts in the claim's
-   language; if they still differ (quote_check.language(): EN/FR function-word counts, >= 2
-   hits and a 2x majority, else None), the 60% word cap is skipped; the number rule stays. Only the claim's
+   language; if they still differ, the 60% word cap is skipped; the number rule stays.
+   Fail-safe: skipped only if quote_check.language() confidently detects BOTH sides (>= 3
+   function words of one language, >= 20% of the text's tokens with numbers counted, >= 3x
+   the other language's), else None and the cap stays ("Algérie : 45 % en 2024" is None). Only the claim's
    OWN text counts: blocks_ctx() returns each claim's context (the ':' lead-in block joined
    before its line, "Top 5 Best-Selling EV Models ... (Recorded Jan-Oct 2025):"), which the
    model still sees and the year / numbers-on-page rules still use, but coverage doesn't
@@ -108,8 +110,12 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    India, Turkey, Saudi Arabia, UAE, Qatar, Brazil, Japan, South Korea, Russia; EN name, EN
    adjective/demonym, FR name, FR adjective with fr_forms() m/f sg/pl): a country name counts
    as named by any of its forms as whole words, accents/case/hyphens ignored ("Algérie" =
-   "Algerian market"), and only by those ("Niger" not in "Nigeria"); "=US", "=EAU" forms
-   match exact case only (us, eau). The table's adjectives joined DEMONYMS. "About someone else" never fires
+   "Algerian market"), and only by a name meaning that country alone: the passage's country
+   names are read longest-first ("South Sudan", "Guinée équatoriale", "DR Congo", "North
+   Korea" are themselves, never Sudan/Guinea/Congo/Korea; North Korea and Papua New Guinea
+   rows exist for this) and an ambiguous one ("Congolese": either Congo) never confirms
+   (fail toward amber); "Niger" not in "Nigerian"; "=US", "=EAU" forms match exact case only
+   (us, eau). The table's adjectives joined DEMONYMS. "About someone else" never fires
    when the fact's subject is in the passage (BYD's quote in a paragraph opening "Tesla").
    Prompt also requires facts to name their subject.
    Key-term check: a stated fact's numbers (single digits too, since 2026-10-11 L4: "$5
@@ -275,7 +281,8 @@ NO SOURCE GIVEN / NOT CHECKED / ERROR. Verdicts judge factual parts only; editor
 - PROXY_SECRET (openssl rand -hex 32) lives only in Railway's variables and the Worker's
   secrets. Never in code, git, logs, chats or prompts; never ask Anis to paste it.
 - Page text is untrusted (prompt injection). Keep it delimited; never put secrets in prompts.
-- Never commit fetch_results.json, runs/, testdata/ or *.pages.json (copies of other sites' pages).
+- Never commit fetch_results.json, runs/, testdata/ or *.pages.json (copies of other sites' pages),
+  or audit.json (the CLI's run output; untracked and gitignored since 2026-10-11).
 - Free tier: Groq 30 RPM, 1K RPD, 8K TPM, 200K tokens/day. ~900 tokens per claim.
   Gemini 3.5 Flash Lite (free, per project): 15 RPM, 250K TPM, 500 RPD. Free-tier Gemini API
   content may be used by Google to improve its products (check the current terms).

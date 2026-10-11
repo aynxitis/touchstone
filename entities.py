@@ -197,6 +197,8 @@ Qatar | Qatari | Qatar | qatari, qatarien
 Brazil | Brazilian | Brésil | brésilien
 Japan | Japanese | Japon | japonais
 South Korea, Korea, Republic of Korea | South Korean, Korean | Corée du Sud, Corée | sud-coréen, coréen
+North Korea, =DPRK, Democratic People's Republic of Korea | North Korean | Corée du Nord, République populaire démocratique de Corée | nord-coréen
+Papua New Guinea, =PNG | Papua New Guinean | Papouasie-Nouvelle-Guinée | papouan-néo-guinéen
 Russia, Russian Federation | Russian | Russie, Fédération de Russie | russe
 """
 
@@ -218,13 +220,24 @@ def _country_key(text):
     return " ".join(re.sub(r"[\-'’.]", " ", fold(text)).split())
 
 
-COUNTRIES = []           # [(folded forms, exact-case forms)] per country
-for row in COUNTRY_ROWS.strip().split("\n"):
+# North Korea and Papua New Guinea are listed so that "North Korea" and "Papua New Guinea"
+# are read as themselves, never as Korea or Guinea.
+FOLDED_FORMS, EXACT_FORMS = {}, {}     # form -> {row numbers of the countries it can mean}
+for i, row in enumerate(COUNTRY_ROWS.strip().split("\n")):
     en, en_adj, fr, fr_adj = ([x.strip() for x in col.split(",")] for col in row.split("|"))
     forms = en + fr + en_adj + [a + "s" for a in en_adj if not a.endswith("s")]
     forms += [f for a in fr_adj for f in fr_forms(a)]
-    COUNTRIES.append(({_country_key(f) for f in forms if not f.startswith("=")},
-                      {f[1:] for f in forms if f.startswith("=")}))
+    for f in forms:
+        if f.startswith("="):
+            EXACT_FORMS.setdefault(f[1:], set()).add(i)
+        else:
+            FOLDED_FORMS.setdefault(_country_key(f), set()).add(i)
+# Longest form first, so at each position the regex takes the longest name: "South Sudan"
+# before "Sudan", "Guinée équatoriale" before "Guinée", "DR Congo" before "Congo".
+FOLDED_RE = re.compile(r"(?<![a-z0-9])(?:" + "|".join(
+    re.escape(f) for f in sorted(FOLDED_FORMS, key=len, reverse=True)) + r")(?![a-z0-9])")
+EXACT_RE = re.compile(r"(?<![\w.])(?:" + "|".join(
+    re.escape(f) for f in sorted(EXACT_FORMS, key=len, reverse=True)) + r")(?!\w)")
 # Single-word English and French adjectives are demonyms too (never a name on their own).
 for row in COUNTRY_ROWS.strip().split("\n"):
     cols = [[x.strip().lower() for x in col.split(",")] for col in row.split("|")]
@@ -233,23 +246,20 @@ for row in COUNTRY_ROWS.strip().split("\n"):
             DEMONYMS |= {w, fold(w)}
 
 
-def country_forms(entity):
-    """The forms of every country this name is a form of (None if it names no country):
-    'Algérie' -> {'algeria', 'algerian', 'algerie', 'algerienne', ...}."""
-    key = _country_key(entity)
-    hits = [c for c in COUNTRIES if key in c[0] or entity in c[1]]
-    if not hits:
-        return None
-    return set().union(*(c[0] for c in hits)), set().union(*(c[1] for c in hits))
+def countries_of(entity):
+    """The countries (row numbers) a name can mean, or None if it names no country:
+    'Algérie' -> {Algeria}; 'Congolese' -> both Congos."""
+    return EXACT_FORMS.get(entity) or FOLDED_FORMS.get(_country_key(entity))
 
 
-def country_named(forms, passage):
-    """True if the passage writes any of the country's forms as whole words."""
-    folded, exact = forms
-    p = " " + _country_key(passage) + " "
-    if any(" " + f + " " in p for f in folded):
-        return True
-    return any(re.search(r"(?<![\w.])" + re.escape(f) + r"(?![\w])", passage) for f in exact)
+def country_named(countries, passage):
+    """True if the passage names one of these countries unambiguously. Each country name in
+    the passage is read whole (the longest form at its position: "South Sudan", not "Sudan")
+    and counts only if every country it can mean is one of these: "Congolese" doesn't
+    confirm "DR Congo" (it may be the other Congo). When unsure, the name check fails."""
+    seen = [FOLDED_FORMS[m.group()] for m in FOLDED_RE.finditer(_country_key(passage))]
+    seen += [EXACT_FORMS[m.group()] for m in EXACT_RE.finditer(passage)]
+    return any(meant <= countries for meant in seen)
 
 
 # Small words skipped when reading an acronym off a name ("Office National des Statistiques").
@@ -273,9 +283,10 @@ def named_in(entity, passage):
     """True if every word of the name (3+ letters) appears in the passage, ignoring case
     and accents. An acronym also counts as named if the passage spells it out. A country
     counts as named by any of its forms, English or French ("Algérie" by "Algerian market",
-    "Morocco" by "marocaine"), and only by those ("Niger" is not in "Nigeria")."""
-    if (forms := country_forms(entity)) is not None:
-        return country_named(forms, passage)
+    "Morocco" by "marocaine"), and only by a name meaning that country alone ("Sudan" is not
+    in "South Sudan", "DR Congo" not in "Congolese"; see country_named)."""
+    if (countries := countries_of(entity)) is not None:
+        return country_named(countries, passage)
     if entity.isupper() and " " not in entity and len(entity) >= 2:
         expansions = ACRONYMS.get(entity.lower(), [])
         if any(fold(x) in fold(passage) for x in expansions) or spelled_out(entity, passage):

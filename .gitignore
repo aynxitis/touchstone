@@ -5,3 +5,4 @@ fetch_results.json
 *.pages.json
 runs/
 testdata/
+audit.json

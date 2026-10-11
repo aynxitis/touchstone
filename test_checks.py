@@ -578,4 +578,43 @@ r = judge({"parts": [P("Tunisia shipped 4,812 tonnes of dates", "missing")]}, sh
 ev = r["facts"][0]["evidence"]
 assert len(ev) <= EVIDENCE_CHARS + 2 and "4,812" in ev and ev[0] == ev[-1] == "\u2026", ev
 
+
+# 20. Language fallback is fail-safe: the word cap is skipped only when BOTH sides are
+#     confidently detected and differ; unknown / low-confidence keeps it.
+from quote_check import LANG_MIN_HITS, LANG_MIN_SHARE, LANG_MAJORITY
+assert language("Algérie : 45 % en 2024") is None                    # too few function words
+caps = coverage_caps("Algérie : 45 % en 2024", ["The country held a 45% share in 2024 according to the ministry"])
+assert any("covers only" in c for c in caps), caps                     # claim unknown: cap kept
+num_parts = ["45%; 12,000 units; 2024", "3.2 GW, 9,500 MW"]
+assert language("\n".join(num_parts)) is None                         # mostly numbers: unknown
+caps = coverage_caps("Electric bicycle sales in Tunisia reached 12,000 units in 2024, with 45% bought "
+                     "on credit and 3.2 GW of new charging capacity, 9,500 MW.", num_parts)
+assert any("covers only" in c for c in caps), caps                     # English + number parts: kept
+caps = coverage_caps("Electric bicycle sales in Tunisia reached 12,000 units in 2024, with 45% bought "
+                     "on credit and 3.2 GW of new charging capacity, 9,500 MW.",
+                     ["Electric bicycle sales in Tunisia reached 12,000 units in 2024"])
+assert any("covers only" in c for c in caps), caps                     # same language: kept
+assert coverage_caps(fr_claim, en_parts) == []                         # full FR vs full EN: skipped
+assert (LANG_MIN_HITS, LANG_MIN_SHARE, LANG_MAJORITY) == (3, 0.2, 3)
+
+# 21. A country name inside another country's name is that other country: never a match.
+#     Ambiguous adjectives ("Congolese": either Congo) fail toward amber.
+for claim_name, passage in [
+        ("Sudan", "Oil exports from South Sudan rose."), ("Soudan", "Le Soudan du Sud exporte du pétrole."),
+        ("Guinea", "Rice imports in Guinea-Bissau doubled."), ("Guinea", "Equatorial Guinea pumps oil."),
+        ("Guinée", "La Guinée équatoriale produit du pétrole."), ("Guinea", "Papua New Guinea mines gold."),
+        ("Congo", "Cobalt from DR Congo"), ("Congo", "the Democratic Republic of the Congo"),
+        ("Congo", "le cobalt de la RDC"), ("Congo", "la République démocratique du Congo"),
+        ("Korea", "North Korea tested a missile."), ("South Korea", "North Korea tested a missile."),
+        ("Corée du Sud", "la Corée du Nord"), ("South Korea", "North Korean exports"),
+        ("Niger", "Nigerian banks grew."), ("Niger", "les banques nigérianes"),
+        ("DR Congo", "Congolese miners"), ("Congo", "Congolese miners")]:
+    assert not named_in(claim_name, passage), (claim_name, passage)
+for claim_name, passage in [
+        ("South Sudan", "South Sudanese refugees"), ("Sudan", "Sudanese farmers"),
+        ("Guinea", "Guinea and Guinea-Bissau signed a deal."), ("DR Congo", "le cobalt de la RDC"),
+        ("Congo", "the Republic of the Congo"), ("Niger", "the Nigerien government"),
+        ("South Korea", "South Korean carmakers"), ("Corée du Sud", "les exportations sud-coréennes")]:
+    assert named_in(claim_name, passage), (claim_name, passage)
+
 print("check tests passed")
