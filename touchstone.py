@@ -173,7 +173,7 @@ def add_pages(r, page):
         return
     bounds = list(zip(starts, starts[1:] + [len(text)]))
     for f in r.get("facts") or []:
-        q = f.get("quote") or f.get("evidence")
+        q = (f.get("quote") or f.get("evidence") or "").strip("\u2026")   # evidence may be cut
         if q:
             f["page"] = next((n for n, (a, b) in enumerate(bounds, 1) if quote_on_page(q, text[a:b])), None)
 

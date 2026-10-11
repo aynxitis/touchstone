@@ -43,6 +43,7 @@ button:disabled { opacity: .45; cursor: default; transform: none; }
 #count.over { color: var(--red); }
 
 .meta { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+.notice { color: var(--text); font-size: 13px; margin: 12px 0 0; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; }
 .results { margin-top: 56px; }
 .status { font-family: var(--mono); font-size: 13px; color: var(--muted); margin: 0; min-height: 1.6em; }
 .status.error { color: var(--red); }

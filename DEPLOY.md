@@ -216,8 +216,9 @@ with `https://touchstone.aynx.dev`. With `REQUIRE_PROXY_SECRET=1`, only `URL/hea
 over ~3,000 chars of excerpts (8K tokens/minute free tier). `gemini` = Google
 `gemini-3.5-flash-lite`, one call per cited page with the whole page (up to 100K chars) and
 all its claims. Code checks and labels are the same either way. Switching is a variable
-change plus redeploy; the page then shows "Reports are processed by Google Gemini." under
-the input.
+change plus redeploy; the page then shows "Reports are processed by Google Gemini (free tier),
+which may use inputs to improve Google's products. Don't paste anything private." under the
+input.
 
 With `PROVIDER=gemini` set, in Railway: `GEMINI_API_KEY` (sealed; from Google AI Studio,
 never pasted anywhere else) and `GEMINI_AUDITS_PER_DAY` (`40`: an audit sends at most 10

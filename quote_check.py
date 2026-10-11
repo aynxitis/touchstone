@@ -43,6 +43,9 @@ RULES = """- kind "fact": anything that describes what is the case: who, what, w
   trends, concentration, causes. Vague wording is still a fact. At most 5 facts; merge small ones.
   Each fact must be self-contained and name its subject: write "VOLZ raised $5 million",
   never "It raised..." or "The company raised...".
+- Write every part in the SAME language as the claim, reusing the claim's own wording (a
+  French claim gets French parts), even when the excerpts are in another language. Quotes
+  stay exactly as written in the excerpts.
 - kind "framing": only evaluative wording: superlatives and judgments of importance or quality
   ("the most significant", "the outlier", "well-known", "an important signal"). Each piece of
   the claim appears in exactly one part; never list the same idea as both fact and framing.
@@ -360,7 +363,8 @@ def line_on_page(fact, page, names=()):
     """Full-page fallback (no model call): the first page line (paragraph, list item, table
     row) holding all of the fact's non-year numbers, at least one of them 2+ digits, plus the
     fact's subject (the first of the claim's names written in the fact), if it names one.
-    None if there is no such line."""
+    A line over EVIDENCE_CHARS (a page with no line breaks) is cut to the sentence(s) holding
+    the match (evidence_window). None if there is no such line."""
     nums = [m for m in NUMBER_RE.finditer(fact) if not is_year(m.group())]
     if not any(locnum.digits(m) >= 2 for m in nums):
         return None
@@ -370,8 +374,87 @@ def line_on_page(fact, page, names=()):
         line = line.strip()
         if (line and not [n for n in numbers_not_in(fact, line, min_digits=1, euro=euro) if not is_year(n)]
                 and (subject is None or named_in(subject, line))):
-            return line
+            return evidence_window(line, fact, subject, euro)
     return None
+
+
+EVIDENCE_CHARS = 400       # longest "possibly stated" evidence shown; longer lines are cut
+ELLIPSIS = "\u2026"
+# Words a "." follows without ending the sentence ("M. Dupont", "etc. and", "approx. 40").
+ABBREVIATIONS = set("""mr mrs ms dr prof st mt no nos vs etc approx est fig figs vol p pp art cf
+ca e.g i.e inc ltd co corp jr sr dept gov univ jan feb mar apr jun jul aug sep sept oct nov dec
+mme mmes mlle mlles mgr env av n°""".split())
+SENTENCE_END = re.compile(r"[.!?\u2026]+[\"'\u00bb\u201d\u2019)\]]{0,3}(?=\s)")
+SPACE_RUN = re.compile(r"\s{1,50}")
+WORD_BEFORE = re.compile(r"([\w.\-\u00b0]{1,20})$")
+
+
+def sentence_spans(text):
+    """[(start, end)] of the text's sentences. A sentence ends at . ! ? (plus closing quotes)
+    followed by a space and a capital, digit or opening quote: never inside a decimal
+    ("29.7"), after an abbreviation or initial ("M.", "U.S.", "etc."), and French spacing
+    ("vraiment ?") keeps its punctuation with its sentence."""
+    spans, start = [], 0
+    for m in SENTENCE_END.finditer(text):
+        gap = SPACE_RUN.match(text, m.end())
+        nxt = text[gap.end():gap.end() + 1] if gap else ""
+        if not nxt or not (nxt.isupper() or nxt.isdigit() or nxt in "\"'\u00ab\u201c\u2018(["):
+            continue
+        if text[m.start()] == ".":
+            w = WORD_BEFORE.search(text, max(0, m.start() - 20), m.start())
+            word = w.group(1).lower().strip(".-") if w else ""
+            if (len(word) == 1 and word.isalpha()) or word in ABBREVIATIONS or re.fullmatch(
+                    r"(?:[a-z]\.){1,4}[a-z]?", word):
+                continue
+        spans.append((start, m.end()))
+        start = gap.end()
+    if start < len(text):
+        spans.append((start, len(text)))
+    return spans
+
+
+def evidence_window(line, fact, subject=None, euro=None):
+    """The line itself if short; else the fewest consecutive sentences holding all of the
+    fact's non-year numbers (and its subject), at most EVIDENCE_CHARS, with an ellipsis at
+    each edge cut from the line."""
+    if len(line) <= EVIDENCE_CHARS:
+        return line
+    spans = sentence_spans(line)
+
+    def holds(a, b):
+        part = line[a:b]
+        return (not [n for n in numbers_not_in(fact, part, min_digits=1, euro=euro) if not is_year(n)]
+                and (subject is None or named_in(subject, part)))
+
+    total = len([n for n in numbers_not_in(fact, "", min_digits=1) if not is_year(n)])
+    starts = [i for i, (a, b) in enumerate(spans)     # sentences holding one of its numbers
+              if len([n for n in numbers_not_in(fact, line[a:b], min_digits=1, euro=euro)
+                      if not is_year(n)]) < total]
+    best = None
+    for i in starts:
+        for j in range(i, min(len(spans), i + 6)):      # a match spans at most a few sentences
+            a, b = spans[i][0], spans[j][1]
+            if best and b - a >= best[1] - best[0]:
+                break
+            if holds(a, b):
+                best = (a, b)
+                break
+    if best is None:                                    # only the whole line holds it
+        best = (0, len(line))
+    a, b = best
+    if b - a > EVIDENCE_CHARS:
+        # one long sentence: centre on the fact's first number found in it
+        num = next((m for m in NUMBER_RE.finditer(line, a, b)
+                    if not numbers_not_in(m.group(), fact, min_digits=1, euro=euro)), None)
+        mid = num.start() if num else a
+        a = max(a, min(mid - EVIDENCE_CHARS // 3, b - EVIDENCE_CHARS))
+        b = min(b, a + EVIDENCE_CHARS)
+        if a > best[0]:
+            a = line.find(" ", a, a + 30) + 1 or a      # don't start mid-word
+        if b < best[1] and (cut := line.rfind(" ", b - 30, b)) > a:
+            b = cut
+    text = line[a:b].strip()
+    return (ELLIPSIS if a > 0 else "") + text + (ELLIPSIS if b < len(line) else "")
 
 
 def missing_numbers(claim, page):
@@ -404,10 +487,33 @@ def own_text(claim, context=""):
     return claim[len(context):].strip() if context and claim.startswith(context) else claim
 
 
+# Cheap language guess for the coverage cap: share of common function words. A French claim
+# split into English parts shares almost no content words with them, so the word-coverage
+# cap would fire on a full breakdown; numbers still have to be covered either way.
+LANG_WORDS = {
+    "en": set("""the of and to in is are was were for on with by from that this at as an be
+              has have had its which their or not it than more after over into about""".split()),
+    "fr": set("""le la les des du de un une et est sont en au aux pour par sur dans avec que qui
+              ce cette ces son sa ses leur leurs ne pas plus ont été selon entre""".split()),
+}
+LANG_MIN_HITS = 2          # fewer function words than this: too short to tell
+
+
+def language(text):
+    """"en", "fr" or None (too short, or no clear majority)."""
+    words = re.findall(r"[a-zàâçéèêëîïôûùüÿœ']+", text.lower())
+    words = [w.split("'")[-1] for w in words]          # l'énergie -> énergie, d'un -> un
+    hits = {lang: sum(w in vocab for w in words) for lang, vocab in LANG_WORDS.items()}
+    best = max(hits, key=hits.get)
+    rest = max(v for k, v in hits.items() if k != best)
+    return best if hits[best] >= LANG_MIN_HITS and hits[best] >= 2 * rest else None
+
+
 def coverage_caps(claim, parts, context="", quotes=()):
     """Reasons the model's parts (texts of facts and framing) don't cover the claim: a
     non-year number of the claim in no part and no verified quote, or under COVERAGE_MIN of
-    its content words (parts only). Only the claim's own text counts: a lead-in's "Top 5 ...
+    its content words (parts only; skipped when the parts are in another language than the
+    claim, see language()). Only the claim's own text counts: a lead-in's "Top 5 ...
     (Jan-Oct 2025):" is context the model sees, not something each bullet's breakdown must
     repeat. A verified quote covers a number because product names carry digits the model
     paraphrases away ("Renault sold 67,625" quoting "Renault 5 ...: 67 625"). Empty if covered."""
@@ -419,7 +525,8 @@ def coverage_caps(claim, parts, context="", quotes=()):
     if nums:
         caps.append(f"The model's breakdown of the claim leaves out {', '.join(nums)}, so that was not checked.")
     want = set(content_words(claim))
-    if want:
+    lang_claim, lang_parts = language(claim), language(joined)
+    if want and not (lang_claim and lang_parts and lang_claim != lang_parts):
         have = " ".join(content_words(joined))
         # "finishing" is covered by "finished": compare a stem (all but the last 3 letters, min 4)
         hit = {w for w in want if re.search(r"(?<![a-z])" + re.escape(w[:max(4, len(w) - 3)]), have)}

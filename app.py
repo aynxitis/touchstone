@@ -79,7 +79,8 @@ HEARTBEAT = json.dumps({"type": "heartbeat"}) + "\n"
 # environment only and are never logged.
 client = make_client(PROVIDER)
 PACER = TokenPacer.for_provider(PROVIDER)   # the provider's minute/day, shared by audits
-PROVIDER_NOTE = {"gemini": '<p class="meta">Reports are processed by Google Gemini.</p>'}
+PROVIDER_NOTE = {"gemini": '<p class="notice">Reports are processed by Google Gemini (free tier), which may use '
+                           "inputs to improve Google's products. Don't paste anything private.</p>"}
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")

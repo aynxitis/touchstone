@@ -63,7 +63,10 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    in no part and no verified quote of that claim's results (product names keep digits the
    model paraphrases away: Renault 5, Model 3, A320), < 60% of the claim's content words (accents folded, filler words skipped) in
    the parts, or more than 12 facts (the first 12 are checked, never silently dropped) caps
-   SOURCED at COULDN'T CONFIRM with the reason; amber only, never redder. Only the claim's
+   SOURCED at COULDN'T CONFIRM with the reason; amber only, never redder. Cross-language
+   (2026-10-11): the prompt (shared RULES, both providers) asks for parts in the claim's
+   language; if they still differ (quote_check.language(): EN/FR function-word counts, >= 2
+   hits and a 2x majority, else None), the 60% word cap is skipped; the number rule stays. Only the claim's
    OWN text counts: blocks_ctx() returns each claim's context (the ':' lead-in block joined
    before its line, "Top 5 Best-Selling EV Models ... (Recorded Jan-Oct 2025):"), which the
    model still sees and the year / numbers-on-page rules still use, but coverage doesn't
@@ -81,6 +84,9 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    A2 full-page fallback: a "missing" fact whose non-year numbers (one with 2+ digits) and
    subject (first claim name in the fact) all sit on one page line becomes "possible"
    ("possibly stated", the line shown as evidence), never counted as not found. No model call.
+   A line over 400 chars (pages without line breaks) shows only the fewest sentences holding
+   the match, "…" at cut edges (evidence_window; sentence_spans never splits "29.7", "M.",
+   "U.S.", "etc." or French "vrai ?"); add_pages strips the "…" before finding a PDF page.
    Years (1900-2100) in a fact must be in its passage, the page title, the h1-h3 headings
    above the passage (its section path), or the quoted table row's header row / caption;
    never in footer text (lines with ©, "Copyright", "All rights reserved"). fetch_links
@@ -97,7 +103,13 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    IPO, AI, CO2, W/Wh units) are never names. A name acronym also counts as named when the
    passage spells it out in capitalized words (ASF = Algerian Startup Fund; IRENA != IEA).
    Demonyms/region adjectives (European, Algerian, North African...: entities.DEMONYMS) are
-   never names on their own ("European Union" still is). "About someone else" never fires
+   never names on their own ("European Union" still is). Countries (2026-10-11,
+   entities.COUNTRY_ROWS: 54 African countries + France, Spain, Italy, Germany, UK, USA, China,
+   India, Turkey, Saudi Arabia, UAE, Qatar, Brazil, Japan, South Korea, Russia; EN name, EN
+   adjective/demonym, FR name, FR adjective with fr_forms() m/f sg/pl): a country name counts
+   as named by any of its forms as whole words, accents/case/hyphens ignored ("Algérie" =
+   "Algerian market"), and only by those ("Niger" not in "Nigeria"); "=US", "=EAU" forms
+   match exact case only (us, eau). The table's adjectives joined DEMONYMS. "About someone else" never fires
    when the fact's subject is in the passage (BYD's quote in a paragraph opening "Tesla").
    Prompt also requires facts to name their subject.
    Key-term check: a stated fact's numbers (single digits too, since 2026-10-11 L4: "$5
@@ -182,12 +194,17 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    style.css, no framework; index.html is served with /static/<name>?v=<sha256[:12]>
    computed at startup: versioned URLs get "public, max-age=31536000, immutable", the page and
    unversioned URLs "no-cache"); POST /api/audit {report} streams NDJSON events; GET /api/example
-   returns report2.txt. Limits: 20,000 chars, 10 cited claims (first 10 in report order; the
+   returns report2.txt. PROVIDER=gemini renders a plain bordered line (.notice) under the input,
+   server-side into index.html (no endpoint, no keys): "Reports are processed by Google Gemini
+   (free tier), which may use inputs to improve Google's products. Don't paste anything
+   private." Groq shows nothing. Limits: 20,000 chars, 10 cited claims (first 10 in report order; the
    rest stream as "skipped" and show collapsed as "Not checked (limit of 10 per audit)", and
    the summary says "Checked X of N claims"),
    5 audits/IP/hour (IPv6: per /64) + GLOBAL_AUDITS_PER_DAY (7, UTC day, counted at an audit's first model call; in memory), one audit at a time (Groq TPM), 300 s per audit (later claims
    -> NOT CHECKED), a {"type":"heartbeat"} line after 15 s of stream silence (the audit runs in
-   its own thread, which owns the busy lock; app.js ignores heartbeats), 30 s Groq timeout, 30 s hard wall clock (async, cancelled on expiry) + 3 MB per fetched page. Strict CSP header.
+   its own thread, which owns the busy lock; app.js ignores heartbeats), 30 s Groq timeout; fetches: connect 15 s, read 15 s, 30 s hard wall clock per attempt (async,
+   cancelled on expiry), a timed-out fetch retried once with read 30 s, both attempts within
+   45 s per URL (2026-10-11; 30 URLs x 8 parallel <= 180 s) + 3 MB per fetched page. Strict CSP header.
    After an audit, a "Download results" button saves the run as JSON, built client-side
    from the received events (no server storage): report, every claim event (facts, quotes,
    statuses, label, reason, URL, model reply), not_checked, uncited, tokens, timestamp.
@@ -242,11 +259,12 @@ bot-page fixtures on a mocked transport, claim cap order, report4 junk passages 
 parentheses, report5's pinned claim list + copy-format rules), test_pdf.py (generated
 text/encrypted/blank PDFs, size/time/memory limits, page numbers, the real ICO report cached in
 gitignored testdata/), test_sources.py (merge rules, partly/fully unreachable, Groq + Gemini
-multi-source, vague notes, unreachable reasons, rescore of a multi-source claim), test_checks.py (unit-scaled and locale numbers, name check scope/acronyms,
+multi-source, vague notes, unreachable reasons, rescore of a multi-source claim), test_checks.py (unit-scaled and locale numbers, name check scope/acronyms, countries vs
+demonyms, cross-language coverage, A2 evidence window,
 VOLZ/Moustachir, anchor passage selection, rescore.py end to end) and
 test_security.py (network: rebinding, TLS, SSRF blocks; client IP + proxy secret, table
 pruning, heartbeat with a fake slow model, examples/ui_check.txt makes no model call,
-cache-busting headers). examples/ui_check.txt = DEPLOY.md's zero-token UI check on production.
+cache-busting headers, fetch timeout retry, provider line). examples/ui_check.txt = DEPLOY.md's zero-token UI check on production.
 (samples/ holds hand-made reports: footnotes, names-only sources, no links).
 Labels: SOURCED / PARTIAL / COULDN'T CONFIRM / UNSUPPORTED / CONTRADICTED / UNVERIFIED / OPINION / SOURCE UNREACHABLE /
 NO SOURCE GIVEN / NOT CHECKED / ERROR. Verdicts judge factual parts only; editorial framing is noted, not penalized.

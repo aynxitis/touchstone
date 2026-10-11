@@ -395,7 +395,9 @@ import providers as PV, quote_check as QC
 from quote_check import SYSTEM, SYSTEM_MULTI, PREAMBLE, TASK_ONE, RULES
 assert SYSTEM == PREAMBLE + TASK_ONE + RULES and SYSTEM_MULTI.endswith(RULES)      # rules shared verbatim
 import hashlib
-assert hashlib.sha256(SYSTEM.encode()).hexdigest()[:16] == "7a2d5cd192d6216e"       # Groq prompt unchanged
+assert hashlib.sha256(SYSTEM.encode()).hexdigest()[:16] == "84557bb787297a70"       # Groq prompt pinned
+# Parts in the claim's language (cross-language coverage, L2): both providers' prompts say so.
+assert "SAME language as the claim" in SYSTEM and "SAME language as the claim" in SYSTEM_MULTI
 
 class FakeGemini:
     """google-genai lookalike: client.models.generate_content(model, contents, config)."""
@@ -542,6 +544,9 @@ with tempfile.TemporaryDirectory() as d:
     v = A.asset_versions(d)
     assert "Google Gemini" in A.versioned_index(d, v, "gemini") and "provider-note" not in A.versioned_index(d, v, "gemini")
     assert "Gemini" not in A.versioned_index(d, v, "groq") and "provider-note" not in A.versioned_index(d, v, "groq")
+    gem = A.versioned_index(d, v, "gemini")
+    assert ("Google Gemini (free tier), which may use inputs to improve Google's products. "
+            "Don't paste anything private.") in gem and 'class="notice"' in gem, gem
 
 # S3: a private address never reaches the browser, only "private address".
 r = F.fetch("http://10.0.0.1/x")
@@ -560,5 +565,49 @@ try:
 finally:
     F.httpx.AsyncClient = _real_client
 assert seen == [False], seen
+
+
+# 14. Fetch timeouts: a timed-out fetch is retried once with twice the read timeout, both
+#     attempts inside TOTAL_SECONDS; blocks and HTTP errors are never retried.
+import asyncio
+def run_fetch(fake, **consts):
+    saved = {k: getattr(F, k) for k in consts} | {"_get": F._get}
+    for k, v in consts.items():
+        setattr(F, k, v)
+    F._get = fake
+    try:
+        t0 = time.monotonic()
+        return asyncio.run(F.fetch_one("https://example.org/x")), time.monotonic() - t0
+    finally:
+        for k, v in saved.items():
+            setattr(F, k, v)
+
+seen = []
+async def slow_then_ok(url, read_timeout=F.READ_TIMEOUT):
+    seen.append(read_timeout)
+    if len(seen) == 1:
+        return {"url": url, "status": "TIMEOUT", "detail": ""}         # httpx read timeout
+    return "<html><head><title>T</title></head><body><p>" + "Readable text. " * 40 + "</p></body></html>"
+r, _ = run_fetch(slow_then_ok)
+assert r["status"] == "OK" and seen == [F.READ_TIMEOUT, F.RETRY_READ_TIMEOUT], (r, seen)
+assert F.RETRY_READ_TIMEOUT == 2 * F.READ_TIMEOUT
+
+seen.clear()
+async def blocked(url, read_timeout=F.READ_TIMEOUT):
+    seen.append(read_timeout)
+    return {"url": url, "status": "BLOCKED", "detail": F.BOT_BLOCKED}
+r, _ = run_fetch(blocked)
+assert r["status"] == "BLOCKED" and len(seen) == 1, (r, seen)              # never retried
+
+seen.clear()
+async def hangs(url, read_timeout=F.READ_TIMEOUT):
+    seen.append(read_timeout)
+    await asyncio.sleep(100)
+# Scaled down: 0.6 s per attempt, 1.0 s per URL -> the retry gets the 0.4 s left, then stops.
+r, took = run_fetch(hangs, MAX_SECONDS=0.6, TOTAL_SECONDS=1.0, RETRY_MIN_SECONDS=0.2)
+assert r["status"] == "TIMEOUT" and len(seen) == 2 and took < 1.3, (r, seen, took)
+seen.clear()
+r, took = run_fetch(hangs, MAX_SECONDS=0.6, TOTAL_SECONDS=1.0, RETRY_MIN_SECONDS=0.5)
+assert r["status"] == "TIMEOUT" and len(seen) == 1 and took < 0.9, (r, seen, took)  # too little left
 
 print("security checks passed")

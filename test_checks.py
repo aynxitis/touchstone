@@ -498,4 +498,84 @@ r = judge({"parts": many}, "VOLZ raised $5M in a seed round in 2023.", y_page)
 assert r["label"] == "COULDN'T CONFIRM" and f"into {MAX_FACTS + 1} facts" in r["reason"], r
 assert len(judge({"parts": many[:7]}, "VOLZ raised $5M in a seed round in 2023.", y_page)["facts"]) == 7
 
+
+# 17. Cross-language coverage (L2): a French claim broken into English parts shares few
+#     content words with them, so the word-coverage cap is skipped; numbers still count.
+from quote_check import coverage_caps, language
+fr_claim = ("Les ventes de vélos électriques en Tunisie ont atteint 12 000 unités en 2024, "
+            "portées par les subventions publiques.")
+en_parts = ["Electric bicycle sales in Tunisia reached 12,000 units in 2024",
+            "The sales were driven by public subsidies"]
+assert language(fr_claim) == "fr" and language("\n".join(en_parts)) == "en"
+assert coverage_caps(fr_claim, en_parts) == [], coverage_caps(fr_claim, en_parts)
+gone = coverage_caps(fr_claim, ["Electric bicycle sales in Tunisia grew in 2024",
+                                "The sales were driven by public subsidies"])
+assert len(gone) == 1 and "leaves out 12 000" in gone[0], gone              # numbers still apply
+low = coverage_caps("Electric bicycle sales in Tunisia reached 12,000 units in 2024, driven by "
+                    "public subsidies, cheaper imports and new urban cycling lanes.",
+                    ["Electric bicycle sales in Tunisia reached 12,000 units in 2024"])
+assert any("covers only" in c for c in low), low                            # same language: capped
+low_fr = coverage_caps(fr_claim.replace(".", ", grâce aux importations moins chères et aux nouvelles pistes cyclables."),
+                       ["Les ventes de vélos en Tunisie ont atteint 12 000 unités en 2024"])
+assert any("covers only" in c for c in low_fr), low_fr
+# Through judge(): stated with a verified English quote -> SOURCED, not capped by wording.
+bk_page = ("Electric bicycle sales in Tunisia reached 12,000 units in 2024.\n"
+           "Sales were driven by public subsidies for urban commuters.")
+r = judge({"parts": [P(en_parts[0], "stated", "Electric bicycle sales in Tunisia reached 12,000 units in 2024."),
+                     P("Sales were driven by public subsidies", "stated",
+                       "Sales were driven by public subsidies for urban commuters.")]}, fr_claim, bk_page)
+assert r["label"] == "SOURCED", r
+
+# 18. Countries vs demonyms/adjectives, English and French, accents and case ignored.
+from entities import named_in, DEMONYMS
+assert named_in("Algérie", "Growth in the Algerian market was strong.")
+assert named_in("Algeria", "Le marché algérien a progressé.") and named_in("ALGERIE", "algériennes")
+assert named_in("Maroc", "Moroccan exports rose") and named_in("Morocco", "la production marocaine")
+assert not named_in("Morocco", "Growth in the Algerian market was strong.")
+assert not named_in("Niger", "Nigeria's oil output") and named_in("Niger", "the Nigerien government")
+assert named_in("United States", "U.S. buyers") and not named_in("US", "between us and them")
+assert named_in("Émirats arabes unis", "Emirati investors") and named_in("Côte d'Ivoire", "Ivorian cocoa")
+assert named_in("Afrique du Sud", "South African banks") and named_in("Turquie", "Turkish exports")
+assert entities("Algerian startups grew while Angolan firms waited.") == []  # demonyms alone: no names
+assert "angolan" in DEMONYMS and "marocaine" in DEMONYMS
+dz_page = "Algerian startups raised $5 million in 2024, mostly from public funds."
+dz_q = "Algerian startups raised $5 million in 2024, mostly from public funds."
+dz_claim = "Les startups en Algérie ont levé 5 millions de dollars en 2024."
+assert check_fact("Les startups en Algérie ont levé 5 millions de dollars", dz_q, dz_claim, dz_page, quote_on_page) is None
+ma_claim = "Les startups au Maroc ont levé 5 millions de dollars en 2024."
+hit = check_fact("Les startups au Maroc ont levé 5 millions de dollars", dz_q, ma_claim, dz_page, quote_on_page)
+assert hit and hit[0] == "missing" and hit[1] == ["Maroc"], hit
+
+# 19. A2 evidence window: a page with no line breaks shows only the sentence(s) with the
+#     match (<= ~400 chars, "…" at cut edges); decimals, abbreviations and French spacing
+#     never split a sentence.
+from quote_check import sentence_spans, EVIDENCE_CHARS
+t = ("Prices rose 29.7 percent in 2024. M. Dupont said so, etc. and U.S. buyers agreed. "
+     "Est-ce vrai ? Oui, selon l'institut.")
+assert [t[a:b] for a, b in sentence_spans(t)] == [
+    "Prices rose 29.7 percent in 2024.", "M. Dupont said so, etc. and U.S. buyers agreed.",
+    "Est-ce vrai ?", "Oui, selon l'institut."], sentence_spans(t)
+filler = "The weather in the coastal towns was mild and the markets stayed busy all week. "
+one_line = (filler * 31 + "Exports rose 29.7 percent, M. Haddad said. Tunisia shipped 4,812 tonnes of "
+            "dates to U.S. buyers in 2024, etc. and more. " + filler * 31).strip()
+assert len(one_line) > 5000 and "\n" not in one_line
+r = judge({"parts": [P("Tunisia shipped 4,812 tonnes of dates", "missing")]},
+          "Tunisia shipped 4,812 tonnes of dates in 2024.", one_line)
+ev = r["facts"][0].get("evidence", "")
+assert r["facts"][0]["status"] == "possible" and len(ev) <= EVIDENCE_CHARS + 2, (len(ev), ev)
+assert ev == "\u2026Tunisia shipped 4,812 tonnes of dates to U.S. buyers in 2024, etc. and more.\u2026", ev
+# a match spread over two sentences keeps both; a short line is shown whole, no ellipsis
+r = judge({"parts": [P("Exports rose 29.7% while Tunisia shipped 4,812 tonnes", "missing")]},
+          "Exports rose 29.7% while Tunisia shipped 4,812 tonnes.", one_line)
+ev = r["facts"][0]["evidence"]
+assert ev.startswith("\u2026Exports rose 29.7 percent, M. Haddad said. Tunisia shipped 4,812") and ev.endswith("\u2026"), ev
+short = "Tunisia shipped 4,812 tonnes of dates in 2024."
+r = judge({"parts": [P("Tunisia shipped 4,812 tonnes of dates", "missing")]}, short, short)
+assert r["facts"][0]["evidence"] == short, r
+# one sentence longer than the window: cut around the number, both edges marked
+long_sentence = "In the coastal towns " + "and the busy markets " * 40 + "Tunisia shipped 4,812 tonnes " + "of dates and figs " * 40 + "."
+r = judge({"parts": [P("Tunisia shipped 4,812 tonnes of dates", "missing")]}, short, long_sentence)
+ev = r["facts"][0]["evidence"]
+assert len(ev) <= EVIDENCE_CHARS + 2 and "4,812" in ev and ev[0] == ev[-1] == "\u2026", ev
+
 print("check tests passed")

@@ -14,8 +14,13 @@ from html import unescape
 import pdf_text
 
 URL_RE = re.compile(r"https?://[^\s<>\"'\)\]]+")
-TIMEOUT = 15            # seconds per request (connect/read)
-MAX_SECONDS = 30        # hard wall clock per URL: DNS, all redirect hops, body
+CONNECT_TIMEOUT = 15    # seconds to open a connection (also write/pool)
+READ_TIMEOUT = 15       # seconds of silence while reading, first attempt
+RETRY_READ_TIMEOUT = 30 # after a timeout, one retry with twice the read timeout
+MAX_SECONDS = 30        # hard wall clock per attempt: DNS, all redirect hops, body
+TOTAL_SECONDS = 45      # hard wall clock per URL, both attempts: 30 URLs, 8 at a time, end
+                        # within 4 x 45 s = 180 s, under the app's 300 s audit limit
+RETRY_MIN_SECONDS = 10  # no retry with less than this left of TOTAL_SECONDS
 MAX_BYTES = 3_000_000   # stop reading a page beyond this
 MAX_REDIRECTS = 5
 MIN_TEXT_CHARS = 200    # less than this = no usable text
@@ -186,15 +191,26 @@ def pdf_result(url, body):
 
 async def fetch_one(url):
     """Fetch one URL, re-checking every redirect hop, and extract readable text.
-    MAX_SECONDS is a hard wall clock: on expiry the task is cancelled and its socket
-    closed, so a server trickling bytes can't keep anything running."""
-    try:
-        async with asyncio.timeout(MAX_SECONDS):
-            got = await _get(url)
-    except TimeoutError:
-        return {"url": url, "status": "TIMEOUT", "detail": ""}
-    except Exception as e:        # one bad link must never end the whole audit
-        return {"url": url, "status": "ERROR", "detail": type(e).__name__}
+    MAX_SECONDS is a hard wall clock per attempt: on expiry the task is cancelled and its
+    socket closed, so a server trickling bytes can't keep anything running. A timed-out
+    fetch is retried once with RETRY_READ_TIMEOUT, both attempts within TOTAL_SECONDS
+    (a slow server, not a block: blocks and HTTP errors are never retried)."""
+    loop = asyncio.get_running_loop()
+    began = loop.time()
+    got = None
+    for read_timeout in (READ_TIMEOUT, RETRY_READ_TIMEOUT):
+        left = TOTAL_SECONDS - (loop.time() - began)
+        if got is not None and left < RETRY_MIN_SECONDS:
+            break
+        try:
+            async with asyncio.timeout(min(MAX_SECONDS, left)):
+                got = await _get(url, read_timeout)
+        except TimeoutError:
+            got = {"url": url, "status": "TIMEOUT", "detail": ""}
+        except Exception as e:        # one bad link must never end the whole audit
+            return {"url": url, "status": "ERROR", "detail": type(e).__name__}
+        if not (isinstance(got, dict) and got.get("status") == "TIMEOUT"):
+            break
     if isinstance(got, dict):
         return got
     if isinstance(got, bytes):
@@ -219,13 +235,14 @@ async def fetch_one(url):
             "title": title, "headings": headings}
 
 
-async def _get(url):
+async def _get(url, read_timeout=READ_TIMEOUT):
     """The page's HTML as a string, a PDF's bytes, or a result dict if it can't be used."""
     current = url
     try:
         # trust_env=False: no proxy, netrc or CA settings from the environment (HTTP_PROXY would
         # route every fetch, past the pinned-IP check, through whatever it names)
-        async with httpx.AsyncClient(timeout=TIMEOUT, headers=HEADERS, follow_redirects=False,
+        timeout = httpx.Timeout(CONNECT_TIMEOUT, read=read_timeout)
+        async with httpx.AsyncClient(timeout=timeout, headers=HEADERS, follow_redirects=False,
                                      trust_env=False) as client:
             for _ in range(MAX_REDIRECTS + 1):
                 ok, reason, ip = await check_url(current)
@@ -276,7 +293,7 @@ async def _fetch_all(urls):
 
 def fetch_many(urls):
     """Fetch all URLs concurrently (8 at a time); results in the same order.
-    Each URL is bounded by MAX_SECONDS, so this returns within ~MAX_SECONDS * len/8."""
+    Each URL is bounded by TOTAL_SECONDS, so this returns within ~TOTAL_SECONDS * len/8."""
     return asyncio.run(_fetch_all(urls)) if urls else []
 
 

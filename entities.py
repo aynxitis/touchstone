@@ -121,6 +121,137 @@ def fold(text):
                    if not unicodedata.combining(ch))
 
 
+# Countries and their adjectives / demonyms, English and French: a claim naming a country is
+# satisfied by a passage using its adjective and vice versa ("Algérie" = "Algerian market").
+# One row per country: English names | English adjectives/demonyms | French names | French
+# adjectives (masculine singular; feminine and plurals are derived by fr_forms). Plural
+# English forms get an "s" added automatically. A form starting with "=" is matched with its
+# exact case only ("US", "EAU": as lowercase words they are "us" and "eau", water).
+COUNTRY_ROWS = """
+Algeria | Algerian | Algérie | algérien
+Angola | Angolan | Angola | angolais
+Benin | Beninese | Bénin | béninois
+Botswana | Motswana, Batswana, Botswanan | Botswana | botswanais
+Burkina Faso | Burkinabe, Burkinabè | Burkina Faso | burkinabè, burkinabé
+Burundi | Burundian | Burundi | burundais
+Cameroon | Cameroonian | Cameroun | camerounais
+Cape Verde, Cabo Verde | Cape Verdean, Cabo Verdean | Cap-Vert, Cabo Verde | cap-verdien
+Central African Republic, =CAR | Central African | République centrafricaine, Centrafrique, =RCA | centrafricain
+Chad | Chadian | Tchad | tchadien
+Comoros | Comorian | Comores | comorien
+Republic of the Congo, Congo-Brazzaville, Congo | Congolese | République du Congo, Congo-Brazzaville, Congo | congolais
+Democratic Republic of the Congo, DR Congo, =DRC, Congo-Kinshasa | Congolese | République démocratique du Congo, RD Congo, =RDC, Congo-Kinshasa | congolais
+Djibouti | Djiboutian | Djibouti | djiboutien
+Egypt | Egyptian | Égypte | égyptien
+Equatorial Guinea | Equatoguinean, Equatorial Guinean | Guinée équatoriale | équato-guinéen
+Eritrea | Eritrean | Érythrée | érythréen
+Eswatini, Swaziland | Swazi, Emaswati | Eswatini, Swaziland | swazi
+Ethiopia | Ethiopian | Éthiopie | éthiopien
+Gabon | Gabonese | Gabon | gabonais
+Gambia, The Gambia | Gambian | Gambie | gambien
+Ghana | Ghanaian | Ghana | ghanéen
+Guinea | Guinean | Guinée | guinéen
+Guinea-Bissau | Bissau-Guinean | Guinée-Bissau | bissau-guinéen
+Ivory Coast, Côte d'Ivoire | Ivorian | Côte d'Ivoire | ivoirien
+Kenya | Kenyan | Kenya | kényan, kenyan
+Lesotho | Basotho, Mosotho, Lesothan | Lesotho | lesothan
+Liberia | Liberian | Liberia, Libéria | libérien
+Libya | Libyan | Libye | libyen
+Madagascar | Malagasy, Madagascan | Madagascar | malgache
+Malawi | Malawian | Malawi | malawite, malawien
+Mali | Malian | Mali | malien
+Mauritania | Mauritanian | Mauritanie | mauritanien
+Mauritius | Mauritian | Maurice, île Maurice | mauricien
+Morocco | Moroccan | Maroc | marocain
+Mozambique | Mozambican | Mozambique | mozambicain
+Namibia | Namibian | Namibie | namibien
+Niger | Nigerien | Niger | nigérien
+Nigeria | Nigerian | Nigeria, Nigéria | nigérian
+Rwanda | Rwandan | Rwanda | rwandais
+São Tomé and Príncipe | Santomean, São Toméan | Sao Tomé-et-Principe | santoméen
+Senegal | Senegalese | Sénégal | sénégalais
+Seychelles | Seychellois | Seychelles | seychellois
+Sierra Leone | Sierra Leonean | Sierra Leone | sierraléonais, sierra-léonais
+Somalia | Somali, Somalian | Somalie | somalien
+South Africa | South African | Afrique du Sud | sud-africain
+South Sudan | South Sudanese | Soudan du Sud | sud-soudanais
+Sudan | Sudanese | Soudan | soudanais
+Tanzania | Tanzanian | Tanzanie | tanzanien
+Togo | Togolese | Togo | togolais
+Tunisia | Tunisian | Tunisie | tunisien
+Uganda | Ugandan | Ouganda | ougandais
+Zambia | Zambian | Zambie | zambien
+Zimbabwe | Zimbabwean | Zimbabwe | zimbabwéen
+France | French, Frenchman, Frenchmen, Frenchwoman, Frenchwomen | France | français
+Spain | Spanish, Spaniard | Espagne | espagnol
+Italy | Italian | Italie | italien
+Germany | German | Allemagne | allemand
+United Kingdom, =UK, =U.K., Britain, Great Britain | British, Briton | Royaume-Uni, Grande-Bretagne | britannique
+United States, United States of America, =US, =U.S., =USA, =U.S.A. | American | États-Unis, États-Unis d'Amérique | américain
+China | Chinese | Chine | chinois
+India | Indian | Inde | indien
+Turkey, Türkiye | Turkish, Turk | Turquie | turc, turque, turcs, turques
+Saudi Arabia, =KSA | Saudi, Saudi Arabian | Arabie saoudite | saoudien
+United Arab Emirates, =UAE, =U.A.E., Emirates | Emirati | Émirats arabes unis, =EAU, Émirats | émirien, émirati
+Qatar | Qatari | Qatar | qatari, qatarien
+Brazil | Brazilian | Brésil | brésilien
+Japan | Japanese | Japon | japonais
+South Korea, Korea, Republic of Korea | South Korean, Korean | Corée du Sud, Corée | sud-coréen, coréen
+Russia, Russian Federation | Russian | Russie, Fédération de Russie | russe
+"""
+
+
+def fr_forms(adj):
+    """A French adjective's four forms from its masculine singular ("algérien" -> algérien,
+    algérienne, algériens, algériennes)."""
+    if adj.endswith("en"):
+        return [adj, adj + "ne", adj + "s", adj + "nes"]
+    if adj.endswith("s"):
+        return [adj, adj + "e", adj + "es"]
+    if adj.endswith("e"):
+        return [adj, adj + "s"]
+    return [adj, adj + "e", adj + "s", adj + "es"]
+
+
+def _country_key(text):
+    """Folded, hyphens/apostrophes as spaces: 'Côte d'Ivoire' -> 'cote d ivoire'."""
+    return " ".join(re.sub(r"[\-'’.]", " ", fold(text)).split())
+
+
+COUNTRIES = []           # [(folded forms, exact-case forms)] per country
+for row in COUNTRY_ROWS.strip().split("\n"):
+    en, en_adj, fr, fr_adj = ([x.strip() for x in col.split(",")] for col in row.split("|"))
+    forms = en + fr + en_adj + [a + "s" for a in en_adj if not a.endswith("s")]
+    forms += [f for a in fr_adj for f in fr_forms(a)]
+    COUNTRIES.append(({_country_key(f) for f in forms if not f.startswith("=")},
+                      {f[1:] for f in forms if f.startswith("=")}))
+# Single-word English and French adjectives are demonyms too (never a name on their own).
+for row in COUNTRY_ROWS.strip().split("\n"):
+    cols = [[x.strip().lower() for x in col.split(",")] for col in row.split("|")]
+    for w in cols[1] + [a + "s" for a in cols[1]] + [f for a in cols[3] for f in fr_forms(a)]:
+        if " " not in w:
+            DEMONYMS |= {w, fold(w)}
+
+
+def country_forms(entity):
+    """The forms of every country this name is a form of (None if it names no country):
+    'Algérie' -> {'algeria', 'algerian', 'algerie', 'algerienne', ...}."""
+    key = _country_key(entity)
+    hits = [c for c in COUNTRIES if key in c[0] or entity in c[1]]
+    if not hits:
+        return None
+    return set().union(*(c[0] for c in hits)), set().union(*(c[1] for c in hits))
+
+
+def country_named(forms, passage):
+    """True if the passage writes any of the country's forms as whole words."""
+    folded, exact = forms
+    p = " " + _country_key(passage) + " "
+    if any(" " + f + " " in p for f in folded):
+        return True
+    return any(re.search(r"(?<![\w.])" + re.escape(f) + r"(?![\w])", passage) for f in exact)
+
+
 # Small words skipped when reading an acronym off a name ("Office National des Statistiques").
 CONNECTORS = {"of", "for", "and", "the", "de", "des", "du", "la", "le", "et", "d", "l", "&"}
 
@@ -140,7 +271,11 @@ def spelled_out(acronym, passage):
 
 def named_in(entity, passage):
     """True if every word of the name (3+ letters) appears in the passage, ignoring case
-    and accents. An acronym also counts as named if the passage spells it out."""
+    and accents. An acronym also counts as named if the passage spells it out. A country
+    counts as named by any of its forms, English or French ("Algérie" by "Algerian market",
+    "Morocco" by "marocaine"), and only by those ("Niger" is not in "Nigeria")."""
+    if (forms := country_forms(entity)) is not None:
+        return country_named(forms, passage)
     if entity.isupper() and " " not in entity and len(entity) >= 2:
         expansions = ACRONYMS.get(entity.lower(), [])
         if any(fold(x) in fold(passage) for x in expansions) or spelled_out(entity, passage):
