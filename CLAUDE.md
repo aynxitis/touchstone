@@ -60,7 +60,8 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    the label: any contradicted -> CONTRADICTED, all stated -> SOURCED, some -> PARTIAL,
    none -> UNSUPPORTED. Framing never affects the label.
    COVERAGE (2026-10-11 L2): the model's parts must cover the claim. A non-year claim number
-   in no part, < 60% of the claim's content words (accents folded, filler words skipped) in
+   in no part and no verified quote of that claim's results (product names keep digits the
+   model paraphrases away: Renault 5, Model 3, A320), < 60% of the claim's content words (accents folded, filler words skipped) in
    the parts, or more than 12 facts (the first 12 are checked, never silently dropped) caps
    SOURCED at COULDN'T CONFIRM with the reason; amber only, never redder. Only the claim's
    OWN text counts: blocks_ctx() returns each claim's context (the ':' lead-in block joined

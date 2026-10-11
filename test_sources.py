@@ -237,7 +237,7 @@ finally:
     _QC.judge = _real
 
 # L2 refinement: through audit() (Groq) and rescore, a list lead-in's numbers are context,
-# not required in the parts; the bullet's own numbers are.
+# not required in the parts; the bullet's own numbers are (in a part or a verified quote).
 LEAD_Q = "Certified stocks stayed low through the month in every market, at 412,000 bags."
 LEAD_PAGE = LEAD_Q + "\nDecember 2025 report."
 lead_report = f"Top 5 coffee facts for 2025:\n\n- Certified stocks stayed low at 412,000 bags [A]({A})"
@@ -248,7 +248,7 @@ assert cl[0]["text"].startswith("Top 5 coffee facts for 2025:") and cl[0]["label
 client, calls = fake_groq(lambda user: {"opinion": False, "parts": [
     P("Certified stocks stayed low", "stated", LEAD_Q)]})
 cl = [e for e in audit(lead_report, client, pages={A: {"status": "OK", "text": LEAD_PAGE}}) if e["type"] == "claim"]
-assert cl[0]["label"] == "COULDN'T CONFIRM" and "leaves out 412,000" in cl[0]["reason"], cl
+assert cl[0]["label"] == "SOURCED", cl          # 412,000 is in no part, but in the verified quote
 class LeadGemini(FakeGemini):
     def _gen(self, **k):
         self.calls.append(k["contents"])
@@ -266,5 +266,16 @@ with tempfile.TemporaryDirectory() as d:
     assert RS.load_contexts(run) == {1: "Top 5 coffee facts for 2025:"}
     json.dump([], open(run, "w"))
     assert RS.load_contexts(run) == {}
+
+# Coverage in merge(): a claim number in no part but in a verified quote of any source is
+# covered (Q_A1 holds "9.2%"); one in neither still caps.
+c92 = CLAIM + " (up 9.2%)"
+m = merge(c92, [(A, judge({"parts": [P(F1, "stated", Q_A1), P(F2, "missing")]}, c92, PAGE_A, A)),
+                (B, judge({"parts": [P(F1, "missing"), P(F2, "stated", Q_B2)]}, c92, PAGE_B, B))], [PAGE_A, PAGE_B])
+assert m["label"] == "SOURCED", m
+c77 = CLAIM + " (up 7.7%)"
+m = merge(c77, [(A, judge({"parts": [P(F1, "stated", Q_A1), P(F2, "missing")]}, c77, PAGE_A, A)),
+                (B, judge({"parts": [P(F1, "missing"), P(F2, "stated", Q_B2)]}, c77, PAGE_B, B))], [PAGE_A, PAGE_B])
+assert m["label"] == "COULDN'T CONFIRM" and "leaves out 7.7" in m["reason"], m
 
 print("source checks passed")

@@ -404,15 +404,17 @@ def own_text(claim, context=""):
     return claim[len(context):].strip() if context and claim.startswith(context) else claim
 
 
-def coverage_caps(claim, parts, context=""):
+def coverage_caps(claim, parts, context="", quotes=()):
     """Reasons the model's parts (texts of facts and framing) don't cover the claim: a
-    non-year number of the claim in no part, or under COVERAGE_MIN of its content words.
-    Only the claim's own text counts: a lead-in's "Top 5 ... (Jan-Oct 2025):" is context the
-    model sees, not something each bullet's breakdown must repeat. Empty if covered."""
+    non-year number of the claim in no part and no verified quote, or under COVERAGE_MIN of
+    its content words (parts only). Only the claim's own text counts: a lead-in's "Top 5 ...
+    (Jan-Oct 2025):" is context the model sees, not something each bullet's breakdown must
+    repeat. A verified quote covers a number because product names carry digits the model
+    paraphrases away ("Renault sold 67,625" quoting "Renault 5 ...: 67 625"). Empty if covered."""
     claim = own_text(claim, context)
     caps, joined = [], "\n".join(parts)
     words = set(re.findall(r"[a-z]+", joined.lower()))
-    nums = [n for n in numbers_not_in(claim, joined, min_digits=1) if not is_year(n)
+    nums = [n for n in numbers_not_in(claim, "\n".join([joined, *quotes]), min_digits=1) if not is_year(n)
             and not (n.isdigit() and len(n) == 1 and DIGIT_WORDS[int(n)] in words)]
     if nums:
         caps.append(f"The model's breakdown of the claim leaves out {', '.join(nums)}, so that was not checked.")
@@ -509,11 +511,10 @@ def judge(out, claim, page, url="", raw="", meta=None, context=""):
     raw_facts = [{"fact": x["text"], "status": x.get("status"), "quote": x.get("quote")}
                  for x in parts_in if x["text"] not in framing]
 
-    caps = coverage_caps(claim, [x["text"] for x in parts_in], context)
+    too_many = []
     if len(raw_facts) > MAX_FACTS:
         # never dropped silently: the rest is unchecked, so the claim can't be SOURCED
-        caps.append(f"{TOO_MANY} {len(raw_facts)} facts; only the first "
-                    f"{MAX_FACTS} were checked.")
+        too_many = [f"{TOO_MANY} {len(raw_facts)} facts; only the first {MAX_FACTS} were checked."]
     facts, demoted = [], False
     for f in raw_facts[:MAX_FACTS]:
         status = f["status"] if f["status"] in ("stated", "missing", "contradicted") else "missing"
@@ -548,6 +549,9 @@ def judge(out, claim, page, url="", raw="", meta=None, context=""):
             fact.update(status="possible", evidence=line)
         facts.append(fact)
 
+    # Coverage after the checks: only quotes still attached to a fact are verified.
+    caps = coverage_caps(claim, [x["text"] for x in parts_in], context,
+                         [f["quote"] for f in facts if f.get("quote")]) + too_many
     v = verdict(facts, framing, demoted, missing_numbers(claim, page), bool(out), raw,
                 caps if facts else ())
     return {**v, "facts": facts, "framing": framing, "caps": caps if facts else [],
@@ -656,7 +660,8 @@ def merge(claim, results, texts, context=""):
     demoted = any(f.get("rejected_quote") for f in facts)
     parts = [p["text"] for _, r in with_facts for p in ((r.get("model") or {}).get("parts") or [])
              if isinstance(p, dict) and isinstance(p.get("text"), str)]
-    caps = (coverage_caps(claim, parts, context) if parts else []) + list(dict.fromkeys(
+    quotes = [f["quote"] for _, r in with_facts for f in r["facts"] if f.get("quote")]
+    caps = (coverage_caps(claim, parts, context, quotes) if parts else []) + list(dict.fromkeys(
         c for _, r in with_facts for c in r.get("caps") or [] if c.startswith(TOO_MANY))) + disagree
     v = verdict(facts, base["framing"], demoted, missing_numbers(claim, "\n".join(texts)), caps=caps)
     return {**v, "facts": facts, "framing": base["framing"], "caps": caps,

@@ -340,10 +340,19 @@ assert r["label"] == "SOURCED", r
 # The year rule still sees the context: the fact's 2025 is dated by the page's heading.
 r = judge({"parts": [fact_y]}, claim_y, top5, context=c1)
 assert r["label"] == "COULDN'T CONFIRM" and "2025 not in its passage" in r["reason"], r
-# A number in the bullet's OWN text that no part carries still caps ("Renault 5").
+# A number in the bullet's OWN text is covered by a part OR a verified quote: "Renault 5"
+# paraphrased to "Renault" is fine when the quote verifies "Renault 5 (...): 67 625".
 fact_r = P("Renault sold 67,625 units", "stated", "- Renault 5 (including Alpine A290): 67 625")
 r = judge({"parts": [fact_r]}, "Top 5 EV models: Renault 5: 67,625 units", top5, context="Top 5 EV models:")
-assert r["label"] == "COULDN'T CONFIRM" and "leaves out 5" in r["reason"], r
+assert r["label"] == "SOURCED", r
+# In neither a part nor a verified quote: still capped.
+r = judge({"parts": [P("Renault sold 67,625 units", "stated", "- Renault 5 (including Alpine A290): 67 625")]},
+          "Top 5 EV models: Renault 7: 67,625 units", top5, context="Top 5 EV models:")
+assert r["label"] == "COULDN'T CONFIRM" and "leaves out 7" in r["reason"], r
+# An unverified quote covers nothing: the number must come from page text the checks accepted.
+r = judge({"parts": [P("Renault sold 67,625 units", "stated", "Renault 7 sold 67,625 units in Europe this year.")]},
+          "Top 5 EV models: Renault 7: 67,625 units", top5, context="Top 5 EV models:")
+assert r["label"] != "SOURCED" and r["facts"][0].get("rejected_quote"), r
 r = judge({"parts": [P("Renault 5 sold 67,625 units", "stated", fact_r["quote"])]},
           "Top 5 EV models: Renault 5: 67,625 units", top5, context="Top 5 EV models:")
 assert r["label"] == "SOURCED", r
