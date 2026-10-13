@@ -180,18 +180,22 @@ function addUncited(text) {
     `No source given (${n} passage${n === 1 ? "" : "s"}): the report cites nothing for these, so they were not checked`;
 }
 
-// Cited claims over the per-audit cap: listed (collapsed) so nobody reads the results as
-// an audit of the whole report.
-function addSkipped(ev, limit) {
+// Cited claims over a per-audit cap (claims, or source links on Gemini): listed (collapsed)
+// so nobody reads the results as an audit of the whole report. The summary names each cap
+// that left claims out ("limit of 25 claims per audit; limit of 8 sources per audit").
+const skippedWhy = new Set();
+
+function addSkipped(ev, reason) {
   const box = $("skipped");
   box.hidden = false;
   const li = el("li", "", `${int(ev.claim) !== null ? `Claim ${ev.claim}: ` : ""}${str(ev.text)}`);
   if (str(ev.url)) li.append(el("span", "source-plain", ` ${str(ev.url)}`));
   box.querySelector("ul").append(li);
+  if (reason) skippedWhy.add(reason.replace(/\.$/, "").replace(/^L/, "l"));
   const n = box.querySelector("ul").childElementCount;
-  box.querySelector("summary").textContent = limit
-    ? `Not checked (limit of ${limit} per audit): ${n} claim${n === 1 ? "" : "s"}`
-    : `Not checked: ${n} claim${n === 1 ? "" : "s"}`;
+  const why = [...skippedWhy].join("; ");
+  box.querySelector("summary").textContent =
+    `Not checked${why ? ` (${why})` : ""}: ${n} claim${n === 1 ? "" : "s"}`;
 }
 
 // "Checked 10 of 11 claims: ..." whenever some cited claims were left out.
@@ -242,6 +246,7 @@ function reset() {
   skipped.hidden = true;
   skipped.open = false;
   skipped.querySelector("ul").replaceChildren();
+  skippedWhy.clear();
   $("nolinks").hidden = true;
   $("copy-prompt").textContent = "Copy";
 }
@@ -306,7 +311,7 @@ async function runAudit() {
       limit = int(ev.limit);
       if (cited === 0) { noLinks = true; return; }   // screen shown at "done"
       $("scope").textContent = cited > total
-        ? `Checked the first ${total} of ${cited} cited claims, in report order. The rest are listed below as not checked.`
+        ? `Checked ${total} of ${cited} cited claims, in report order. The rest are listed below as not checked.`
         : `Checked ${total} of ${cited} cited claims.`;
       setStatus(`Fetching ${total} source${total === 1 ? "" : "s"}…`);
     } else if (ev.type === "claim") {
@@ -327,9 +332,10 @@ async function runAudit() {
       // Groq's free tier allows ~4 claims a minute: the audit pauses, then carries on.
       showWaiting(int(ev.seconds) ?? 10);
     } else if (ev.type === "skipped") {
-      addSkipped(ev, limit);
+      const reason = str(ev.reason) || (limit ? `Limit of ${limit} claims per audit.` : "");
+      addSkipped(ev, reason);
       run.not_checked.push({ claim: int(ev.claim), text: str(ev.text), url: str(ev.url),
-                             label: "NOT CHECKED", reason: limit ? `Limit of ${limit} claims per audit.` : "" });
+                             label: "NOT CHECKED", reason });
     } else if (ev.type === "quota") {
       // Out of capacity mid-audit: keep the cards so far, say so once, no per-claim errors.
       stopped = str(ev.message) || "Touchstone's free daily capacity is used up, try again tomorrow.";

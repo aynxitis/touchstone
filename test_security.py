@@ -548,6 +548,109 @@ with tempfile.TemporaryDirectory() as d:
     assert ("Google Gemini (free tier), which may use inputs to improve Google's products. "
             "Don't paste anything private.") in gem and 'class="notice"' in gem, gem
 
+import asyncio
+# 13h. Gemini caps: 8 distinct source URLs per audit (report order), claims whose sources all
+#      fall past it are skipped with their own reason; a claim keeps its sources inside the cap.
+upages = {f"https://u{i}.example/p": gp(12) for i in range(10)}
+ureport = "\n".join([f"- Widget count reached {1000 + i} https://u{i}.example/p" for i in range(10)]
+                     + ["- Widget count reached 1011 https://u1.example/p https://u9.example/p"])
+clk = Clock()
+fake = FakeGemini(all_stated)
+ev = list(real_audit(ureport, fake, pages=upages, clock=clk, sleep=clk.sleep, provider=PV.Gemini(fake),
+                     max_claims=25, max_urls=8, pacer=pacing.TokenPacer.for_provider("gemini", clock=clk)))
+assert ev[0]["checked"] == 9 and ev[0]["url_limit"] == 8, ev[0]
+assert [(e["claim"], e["reason"]) for e in ev if e["type"] == "skipped"] == [
+    (9, "Limit of 8 sources per audit."), (10, "Limit of 8 sources per audit.")]
+assert len(fake.calls) == 8                                    # one call per allowed URL
+last = [e for e in ev if e["type"] == "claim"][-1]
+assert last["claim"] == 11 and last["label"] == "SOURCED", last
+assert "1 more source not checked (limit of 8 sources per audit)." in last["reason"], last["reason"]
+assert [s_["label"] for s_ in last["sources"]] == ["SOURCED", "NOT CHECKED"]
+# Claim cap and URL cap together: claims past 25 say so, not the URL limit.
+many = "\n".join(f"- Widget count reached {1000 + i % 12} https://u0.example/p" for i in range(27))
+ev = list(real_audit(many, FakeGemini(all_stated), pages=upages, clock=clk, sleep=clk.sleep, max_claims=25,
+                     max_urls=8, provider=PV.Gemini(FakeGemini(all_stated)),
+                     pacer=pacing.TokenPacer.for_provider("gemini", clock=clk)))
+assert [e["reason"] for e in ev if e["type"] == "skipped"] == ["Limit of 25 claims per audit."] * 2
+
+# 13i. A page cited by more than 10 claims: chunks of at most 10 claims per call, every
+#      claim still judged; each call caps the reply at MAX_OUTPUT_TOKENS.
+fake = FakeGemini(all_stated)
+ev = list(real_audit(many, fake, pages=upages, clock=clk, sleep=clk.sleep, max_claims=25,
+                     provider=PV.Gemini(fake), pacer=pacing.TokenPacer.for_provider("gemini", clock=clk)))
+assert [len(claims_in(c["contents"])) for c in fake.calls] == [10, 10, 5], [len(claims_in(c["contents"])) for c in fake.calls]
+assert [e["label"] for e in ev if e["type"] == "claim"] == ["SOURCED"] * 25
+assert all(c["config"].max_output_tokens == PV.MAX_OUTPUT_TOKENS == 32_768 for c in fake.calls)
+
+# 13j. Hard deadline, model calls: a call still running at the deadline is abandoned (its
+#      request timeout is the time left), its claims and every later one NOT CHECKED
+#      "Audit time limit reached.", results already yielded stay. Real clock, scaled down.
+real_min = touchstone.MIN_CALL_SECONDS
+touchstone.MIN_CALL_SECONDS = 0.1
+try:
+    class SlowGemini(FakeGemini):
+        def _gen(self, **k):
+            if len(self.calls) >= 1:
+                self.calls.append(k); time.sleep(5)
+            return super()._gen(**k)
+    fake = SlowGemini(all_stated)
+    t0 = time.monotonic()
+    ev = list(real_audit(greport, fake, pages=gpages, provider=PV.Gemini(fake), deadline=time.monotonic() + 1.0,
+                         pacer=pacing.TokenPacer.for_provider("gemini")))
+    took = time.monotonic() - t0
+    cl = [(e["claim"], e["label"]) for e in ev if e["type"] == "claim"]
+    assert cl == [(1, "SOURCED"), (2, "NOT CHECKED"), (3, "SOURCED"), (4, "UNVERIFIED"), (5, "NOT CHECKED")], cl
+    assert took < 2.0 and ev[-1]["type"] == "done", took                      # never waited 5 s
+    assert [e["reason"] for e in ev if e["type"] == "claim" and e["label"] == "NOT CHECKED"] == ["Audit time limit reached."] * 2
+    assert fake.calls[-1]["config"].http_options.timeout <= 1000              # request bounded too
+    # Groq: same, and the request carries the time left as its timeout.
+    seen_t = []
+    def slow_groq(**k):
+        seen_t.append(k.get("timeout")); time.sleep(5); return reply()
+    fake_g = T.SimpleNamespace(chat=T.SimpleNamespace(completions=T.SimpleNamespace(create=slow_groq)))
+    t0 = time.monotonic()
+    ev = list(real_audit(report3, fake_g, pages=pages3, deadline=time.monotonic() + 1.0))
+    assert time.monotonic() - t0 < 2.0
+    assert [e["label"] for e in ev if e["type"] == "claim"] == ["NOT CHECKED"] * 3
+    assert len(seen_t) == 1 and 0 < seen_t[0] <= 1.0, seen_t
+
+    # 13k. Hard deadline, fetching: a page still downloading at the deadline is cancelled
+    #      (LATE), the page that arrived is kept; through audit() the hung download can't hold
+    #      the audit past its deadline, and its claims say why.
+    fast_html = "<html><head><title>Y</title></head><body><p>" + "Yassir raised 150 million dollars in its Series B round. " * 6 + "</p></body></html>"
+    async def get_fake(url, read_timeout=F.READ_TIMEOUT):
+        if "slow" in url:
+            await asyncio.sleep(30)
+        return fast_html
+    real_get, F._get = F._get, get_fake
+    try:
+        t0 = time.monotonic()
+        got = F.fetch_many(["https://fast.example/a", "https://slow.example/b"], within=0.5)
+        assert [g["status"] for g in got] == ["OK", F.LATE] and time.monotonic() - t0 < 1.5, got
+        fake_f, _ = scripted(reply())
+        t0 = time.monotonic()
+        ev = list(real_audit("- Yassir raised 150 million dollars https://fast.example/a\n"
+                             "- Yassir raised 150 million dollars https://slow.example/b", fake_f,
+                             deadline=time.monotonic() + 1.0))
+        took = time.monotonic() - t0
+    finally:
+        F._get = real_get
+    assert [(e["label"], e.get("reason")) for e in ev if e["type"] == "claim"] == [
+        ("NOT CHECKED", "Audit time limit reached.")] * 2 and took < 2.0, (ev, took)
+finally:
+    touchstone.MIN_CALL_SECONDS = real_min
+
+# 13l. The page states the active provider's limits.
+assert A.limits_line(*A.CAPS["groq"]) == ('<p class="meta">Up to 10 cited claims per audit (the first 10, '
+                                          'in report order). 5 audits per hour.</p>')
+assert "25 cited claims and 8 distinct source links" in A.limits_line(*A.CAPS["gemini"])
+with tempfile.TemporaryDirectory() as d:
+    d = Path(d)
+    (d / "index.html").write_text("<!--limits-->"); v = A.asset_versions(d)
+    assert "8 distinct source links" in A.versioned_index(d, v, "gemini")
+    assert "Up to 10 cited claims" in A.versioned_index(d, v, "groq") and "limits" not in A.versioned_index(d, v, "groq")
+assert "<!--limits-->" in open("static/index.html").read() and "Up to 10" not in open("static/index.html").read()
+
 # S3: a private address never reaches the browser, only "private address".
 r = F.fetch("http://10.0.0.1/x")
 assert r["status"] == "BLOCKED" and r["detail"] == "private address", r

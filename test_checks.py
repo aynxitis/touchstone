@@ -617,4 +617,53 @@ for claim_name, passage in [
         ("South Korea", "South Korean carmakers"), ("Corée du Sud", "les exportations sud-coréennes")]:
     assert named_in(claim_name, passage), (claim_name, passage)
 
+# Periods (quarters / halves) work like the year rule: the claim's period must be in the
+# quoted passage, the page title, a heading above it or the quoted row's table header, else
+# SOURCED is capped at COULDN'T CONFIRM (amber). A period mismatch alone is never red.
+from check_numbers import blocks_ctx as _bctx
+from quote_check import periods
+fact = lambda text, quote: {"text": text, "kind": "fact", "status": "stated", "quote": quote}
+row_report = ("| Brand / group | Q2 2025 shipment share | Annual trend |\n|---|---:|---|\n"
+              "| Samsung | 18% | +3% year over year [src](https://phones.example/q) |")
+(row, _urls, row_ctx), = _bctx(row_report)
+assert row == "Brand / group: Samsung; Q2 2025 shipment share: 18%; Annual trend: +3% year over year", row
+assert QC_own(row, row_ctx) == "Samsung; 18%; +3% year over year"       # headers are context
+q1_page = ("Smartphone market update\n"
+           "Samsung held an 18% share of smartphone shipments in Q1 2025, up 3% year over year.")
+q1_quote = "Samsung held an 18% share of smartphone shipments in Q1 2025, up 3% year over year."
+reply = {"parts": [fact("Samsung's Q2 2025 shipment share was 18%", q1_quote),
+                   fact("Samsung's shipments grew 3% year over year", q1_quote)]}
+r = judge(reply, row, q1_page, "https://phones.example/q", context=row_ctx)
+assert r["label"] == "COULDN'T CONFIRM" and "the period Q2 is not in its passage" in r["reason"], r
+# The model calling it contradicted ("Q1, not Q2") is still no red: Q1/Q2 is no figure conflict.
+reply_c = {"parts": [{**fact("Samsung's Q2 2025 shipment share was 18%", q1_quote), "status": "contradicted"}]}
+assert judge(reply_c, row, q1_page, "https://phones.example/q", context=row_ctx)["label"] not in (
+    "CONTRADICTED", "UNSUPPORTED")
+# A table whose header says Q2 2025: the period comes from the header row, SOURCED.
+q2_page = ("Smartphone shipments by vendor\n| Vendor | Q2 2025 share | YoY |\n| Samsung | 18% | +3% |\n"
+           "| Apple | 15% | -1% |")
+reply = {"parts": [fact("Samsung's Q2 2025 shipment share was 18%", "| Samsung | 18% | +3% |"),
+                   fact("Samsung's shipments grew 3% year over year", "| Samsung | 18% | +3% |")]}
+r = judge(reply, row, q2_page, "https://phones.example/q", context=row_ctx)
+assert r["label"] == "SOURCED", r
+# French: "T2 2025" in the claim, "deuxième trimestre 2025" in the passage.
+fr_claim = "Au T2 2025, les ventes de Renault ont atteint 412 000 véhicules."
+fr_quote = "Au deuxième trimestre 2025, Renault a vendu 412 000 véhicules dans le monde."
+fr_page = "Résultats commerciaux\n" + fr_quote
+r = judge({"parts": [fact("Les ventes de Renault ont atteint 412 000 véhicules au T2 2025", fr_quote)]},
+          fr_claim, fr_page, "https://renault.example/t2")
+assert r["label"] == "SOURCED", r
+assert periods("premier semestre 2025") == {("H", 1): "premier semestre"} and periods("H1 2025").keys() == {("H", 1)}
+assert periods("1er trimestre") == {("Q", 1): "1er trimestre"} and periods("second half of 2024") == {("H", 2): "second half"}
+assert periods("t2 FAQ2 Q22025 H3 third half") == {}
+# A period in the page title counts too.
+r = judge({"parts": [fact("Renault sold 412 000 vehicles in Q2 2025", "Renault sold 412 000 vehicles worldwide in 2025.")]},
+          "Renault sold 412 000 vehicles in Q2 2025.", "Renault sold 412 000 vehicles worldwide in 2025.",
+          "https://renault.example/t", meta={"title": "Renault Q2 2025 sales results", "headings": []})
+assert r["label"] == "SOURCED", r
+r = judge({"parts": [fact("Renault sold 412 000 vehicles in Q2 2025", "Renault sold 412 000 vehicles worldwide in 2025.")]},
+          "Renault sold 412 000 vehicles in Q2 2025.", "Renault sold 412 000 vehicles worldwide in 2025.",
+          "https://renault.example/t", meta={"title": "Renault Q3 2025 sales results", "headings": []})
+assert r["label"] == "COULDN'T CONFIRM" and "period Q2" in r["reason"], r
+
 print("check tests passed")

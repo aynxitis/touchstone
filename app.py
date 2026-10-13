@@ -27,11 +27,10 @@ from providers import make_client, make_provider, provider_name
 from touchstone import audit
 
 MAX_REPORT_CHARS = 20_000
-MAX_CLAIMS = 10               # ~1.5-2K Groq tokens per claim
 MAX_BODY_BYTES = 200_000       # reject before parsing; 20K chars of UTF-8 + JSON fits easily
 RATE_LIMIT, RATE_WINDOW = 5, 3600   # audits per IP per hour
 FREE_LIMIT = 30                # per IP per hour: link-less reports (no fetch, no model call)
-AUDIT_SECONDS = 300            # claims not started by then are marked NOT CHECKED
+AUDIT_SECONDS = 300            # hard wall clock per audit: fetches, PDF parsing, model calls
 HEARTBEAT_SECONDS = 15         # idle stream -> {"type":"heartbeat"} (Cloudflare cuts idle at ~100 s)
 # Behind a proxy (Railway), the socket peer is the proxy. CLIENT_IP_HEADER names the one header
 # the proxy sets to the real visitor IP (Railway: X-Real-IP; Cloudflare: CF-Connecting-IP). Never the
@@ -65,11 +64,18 @@ if not log.handlers:                             # uvicorn configures only its o
     log.setLevel(logging.INFO)
 # PROVIDER=groq (default) | gemini: see providers.py. Each has its own daily audit cap:
 # Groq GLOBAL_AUDITS_PER_DAY (7: ~20K tokens per audit vs 200K tokens/day); Gemini
-# GEMINI_AUDITS_PER_DAY (40: an audit sends one request per cited page, at most 10, and the
-# pacer keeps requests under 450 of the 500/day; 40 x 10 = 400 even in the worst case).
+# GEMINI_AUDITS_PER_DAY (40: an audit sends one request per cited page and 10 claims, at most
+# 8 pages: usually <= 8 requests, 40 x 8 = 320 of the pacer's 450/day. Worst case, 25 claims x
+# 3 sources piled on 3 pages, 14 requests: 40 x 14 = 560, so the pacer's RPD stop (450, under
+# Google's 500) is what holds the day then, not this cap).
 PROVIDER = provider_name()
 DAILY_LIMIT = int(os.environ.get("GLOBAL_AUDITS_PER_DAY" if PROVIDER == "groq" else "GEMINI_AUDITS_PER_DAY",
                                  "7" if PROVIDER == "groq" else "40"))
+# Per-audit caps. Groq: 10 claims (~1.5-2K tokens each, one call per claim and source).
+# Gemini: cost scales with distinct source URLs (one call per page, up to 10 claims per call),
+# so 25 claims but at most 8 URLs, counted in report order.
+CAPS = {"groq": (10, None), "gemini": (25, 8)}   # provider -> (claims, distinct URLs) per audit
+MAX_CLAIMS, MAX_URLS = CAPS[PROVIDER]
 DAILY_FULL = "Touchstone's free daily capacity is used up, try again tomorrow."
 MINUTE_FULL = "Touchstone is at its per-minute capacity right now. Try again in a minute."
 HEARTBEAT = json.dumps({"type": "heartbeat"}) + "\n"
@@ -79,6 +85,16 @@ HEARTBEAT = json.dumps({"type": "heartbeat"}) + "\n"
 # environment only and are never logged.
 client = make_client(PROVIDER)
 PACER = TokenPacer.for_provider(PROVIDER)   # the provider's minute/day, shared by audits
+def limits_line(max_claims, max_urls):
+    """The page's statement of the per-audit limits, for the active provider."""
+    if max_urls is None:
+        what = f"Up to {max_claims} cited claims per audit (the first {max_claims}, in report order)."
+    else:
+        what = (f"Up to {max_claims} cited claims and {max_urls} distinct source links per audit "
+                "(the first ones, in report order).")
+    return f'<p class="meta">{what} {RATE_LIMIT} audits per hour.</p>'
+
+
 PROVIDER_NOTE = {"gemini": '<p class="notice">Reports are processed by Google Gemini (free tier), which may use '
                            "inputs to improve Google's products. Don't paste anything private.</p>"}
 
@@ -101,9 +117,11 @@ def asset_versions(static_dir):
 def versioned_index(static_dir, versions, provider="groq"):
     """index.html with each /static/<name> reference rewritten to /static/<name>?v=<hash>.
     Same-origin URLs, so script-src 'self' / style-src 'self' still cover them. The
-    <!--provider-note--> marker becomes the provider's data-use line (Gemini), or nothing."""
+    <!--provider-note--> marker becomes the provider's data-use line (Gemini), or nothing;
+    <!--limits--> the provider's per-audit limits."""
     html = (static_dir / "index.html").read_text(encoding="utf-8")
     html = html.replace("<!--provider-note-->", PROVIDER_NOTE.get(provider, ""))
+    html = html.replace("<!--limits-->", limits_line(*CAPS[provider]))
     return ASSET_REF.sub(lambda m: f"{m[1]}/static/{m[2]}?v={versions[m[2]]}{m[3]}"
                          if m[2] in versions else m[0], html)
 
@@ -349,7 +367,7 @@ async def run_audit(request: Request):
                 return
             deadline = time.monotonic() + AUDIT_SECONDS
             counted = CountingClient(client)
-            events = audit(report, counted, max_claims=MAX_CLAIMS, deadline=deadline,
+            events = audit(report, counted, max_claims=MAX_CLAIMS, max_urls=MAX_URLS, deadline=deadline,
                            pacer=PACER, provider=make_provider(PROVIDER, counted))
             for ev in events:
                 if stop.is_set():

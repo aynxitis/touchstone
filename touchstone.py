@@ -2,11 +2,12 @@
 Used by the CLI (quote_check.py) and the web app (app.py)."""
 import math
 import re
+import threading
 import time
 from urllib.parse import parse_qsl, urlsplit
 
 from check_numbers import blocks_ctx
-from fetch_links import BOT_BLOCKED, fetch_many
+from fetch_links import BOT_BLOCKED, LATE, fetch_many
 from pacing import DAY_FULL, TokenPacer, retry_after
 from quote_check import best_excerpts, merge, quote_on_page
 
@@ -14,6 +15,7 @@ MAX_SOURCES = 3            # sources checked per claim: one claim must not fan o
                            # fetches/model calls (10 claims x 3 = at most 30 URLs per web audit)
 MAX_MINUTE_RETRIES = 5     # per claim, only without a deadline (CLI); with one, the deadline decides
 MAX_ERROR_RETRIES = 2      # timeouts, connection errors, 5xx: what the SDK's own retries did
+MIN_CALL_SECONDS = 3       # less than this before the deadline: the call isn't sent
 NOT_CHECKED_TIME = {"label": "NOT CHECKED", "quote": "", "reason": "Audit time limit reached.", "tokens": 0}
 NO_PASSAGE = {"label": "UNVERIFIED", "quote": "", "tokens": 0,
               "reason": "No relevant passage found on the page."}
@@ -56,10 +58,37 @@ def error_result(err):
             "reason": f"Model call failed ({type(err).__name__})."}
 
 
+class Late(Exception):
+    """A model call still running at the audit's deadline."""
+
+
+def bounded(call, seconds):
+    """call(seconds) in a daemon thread, waited for at most `seconds`: its result, its
+    exception, or Late. The call gets the same budget as its request timeout, so the SDK
+    closes the connection about when we stop waiting; the audit never waits past it."""
+    box = {}
+
+    def run():
+        try:
+            box["ok"] = call(seconds)
+        except BaseException as e:
+            box["err"] = e
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+    t.join(seconds)
+    if t.is_alive():
+        raise Late()
+    if "err" in box:
+        raise box["err"]
+    return box["ok"]
+
+
 def attempt(call, pacer, need, deadline, clock, sleep, n):
     """Run one model call with pacing and retries. A generator: yields "wait" events, and
-    returns (outcome, value): ("ok", result) | ("late", None) when a needed wait would pass
-    the deadline | ("quota", "day"|"minute") when the audit must stop | ("error", exception).
+    returns (outcome, value): ("ok", result) | ("late", "wait") when a needed wait would pass
+    the deadline | ("late", "time") when the deadline comes before or during the call |
+    ("quota", "day"|"minute") when the audit must stop | ("error", exception).
+    call(timeout): timeout = seconds left before the deadline (None without one).
       Proactive: wait until the call fits the provider's minute (tokens, requests); if
       today's requests are used up (RPD), stop as a daily quota.
       Reactive: a per-minute 429 waits what the provider asks, then resends the same call
@@ -72,13 +101,18 @@ def attempt(call, pacer, need, deadline, clock, sleep, n):
             return "quota", "day"
         if wait > 0:
             if deadline is not None and clock() + wait > deadline:
-                return "late", None
+                return "late", "wait"
             yield {"type": "wait", "seconds": math.ceil(wait), "claim": n}
             sleep(wait)
             continue
+        left = None if deadline is None else deadline - clock()
+        if left is not None and left < MIN_CALL_SECONDS:
+            return "late", "time"
         pacer.note_request()
         try:
-            return "ok", call()
+            return "ok", (call(None) if left is None else bounded(call, left))
+        except Late:
+            return "late", "time"
         except Exception as e:
             scope = quota_scope(e)
             if scope == "day" or (scope == "minute" and deadline is None
@@ -88,12 +122,14 @@ def attempt(call, pacer, need, deadline, clock, sleep, n):
                 minute_tries += 1
                 wait = retry_after(e)
                 if deadline is not None and clock() + wait > deadline:
-                    return "late", None
+                    return "late", "wait"
                 yield {"type": "wait", "seconds": math.ceil(wait), "claim": n}
                 sleep(wait)
                 continue
             if transient(e) and error_tries < MAX_ERROR_RETRIES:
                 error_tries += 1
+                if deadline is not None and clock() + error_tries + MIN_CALL_SECONDS > deadline:
+                    return "late", "time"        # e.g. the request timed out at the deadline
                 sleep(error_tries)
                 continue
             return "error", e
@@ -181,6 +217,21 @@ def add_pages(r, page):
 GONE = ("SOURCE UNREACHABLE", "NOT CHECKED")
 
 
+def over_limit(limit):
+    """NOT CHECKED entry for a source past a cap; `limit` names it ("limit of 3 per claim")."""
+    return {"label": "NOT CHECKED", "quote": "", "tokens": 0, "over_limit": limit,
+            "reason": limit[0].upper() + limit[1:] + "."}
+
+
+def over_reason(per):
+    """" 2 more sources not checked (limit of 3 per claim)." per cap that left some out."""
+    by = {}
+    for _, r in per:
+        if r.get("over_limit"):
+            by[r["over_limit"]] = by.get(r["over_limit"], 0) + 1
+    return "".join(f" {k} more source{'s' if k > 1 else ''} not checked ({lim})." for lim, k in by.items())
+
+
 def combine(claim, per, pages, context=""):
     """One claim result from its sources' results [(url, result)], in citation order.
     One source: that result unchanged (plus "sources"/"notes"). Several: labelled from the
@@ -209,9 +260,8 @@ def combine(claim, per, pages, context=""):
         out = ({"label": "SOURCE UNREACHABLE", "quote": "",
                 "reason": f"None of the {len(tried)} sources could be read."} if len(lost) == len(tried)
                else {**next(r for r in tried if r["label"] == "NOT CHECKED")})
-        over = len(per) - len(tried)
-        if over:
-            out["reason"] += f" {over} more source{'s' if over > 1 else ''} not checked (limit of {MAX_SOURCES} per claim)."
+        out.pop("over_limit", None)
+        out["reason"] += over_reason(per)
     elif len(usable) == 1:
         out = {k: v for k, v in usable[0][1].items() if k != "model"}
         for f in out.get("facts") or []:
@@ -221,10 +271,8 @@ def combine(claim, per, pages, context=""):
     if multi and usable:
         lost = sum(r["label"] == "SOURCE UNREACHABLE" for _, r in per)
         late = sum(r["label"] == "NOT CHECKED" and not r.get("over_limit") for _, r in per)
-        over = sum(bool(r.get("over_limit")) for _, r in per)
-        if over:
-            out["reason"] = (out.get("reason", "") + f" {over} more source{'s' if over > 1 else ''} "
-                             f"not checked (limit of {MAX_SOURCES} per claim).").strip()
+        if over := over_reason(per):
+            out["reason"] = (out.get("reason", "") + over).strip()
         if lost:
             out["reason"] = (out.get("reason", "") + f" {lost} of {len(per)} sources couldn't be read.").strip()
         if late:
@@ -239,15 +287,17 @@ def combine(claim, per, pages, context=""):
 
 
 def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
-          pacer=None, clock=time.monotonic, sleep=time.sleep, provider=None):
+          pacer=None, clock=time.monotonic, sleep=time.sleep, provider=None, max_urls=None):
     """Yield events as dicts:
-      {"type": "start", "cited", "checked", "uncited", "limit"}   limit = max_claims or None
+      {"type": "start", "cited", "checked", "uncited", "limit", "url_limit"}   limit =
+         max_claims or None; url_limit = max_urls or None
       {"type": "claim", "index", "claim", "text", "url", "urls", "label", "sources", "notes", ...}
          index = 1..checked; url = the first of urls (a claim may cite several); sources =
          [{url, label, reason, detail?, note?, model?}] one per URL, in citation order
          (uncited text comes as a claim event with claim None, index None, urls [])
-      {"type": "skipped", "claim", "text", "url", "urls", "label": "NOT CHECKED"}   cited but
-         over the cap / not in `only`; no fetch, no tokens
+      {"type": "skipped", "claim", "text", "url", "urls", "label": "NOT CHECKED", "reason"}
+         cited but over the claim cap, with every source past the URL cap, or not in `only`;
+         no fetch, no tokens
       {"type": "wait", "seconds", "claim"}   waiting for the provider's per-minute capacity
          (pacer or a per-minute 429), then the same call is (re)sent
       {"type": "quota", "scope": "day"|"minute", "checked"}   the provider refused (429): audit
@@ -256,13 +306,19 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
          deadline, waits that would pass it mark the rest NOT CHECKED instead)
       {"type": "done", "tokens"}
     pages: {url: fetch result dict}; if None, the selected claims' pages are fetched live.
-    deadline: clock() value; claims not started by then are marked NOT CHECKED.
+    max_urls: distinct source URLs per audit, counted in report order over the selected
+    claims (Gemini's cost scales with URLs, not claims). A claim keeps the sources inside the
+    cap; one with none inside it is skipped ("Limit of N sources per audit.").
+    deadline: clock() value, a hard wall clock for the whole audit: fetches (PDF parsing
+    included) still running are cancelled, a model call still running is abandoned with its
+    connection, and every claim not finished by then is NOT CHECKED ("Audit time limit
+    reached."). Results already yielded stay.
     pacer: TokenPacer shared across audits (app.py); None = a fresh one for the provider.
     clock/sleep are injectable so tests never really wait.
     provider: providers.Groq (default, wraps `client`: one call per claim and source) or
-    providers.Gemini (one call per cited page with all its chosen claims; a claim citing
-    several pages joins each page's call). Results are yielded one claim at a time, in report
-    order, each merged over its sources (combine())."""
+    providers.Gemini (one call per cited page with its chosen claims, at most
+    claims_per_call per call; a claim citing several pages joins each page's call). Results
+    are yielded one claim at a time, in report order, each merged over its sources (combine())."""
     from providers import Groq
     provider = provider or Groq(client)
     pacer = pacer or TokenPacer.for_provider(provider.name, clock=clock)
@@ -270,21 +326,27 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
     cited = [(t, us) for t, us, _ in segs if us]
     contexts = [c for _, us, c in segs if us]
     if only is not None:
-        chosen = {i - 1 for i in only}
+        chosen = {i - 1 for i in only if 0 < i <= len(cited)}
     elif max_claims is not None:
         chosen = select(cited, max_claims)
     else:
         chosen = set(range(len(cited)))
+    allowed, url_capped = None, set()
+    if max_urls is not None:
+        allowed = set(list(dict.fromkeys(u for i in sorted(chosen) for u in cited[i][1][:MAX_SOURCES]))[:max_urls])
+        url_capped = {i for i in chosen if not allowed.intersection(cited[i][1][:MAX_SOURCES])}
+        chosen -= url_capped
+    checks = lambda i: [u for u in cited[i][1][:MAX_SOURCES] if allowed is None or u in allowed]
     yield {"type": "start", "cited": len(cited), "checked": len(chosen),
-           "uncited": len(segs) - len(cited), "limit": max_claims}
+           "uncited": len(segs) - len(cited), "limit": max_claims, "url_limit": max_urls}
 
     if pages is None:
-        urls = list(dict.fromkeys(u for i in sorted(chosen) if i < len(cited)
-                                  for u in cited[i][1][:MAX_SOURCES]))
-        pages = dict(zip(urls, fetch_many(urls)))
+        urls = list(dict.fromkeys(u for i in sorted(chosen) for u in checks(i)))
+        pages = dict(zip(urls, fetch_many(urls, within=None if deadline is None else deadline - clock())))
 
     tokens, n, index, out_of_capacity = 0, 0, 0, False
     batch = {}          # Gemini: (claim number, url) -> result, filled one cited page at a time
+    per_call = getattr(provider, "claims_per_call", None) or 10**9
     for text, urls, context in segs:
         if not urls:      # uncited text: nothing to check, costs no tokens
             yield {"type": "claim", "index": None, "claim": None, "text": text, "url": None, "urls": [],
@@ -293,17 +355,23 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
             continue
         n += 1
         if n - 1 not in chosen:
+            reason = (f"Limit of {max_urls} sources per audit." if n - 1 in url_capped
+                      else f"Limit of {max_claims} claims per audit." if only is None and max_claims is not None
+                      else "")
             yield {"type": "skipped", "claim": n, "text": text, "url": urls[0], "urls": list(urls),
-                   "label": "NOT CHECKED"}
+                   "label": "NOT CHECKED", "reason": reason}
             continue
         index += 1
-        per = [(u, {"label": "NOT CHECKED", "quote": "", "tokens": 0, "over_limit": True,
-                    "reason": f"Limit of {MAX_SOURCES} sources per claim."}) for u in urls[MAX_SOURCES:]]
-        for url in urls[:MAX_SOURCES]:
+        res = {u: over_limit(f"limit of {MAX_SOURCES} per claim") for u in urls[MAX_SOURCES:]}
+        res |= {u: over_limit(f"limit of {max_urls} sources per audit")
+                for u in urls[:MAX_SOURCES] if u not in checks(n - 1)}
+        for url in checks(n - 1):
             page = pages.get(url) or {}
             meta = {"title": page.get("title"), "headings": page.get("headings")}
             if (n, url) in batch:
                 r = batch.pop((n, url))
+            elif page.get("status") == LATE:
+                r = dict(NOT_CHECKED_TIME)            # its fetch was cut off by the deadline
             elif not page.get("text"):
                 r = unreachable(page, url)
             elif out_of_capacity:
@@ -311,18 +379,25 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
             elif deadline is not None and clock() > deadline:
                 r = dict(NOT_CHECKED_TIME)
             elif provider.per_source:
-                # Gemini: this page's first claim. Send every remaining chosen claim citing it in
-                # one call; claims with no passage on the page are UNVERIFIED without the model.
-                group = [m for m in sorted(chosen) if m + 1 >= n and m < len(cited)
-                         and url in cited[m][1][:MAX_SOURCES] and (m + 1, url) not in batch]
+                # Gemini: this page's first claim. Send every remaining chosen claim citing it,
+                # claims_per_call per call; claims with no passage on the page are UNVERIFIED
+                # without the model.
+                group = [m for m in sorted(chosen) if m + 1 >= n and url in checks(m)
+                         and (m + 1, url) not in batch]
                 send = [m for m in group if best_excerpts(cited[m][0], page["text"])]
                 for m in group:
                     if m not in send:
                         batch[(m + 1, url)] = dict(NO_PASSAGE)
-                if send:
-                    claims = [cited[m][0] for m in send]
+                late = None
+                for k in range(0, len(send), per_call):
+                    part = send[k:k + per_call]
+                    if late:
+                        results = [dict(NOT_CHECKED_WAIT if late == "wait" else NOT_CHECKED_TIME) for _ in part]
+                        batch.update({(m + 1, url): res_ for m, res_ in zip(part, results)})
+                        continue
+                    claims = [cited[m][0] for m in part]
                     outcome, got = yield from attempt(
-                        lambda: provider.ask_source(claims, page["text"]), pacer,
+                        lambda t, claims=claims: provider.ask_source(claims, page["text"], t), pacer,
                         provider.estimate(claims, page["text"]), deadline, clock, sleep, n)
                     if outcome == "quota":
                         yield {"type": "quota", "scope": got, "checked": index - 1}
@@ -330,17 +405,19 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
                         return
                     if outcome == "ok":       # code checks outside the retries (C1)
                         results, used = provider.finish_source(got, claims, page["text"], url, meta,
-                                                               [contexts[m] for m in send])
+                                                               [contexts[m] for m in part])
                         pacer.record(used)
                     elif outcome == "late":
-                        out_of_capacity, results = True, [dict(NOT_CHECKED_WAIT) for _ in send]
+                        late = got
+                        out_of_capacity = out_of_capacity or got == "wait"
+                        results = [dict(NOT_CHECKED_WAIT if got == "wait" else NOT_CHECKED_TIME) for _ in part]
                     else:
-                        results = [error_result(got) for _ in send]
-                    batch.update({(m + 1, url): res for m, res in zip(send, results)})
+                        results = [error_result(got) for _ in part]
+                    batch.update({(m + 1, url): res_ for m, res_ in zip(part, results)})
                 r = batch.pop((n, url))
             else:
                 outcome, got = yield from attempt(
-                    lambda: provider.ask(text, page["text"]), pacer, None,
+                    lambda t: provider.ask(text, page["text"], t), pacer, None,
                     deadline, clock, sleep, n)
                 if outcome == "quota":
                     # Out of capacity: every later claim would fail the same way. Stop cleanly
@@ -349,14 +426,15 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
                     yield {"type": "done", "tokens": tokens}
                     return
                 if outcome == "late":
-                    out_of_capacity, r = True, dict(NOT_CHECKED_WAIT)
+                    out_of_capacity = out_of_capacity or got == "wait"
+                    r = dict(NOT_CHECKED_WAIT if got == "wait" else NOT_CHECKED_TIME)
                 else:
                     # code checks outside the retries (C1): their bugs are never retried
                     r = (provider.finish(got, text, page["text"], url, meta, context) if outcome == "ok"
                          else error_result(got))
                 pacer.record(r["tokens"])
-            per.insert(len(per) - len(urls[MAX_SOURCES:]), (url, r))
-        r = combine(text, per, pages, context)
+            res[url] = r
+        r = combine(text, [(u, res[u]) for u in urls], pages, context)
         tokens += r["tokens"]
         yield {"type": "claim", "index": index, "claim": n, "text": text, "url": urls[0],
                "urls": list(urls), **r}

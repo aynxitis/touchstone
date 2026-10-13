@@ -95,9 +95,10 @@ assert ev["detail"] == "BLOCKED " + F.BOT_BLOCKED and "HTTP" not in ev["reason"]
 report = "\n".join(f"- Claim {i} {'has no figures' if i == 5 else f'says {i * 11}%'} https://example.com/{i}"
                    for i in range(1, 12))
 events = list(audit(report, None, pages={}, max_claims=10))
-assert events[0] == {"type": "start", "cited": 11, "checked": 10, "uncited": 0, "limit": 10}, events[0]
+assert events[0] == {"type": "start", "cited": 11, "checked": 10, "uncited": 0, "limit": 10, "url_limit": None}, events[0]
 assert [e["claim"] for e in events if e["type"] == "claim"] == list(range(1, 11))
-assert [(e["claim"], e["label"]) for e in events if e["type"] == "skipped"] == [(11, "NOT CHECKED")]
+assert [(e["claim"], e["label"], e["reason"]) for e in events if e["type"] == "skipped"] == [
+    (11, "NOT CHECKED", "Limit of 10 claims per audit.")]
 
 # report3 (regression set, labels3.json): 18 cited claims; claim 5 (transport, no digits) was
 # skipped in production by the old numbers-first cap. Report order checks claims 1-10.
@@ -155,10 +156,10 @@ want5 = [
     ("Improved Brazilian crop outlook.", (cmr("0226"),)),
     ("Better rainfall in Vietnam.", (cmr("0226"),)),
     ("More export supply.", (cmr("0126"),)),
-    ("Month: March 2026 — Global benchmark: 273.70¢/lb — Monthly change: +2.3%", (cmr("0326"), "https://ico.org/")),
-    ("Month: April 2026 — Global benchmark: 266.24¢/lb — Monthly change: −2.7%", (cmr("0326"), "https://ico.org/")),
-    ("Month: August 2026 — Global benchmark: 287.29¢/lb — Monthly change: Essentially unchanged", (cmr("0326"), "https://ico.org/")),
-    ("Month: September 2026 — Global benchmark: 262.18¢/lb — Monthly change: −8.7%", (cmr("0326"), "https://ico.org/")),
+    ("Month: March 2026; Global benchmark: 273.70¢/lb; Monthly change: +2.3%", (cmr("0326"), "https://ico.org/")),
+    ("Month: April 2026; Global benchmark: 266.24¢/lb; Monthly change: −2.7%", (cmr("0326"), "https://ico.org/")),
+    ("Month: August 2026; Global benchmark: 287.29¢/lb; Monthly change: Essentially unchanged", (cmr("0326"), "https://ico.org/")),
+    ("Month: September 2026; Global benchmark: 262.18¢/lb; Monthly change: −8.7%", (cmr("0326"), "https://ico.org/")),
     ("Selected monthly averages of the ICO Composite Indicator Price", ("https://ico.org/resources/public-market-information/",)),
     ("Three distinctions matter:", (cmr("0226"),)),
 ]
@@ -231,5 +232,32 @@ assert copy_cleanup("Text [s](https://e.com/a).\n![i](https://g.com/s2/favicons?
     "Text [s](https://e.com/a)."
 for junk in ("[a](https://" + "x" * 1990 + " " ) * 40, "[a](https://x" * 5000, "[](https://" * 8000:
     t0 = _t.time(); copy_cleanup(junk); assert _t.time() - t0 < 1, junk[:20]
+
+# Table rows keep their column headers: every cell paired with its header, the citation never
+# inside a cell value, empty header cells / alignment rows / short rows handled; one claim per
+# cited row with all its links; headers are the claim's context (coverage doesn't ask for them).
+from check_numbers import blocks_ctx
+tbl = "\n".join([
+    "| Brand / group | Q2 2025 shipment share | Annual trend | Source |",
+    "|:--------------|------------------:|:---:|---|",
+    "| Samsung | 18% | +3% year over year [src](https://a.example/1) | |",
+    "| | 12% | -2% | [IDC](https://b.example/2) |",
+    "| Xiaomi | 14% [x](https://c.example/3) |",
+    "| Apple [a](https://d.example/4) | 15% ([note](https://e.example/5)) | — |"])
+got = [(t, us) for t, us, _ in blocks_ctx(tbl)]
+assert got == [
+    ("Brand / group: Samsung; Q2 2025 shipment share: 18%; Annual trend: +3% year over year", ("https://a.example/1",)),
+    ("Q2 2025 shipment share: 12%; Annual trend: -2%", ("https://b.example/2",)),
+    ("Brand / group: Xiaomi; Q2 2025 shipment share: 14%", ("https://c.example/3",)),
+    ("Brand / group: Apple; Q2 2025 shipment share: 15%", ("https://d.example/4", "https://e.example/5")),
+], got
+assert blocks_ctx(tbl)[0][2] == "Brand / group\nQ2 2025 shipment share\nAnnual trend"
+# An empty header cell: that column's value stands alone; extra cells beyond the header too.
+got = [t for t, _, _ in blocks_ctx("| | Units |\n|---|---|\n| Renault 5 | 67 625 | extra https://f.example/6 |")]
+assert got == ["Renault 5; Units: 67 625; extra"], got
+# No separator row: no header, the old " — " join; a blank line ends a table's header.
+assert [t for t, _, _ in blocks_ctx("| Tesla | 238,656 https://g.example/7 |")] == ["Tesla \u2014 238,656"]
+got = [t for t, _, _ in blocks_ctx("| Brand | Sales |\n|---|---|\n\n| Kia | 9% https://h.example/8 |")]
+assert got == ["Kia \u2014 9%"], got
 
 print("parsing checks passed")

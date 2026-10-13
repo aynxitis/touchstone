@@ -129,11 +129,11 @@ assert unreachable({"status": "PDF_ERROR", "detail": P.TOO_BIG}, "u")["reason"] 
 
 # Time limit through fetch: a slow parse is reported, the fetch returns.
 real_seconds = P.PDF_SECONDS
-P.extract.__defaults__ = (0.05, P.PDF_MEMORY_MB)
+P.extract_async.__defaults__ = (0.05, P.PDF_MEMORY_MB)
 try:
     slow = fetch_fixture(SAMPLE, {"content-type": "application/pdf"})
 finally:
-    P.extract.__defaults__ = (real_seconds, P.PDF_MEMORY_MB)
+    P.extract_async.__defaults__ = (real_seconds, P.PDF_MEMORY_MB)
 assert (slow["status"], slow["detail"]) == ("PDF_ERROR", P.TOO_SLOW), slow
 
 # 7. Quotes from a PDF get their page number.
@@ -166,5 +166,56 @@ if os.path.exists(ICO_FILE):
     assert P.page_number(text.index("Table 3: World Supply/Demand Balance"), ico["page_starts"]) == 11
     assert "308.62" in text and "179.73" in text and "330.89" in text     # report5's Arabica/Robusta claim
     assert "ﬁ" not in text                                           # ligatures unfolded
+
+# 8. Audit deadline: a PDF parse still running is killed when its fetch is cancelled, and
+#    PARSE_LOCK (one parse at a time, process-wide) is released; waiting for the lock is
+#    cancellable too, so another audit's slow PDF can't hold this one past its deadline.
+import sys
+real_spawn, children = asyncio.create_subprocess_exec, []
+async def hanging_child(*a, **k):
+    proc = await real_spawn(sys.executable, "-c", "import time; time.sleep(60)", **k)
+    children.append(proc)
+    return proc
+asyncio.create_subprocess_exec = hanging_child
+try:
+    async def cancel_mid_parse():
+        task = asyncio.create_task(P.extract_async(SAMPLE))
+        await asyncio.sleep(0.5)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            return True
+    t0 = time.monotonic()
+    assert asyncio.run(cancel_mid_parse()) and time.monotonic() - t0 < 3
+    assert children[0].returncode is not None, "child left running"          # killed
+    assert P.PARSE_LOCK.acquire(blocking=False); P.PARSE_LOCK.release()       # lock released
+    # Through fetch_many's deadline: the PDF comes back LATE, not after its 20 s parse.
+    real = (F.check_url, F.peer_ok, httpx.AsyncClient)
+    async def ok(u): return True, "", ipaddress.ip_address("93.184.215.14")
+    F.check_url, F.peer_ok = ok, lambda r: True
+    F.httpx.AsyncClient = lambda **k: real[2](transport=httpx.MockTransport(
+        lambda req: httpx.Response(200, headers={"content-type": "application/pdf"}, content=SAMPLE)), **k)
+    try:
+        t0 = time.monotonic()
+        late = F.fetch_many(["https://example.org/report.pdf"], within=0.8)[0]
+        took = time.monotonic() - t0
+    finally:
+        F.check_url, F.peer_ok, F.httpx.AsyncClient = real
+    assert late["status"] == F.LATE and took < 2.5, (late, took)
+    assert all(c.returncode is not None for c in children) and len(children) == 2
+finally:
+    asyncio.create_subprocess_exec = real_spawn
+assert P.PARSE_LOCK.acquire(blocking=False)                    # another parse holds the lock...
+try:
+    async def wait_for_lock():
+        try:
+            await asyncio.wait_for(P.extract_async(SAMPLE), 0.3)
+        except TimeoutError:
+            return True
+    assert asyncio.run(wait_for_lock())                        # ...this one gives up on time
+finally:
+    P.PARSE_LOCK.release()
+assert "267.57" in P.extract(SAMPLE)["text"]                   # and nothing was left holding it
 
 print("pdf checks passed")

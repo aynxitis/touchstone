@@ -199,11 +199,12 @@ with `https://touchstone.aynx.dev`. With `REQUIRE_PROXY_SECRET=1`, only `URL/hea
    relevant passage found on the page.") before any model call: no Groq tokens, and the
    daily cap is not touched (it counts an audit at its first model call). It does use one of
    your IP's 5 audits per hour. You should see:
-   - summary "Checked 10 of 11 claims: 10 unverified", and under it "Checked the first 10 of
-     11 cited claims, in report order. The rest are listed below as not checked.";
-   - ten UNVERIFIED cards (Claims 1-10);
-   - below them a collapsed "+ Not checked (limit of 10 per audit): 1 claim" that opens to
-     "Claim 11: Wuzzle crantop 48281".
+   - PROVIDER=gemini (25 claims, 8 sources per audit): "11 claims checked: 11 unverified" and
+     eleven UNVERIFIED cards (Claims 1-11), no "Not checked" list;
+   - PROVIDER=groq (10 claims): summary "Checked 10 of 11 claims: 10 unverified", and under it
+     "Checked 10 of 11 cited claims, in report order. The rest are listed below as not
+     checked."; ten UNVERIFIED cards (Claims 1-10); below them a collapsed "+ Not checked
+     (limit of 10 claims per audit): 1 claim" that opens to "Claim 11: Wuzzle crantop 48281".
    If the old wording shows ("claims with numbers first", no Not checked list), the browser
    is running a cached app.js: view the page source; the script tag must read
    `/static/app.js?v=<12 hex chars>`.

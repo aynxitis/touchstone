@@ -15,6 +15,7 @@ import locnum
 from locnum import NUMBER_RE
 
 MODEL = "openai/gpt-oss-120b"
+GROQ_TIMEOUT = 30          # seconds per request (the client default; shorter near the audit deadline)
 MAX_EXCERPT_CHARS = 3000   # keeps each call well under Groq's 8K tokens/minute
 STOPWORDS = {"the", "and", "for", "with", "that", "this", "from", "are", "was", "its",
              "per", "can", "not", "but", "one", "has", "have", "about", "than", "they",
@@ -286,8 +287,16 @@ def is_evaluative(text, names=()):
 def numbers_not_in(text, passage, min_digits=2, euro=None):
     """Numbers in text (min_digits+ digits), as written, that are neither in the passage in
     any locale format (2,585,187 = 2 585 187; 29.7 = 29,7; locnum.py) nor a unit-scaled form
-    of a passage number (15.9 GW = 15,925 MW; units.py)."""
+    of a passage number (15.9 GW = 15,925 MW; units.py). Period codes ("Q2", "T2", "H1",
+    "1er trimestre") are not numbers: period_caps() checks them, amber at worst, so "Q2" vs a
+    passage's "Q1" is never a figure conflict."""
+    text, passage = unperiod(text), unperiod(passage)
     return locnum.missing(text, passage, min_digits, scaled=unit_supported(text, passage, euro), euro=euro)
+
+
+def unperiod(text):
+    """The text with its period codes / ordinal period words blanked out (see periods())."""
+    return PERIOD_WORDS.sub(" ", PERIOD_CODE.sub(" ", text))
 
 
 def is_year(token):
@@ -329,6 +338,53 @@ def year_context(quote, page, meta=None):
 
 
 DIGIT_WORDS = "zero one two three four five six seven eight nine".split()
+
+# Periods within a year, checked like years: "Q2 2025" in a claim must be in the passage, the
+# page title, a heading above it or its table header, else SOURCED is capped at COULDN'T
+# CONFIRM (amber; a period alone never makes a claim red). Q2 = T2 = "second quarter" =
+# "deuxième trimestre"; H1 = "first half" = "premier semestre". Codes are case-sensitive
+# ("t2" is not a quarter). Linear: no nested repetition.
+PERIOD_CODE = re.compile(r"\b(?:([QT])([1-4])|(H)([12])|([1-4])Q(?:\d{4}|\d{2})?)(?![0-9A-Za-z])")
+PERIOD_WORDS = re.compile(
+    r"\b(first|second|third|fourth|1st|2nd|3rd|4th|premier|1er|second|deuxi[eè]me|troisi[eè]me|"
+    r"quatri[eè]me|[234]e|[234][eè]me)[\s-]{1,3}(quarter|half|trimestre|semestre)\b", re.I)
+ORDINALS = {"first": 1, "1st": 1, "premier": 1, "1er": 1, "second": 2, "2nd": 2, "deuxieme": 2,
+            "2e": 2, "2eme": 2, "third": 3, "3rd": 3, "troisieme": 3, "3e": 3, "3eme": 3,
+            "fourth": 4, "4th": 4, "quatrieme": 4, "4e": 4, "4eme": 4}
+PERIOD_CAP = "Quote found, but the period"
+
+
+def periods(text):
+    """{("Q"|"H", n): the period as written} for the quarters and halves the text names."""
+    out = {}
+    for m in PERIOD_CODE.finditer(text):
+        key = ("Q", int(m[2])) if m[1] else ("H", int(m[4])) if m[3] else ("Q", int(m[5]))
+        out.setdefault(key, m.group())
+    for m in PERIOD_WORDS.finditer(text):
+        n, unit = ORDINALS[fold(m[1])], m[2].lower()
+        if unit in ("half", "semestre") and n > 2:
+            continue
+        out.setdefault(("Q" if unit in ("quarter", "trimestre") else "H", n), " ".join(m.group().split()))
+    return out
+
+
+def period_caps(claim, facts, page, meta=None):
+    """Reason SOURCED is capped when the claim names a quarter or half (Q2, H1, T2, "second
+    quarter", "premier semestre"...) that none of its stated facts' passages shows: not in
+    the quote's paragraph, the page title, the headings above it, or the quoted row's table
+    header / caption (year_context). Empty if no period, or no stated fact to look at."""
+    want = periods(claim)
+    quotes = [f["quote"] for f in facts if f["status"] == "stated" and f.get("quote")]
+    if not want or not quotes:
+        return []
+    seen = set()
+    for q in quotes:
+        seen |= periods(year_context(q, page, meta)).keys()
+    gone = [w for k, w in want.items() if k not in seen]
+    if not gone:
+        return []
+    return [f"{PERIOD_CAP} {', '.join(gone)} is not in its passage, the page title, a heading "
+            "above it or its table header."]
 
 
 def numbers_not_in_passage(fact, quote, page, meta=None):
@@ -482,9 +538,19 @@ def content_words(text):
 
 
 def own_text(claim, context=""):
-    """The claim without its lead-in context (check_numbers.blocks_ctx): the bullet, sentence
-    or row itself."""
-    return claim[len(context):].strip() if context and claim.startswith(context) else claim
+    """The claim without its context (check_numbers.blocks_ctx): a list lead-in (a prefix of
+    the claim) or a table row's column headers (one label per line, each written "Label: "
+    before its cell): the bullet, sentence or row values themselves."""
+    if not context:
+        return claim
+    if claim.startswith(context) and claim[len(context):len(context) + 1] in ("", " "):
+        return claim[len(context):].strip()
+    labels = context.split("\n")
+    out = []
+    for part in claim.split("; "):
+        label = next((l for l in labels if part.startswith(l + ": ")), None)
+        out.append(part[len(label) + 2:] if label else part)
+    return "; ".join(out)
 
 
 # Cheap language guess for the coverage cap: share of common function words. A French claim
@@ -553,9 +619,10 @@ def check(client, claim, page, url="", meta=None, context=""):
     return finish(ask(client, claim, page), claim, page, url, meta, context)
 
 
-def ask(client, claim, page):
+def ask(client, claim, page, timeout=None):
     """The model-call half of check(), the only part worth retrying: (parsed reply, raw text,
-    tokens), or None when the page has no passage for the claim (no call made)."""
+    tokens), or None when the page has no passage for the claim (no call made). timeout:
+    seconds left before the audit's deadline (the request is abandoned after it)."""
     excerpts = best_excerpts(claim, page)
     if not excerpts:
         return None
@@ -563,7 +630,8 @@ def ask(client, claim, page):
     resp = client.chat.completions.create(
         model=MODEL, temperature=0, seed=0, reasoning_effort="low",   # seed: best-effort repeatability
         messages=[{"role": "system", "content": SYSTEM},
-                  {"role": "user", "content": user}])
+                  {"role": "user", "content": user}],
+        **({"timeout": max(1.0, min(GROQ_TIMEOUT, timeout))} if timeout is not None else {}))
     raw = resp.choices[0].message.content or ""
     m = re.search(r"\{.*\}", raw, re.S)
     try:
@@ -667,7 +735,8 @@ def judge(out, claim, page, url="", raw="", meta=None, context=""):
 
     # Coverage after the checks: only quotes still attached to a fact are verified.
     caps = coverage_caps(claim, [x["text"] for x in parts_in], context,
-                         [f["quote"] for f in facts if f.get("quote")]) + too_many
+                         [f["quote"] for f in facts if f.get("quote")]) + too_many + period_caps(
+        claim, facts, page, meta)
     v = verdict(facts, framing, demoted, missing_numbers(claim, page), bool(out), raw,
                 caps if facts else ())
     return {**v, "facts": facts, "framing": framing, "caps": caps if facts else [],
@@ -779,6 +848,11 @@ def merge(claim, results, texts, context=""):
     quotes = [f["quote"] for _, r in with_facts for f in r["facts"] if f.get("quote")]
     caps = (coverage_caps(claim, parts, context, quotes) if parts else []) + list(dict.fromkeys(
         c for _, r in with_facts for c in r.get("caps") or [] if c.startswith(TOO_MANY))) + disagree
+    # Period: capped only if no source stating a fact shows the claim's quarter / half.
+    stating = [r for _, r in with_facts if any(f["status"] == "stated" for f in r["facts"])]
+    per_src = [[c for c in r.get("caps") or [] if c.startswith(PERIOD_CAP)] for r in stating]
+    if stating and all(per_src):
+        caps.append(per_src[0][0])
     v = verdict(facts, base["framing"], demoted, missing_numbers(claim, "\n".join(texts)), caps=caps)
     return {**v, "facts": facts, "framing": base["framing"], "caps": caps,
             **({"disagree": disagree} if disagree else {})}
@@ -811,7 +885,7 @@ def main():
     ap.add_argument("--cache", default="fetch_results.json",
                     help="page cache: read, missing pages fetched and added (never commit it)")
     ap.add_argument("--out", help="also save the run as JSON (download format), e.g. runs/r4_gemini.json")
-    ap.add_argument("--max-claims", type=int, help="like the web app's cap (10): first N in report order")
+    ap.add_argument("--max-claims", type=int, help="like the web app's cap (Groq 10, Gemini 25): first N in report order")
     ap.add_argument("--show-raw", action="store_true", help="print the model's raw replies (Gemini)")
     args = ap.parse_args()
     only = {int(n) for n in args.claims.split(",")} if args.claims else None

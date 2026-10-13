@@ -12,7 +12,8 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    URL served as octet-stream. Hostile input: 15 MB download cap (Content-Length and while
    streaming), first 60 pages, parsed in a child process (`python -I pdf_text.py`) with
    RLIMIT_AS 512 MB + RLIMIT_CPU 20 s, killed after 20 s wall clock, one parse at a time
-   (PARSE_LOCK), outside the 30 s download clock. Encrypted (non-empty user password) ->
+   process-wide (PARSE_LOCK, polled so the wait is cancellable; async subprocess killed when
+   its fetch is cancelled at the audit deadline), outside the 30 s download clock. Encrypted (non-empty user password) ->
    "PDF is password-protected"; < 200 chars -> "PDF has no extractable text (likely
    scanned)". Lines are rejoined into paragraphs (prose lines 60+ chars; table rows and
    bullets never joined); "page_starts" keeps each page's offset so quotes show "p. N".
@@ -28,7 +29,7 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    number headings "# 354.32¢/lb"; numbered/year-led titles are not stats) becomes one claim
    per value ("February 2025 monthly average: 354.32¢/lb — US dollars: $3.54 per pound"); a
    "Source:"/"Sources:" line gives ALL its links to the block right above it (paragraph, stat
-   block + a one-line caption under it, table: every row "Header: cell — ...", list: every
+   block + a one-line caption under it, table: every row "Header: cell; Header: cell", list: every
    item; an INDENTED source line under a list goes to the last bullet only); French spacing
    "Source :" / "Sources :" (space, NBSP, U+202F) counts; text after its last link is a claim
    with those sources, the source name before them is not. blocks() returns (text, urls tuple); segments() = first URL only (app's
@@ -96,6 +97,21 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    lack them, so years there are only found in the passage/table (stricter, amber).
    Any "unconfirmed" or "possible" fact keeps a claim from SOURCED (at best COULDN'T CONFIRM). judge() is the code-only half of
    check() (model reply -> label), so saved runs can be re-scored with zero tokens.
+   Table rows (2026-10-13): a cited row "| Samsung | 18% | +3% [src](url) |" under "| Brand |
+   Q2 2025 share | Trend |" + separator is ONE claim with all the row's links, every cell
+   paired with its header: "Brand: Samsung; Q2 2025 share: 18%; Trend: +3%" (row_text;
+   links stripped from cells, a link-only cell drops its column, empty header -> value alone,
+   short rows pair what they have, "—" cells empty, minus signs kept; no separator row ->
+   old " — " join; a blank line ends the header). Context = the header labels, one per line:
+   own_text() strips "Label: ", so coverage asks only for the row's values.
+   Period rule (2026-10-13, like years): Q1-Q4, H1/H2, T1-T4 (case-sensitive), 2Q25,
+   "first/second... quarter|half", "premier/1er/deuxième/2e... trimestre|semestre" (one key:
+   T2 = Q2 = "deuxième trimestre") in the claim must be in a stated fact's year_context
+   (quote, paragraph, title, heading path, table header/caption), else SOURCED -> COULDN'T
+   CONFIRM "Quote found, but the period Q2 is not in ...". Amber only: period codes are
+   blanked in numbers_not_in (Q1 vs Q2 is never a value conflict, "2" of "Q2" never a
+   key-term number) and are never names (entities GENERIC). merge(): capped only if every
+   source stating a fact has the cap.
    Name check (entities.py, code-only): a "stated" fact's names (only the claim's names that
    appear in the fact's own text, plus the claim's lead name if the fact opens with It/The
    company) must be in the quote's paragraph or be the page's subject (2+ paragraphs);
@@ -151,8 +167,9 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
 3b. providers.py: PROVIDER=groq (default) | gemini (env; set per deployment, never default
    to gemini). Groq: one call per claim, ~3,000 chars of excerpts (unchanged). Gemini
    (gemini-3.5-flash-lite, verified in Google's model list 2026-10-09; google-genai SDK,
-   temperature 0, seed 0, JSON with a response schema): ONE call per cited page with every
-   chosen claim citing it, the page text whole up to 100K chars (page_for_model: longer pages
+   temperature 0, seed 0, JSON with a response schema, max_output_tokens 32,768 of the
+   model's 65,536, thinking on by default and counted in it): ONE call per cited page with
+   every chosen claim citing it, in chunks of CLAIMS_PER_CALL (10) claims, the page text whole up to 100K chars (page_for_model: longer pages
    keep the claims' anchor passages and grow around them, "[...]" for gaps; lines verbatim
    so quotes verify). Prompt: SYSTEM_MULTI = same PREAMBLE + RULES as Groq's SYSTEM (shared
    verbatim; Groq's text is byte-identical), only the task statement asks for
@@ -169,12 +186,22 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    report4 estimate (first 10 claims): Gemini 2 requests, ~12.6K tokens; Groq 10 requests,
    ~17K tokens. Smoke test 2026-10-09 (2 claims, IANA page): 1 request, 798 tokens.
 4. touchstone.py: audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
-   pacer=None, clock, sleep, provider=None)
+   pacer=None, clock, sleep, provider=None, max_urls=None)
+   max_urls (2026-10-13, Gemini 8): distinct source URLs per audit, counted in report order
+   over the chosen claims; a claim with none inside -> skipped, reason "Limit of 8 sources per
+   audit."; one with some -> checked against those, the rest NOT CHECKED in its sources
+   ("1 more source not checked (limit of 8 sources per audit)."). Skipped events carry
+   "reason"; start carries "url_limit".
+   deadline = HARD wall clock (2026-10-13): fetch_many(within=left) cancels unfinished
+   fetches (status LATE -> NOT CHECKED "Audit time limit reached."), PDF children killed;
+   each model call runs in a thread (bounded()) with its request timeout = time left (Groq
+   timeout=, Gemini http_options), abandoned at the deadline; < MIN_CALL_SECONDS (3) left ->
+   not sent. Remaining claims/chunks NOT CHECKED "Audit time limit reached."
    is the importable pipeline. Multi-source claims (2026-10-10): the first MAX_SOURCES (3)
    sources of a claim (report order) are fetched and checked, the rest listed as NOT CHECKED
    and never fetched; the reason ends "N more source(s) not checked (limit of 3 per claim)": without the cap one claim line with 1,000 URLs made the server
    fetch them all (security review, SSRF/quota amplification); a web audit fetches at most
-   10 x 3 = 30 URLs. Each reachable source is
+   10 x 3 = 30 URLs (Groq), 8 (Gemini). Each reachable source is
    checked (Groq: one call per claim AND source; Gemini: the claim joins each page's call),
    then combine(): one source -> its result unchanged; several -> quote_check.merge(): the
    most-supported source's fact list, each fact taking the best status any source gives the
@@ -203,11 +230,13 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    returns report2.txt. PROVIDER=gemini renders a plain bordered line (.notice) under the input,
    server-side into index.html (no endpoint, no keys): "Reports are processed by Google Gemini
    (free tier), which may use inputs to improve Google's products. Don't paste anything
-   private." Groq shows nothing. Limits: 20,000 chars, 10 cited claims (first 10 in report order; the
-   rest stream as "skipped" and show collapsed as "Not checked (limit of 10 per audit)", and
-   the summary says "Checked X of N claims"),
-   5 audits/IP/hour (IPv6: per /64) + GLOBAL_AUDITS_PER_DAY (7, UTC day, counted at an audit's first model call; in memory), one audit at a time (Groq TPM), 300 s per audit (later claims
-   -> NOT CHECKED), a {"type":"heartbeat"} line after 15 s of stream silence (the audit runs in
+   private." Groq shows nothing. Limits: 20,000 chars, app.CAPS per provider: Groq 10 cited claims,
+   Gemini 25 claims + 8 distinct URLs (report order; the rest stream as "skipped" with their
+   reason, shown collapsed as "Not checked (limit of 25 claims per audit; limit of 8 sources
+   per audit): N claims", and the summary says "Checked X of N claims"; the page's limits
+   line is rendered server-side at <!--limits--> by limits_line()),
+   5 audits/IP/hour (IPv6: per /64) + GLOBAL_AUDITS_PER_DAY (7, UTC day, counted at an audit's first model call; in memory), one audit at a time (Groq TPM), 300 s hard wall clock per audit
+   (fetching, PDF parsing, model calls; see 4), a {"type":"heartbeat"} line after 15 s of stream silence (the audit runs in
    its own thread, which owns the busy lock; app.js ignores heartbeats), 30 s Groq timeout; fetches: connect 15 s, read 15 s, 30 s hard wall clock per attempt (async,
    cancelled on expiry), a timed-out fetch retried once with read 30 s, both attempts within
    45 s per URL (2026-10-11; 30 URLs x 8 parallel <= 180 s) + 3 MB per fetched page. Strict CSP header.

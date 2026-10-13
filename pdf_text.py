@@ -2,15 +2,17 @@
 
 pypdf (pure Python, maintained, no native dependencies) parses in a child process
 (`python -I pdf_text.py`) that sets its own limits before reading a byte: address space
-PDF_MEMORY_MB, CPU PDF_SECONDS. The parent kills it after PDF_SECONDS of wall clock and lets
-one PDF parse at a time (PARSE_LOCK), so a PDF bomb can only crash its own child, never the
-single web worker (Railway: 1 GB). Only the first PDF_MAX_PAGES pages are read.
+PDF_MEMORY_MB, CPU PDF_SECONDS. The parent kills it after PDF_SECONDS of wall clock, or at
+once if the fetch is cancelled (the audit's deadline), and lets one PDF parse at a time
+process-wide (PARSE_LOCK), so a PDF bomb can only crash its own child, never the single web
+worker (Railway: 1 GB). Waiting for the lock is cancellable too, so no PDF can hold an audit
+past its deadline. Only the first PDF_MAX_PAGES pages are read.
 
 Text comes back per page; lines are rejoined into paragraphs (pypdf hard-wraps them), and
 page_starts[i] is the character offset where page i+1 begins, so a quote can show "p. 3"."""
+import asyncio
 import json
 import os
-import subprocess
 import sys
 import threading
 
@@ -21,6 +23,7 @@ PDF_MEMORY_MB = 512            # child address space (pypdf on a 12-page report:
 PDF_MAX_CHARS = 600_000        # text kept from one PDF
 MIN_PDF_CHARS = 200            # less than this = no extractable text (scanned)
 PARSE_LOCK = threading.Lock()  # one parse at a time: memory caps don't add up past 1 GB
+LOCK_POLL = 0.05               # seconds between tries for PARSE_LOCK (polling stays cancellable)
 LIGATURES = {"ﬀ": "ff", "ﬁ": "fi", "ﬂ": "fl", "ﬃ": "ffi", "ﬄ": "ffl"}
 
 LOCKED = "PDF is password-protected"
@@ -110,23 +113,48 @@ def child():
 
 
 def extract(body, seconds=PDF_SECONDS, memory_mb=PDF_MEMORY_MB):
-    """{"text", "page_starts", "pages", "title"} or {"error": reason}. Never raises."""
+    """extract_async() for synchronous callers (tests, scripts)."""
+    return asyncio.run(extract_async(body, seconds, memory_mb))
+
+
+async def extract_async(body, seconds=PDF_SECONDS, memory_mb=PDF_MEMORY_MB):
+    """{"text", "page_starts", "pages", "title"} or {"error": reason}. Never raises, except
+    CancelledError: a cancelled parse kills its child and releases PARSE_LOCK first."""
     if not body.lstrip()[:1024].startswith(b"%PDF") and b"%PDF-" not in body[:1024]:
         return {"error": BROKEN}
     env = {"PATH": os.environ.get("PATH", ""), "PDF_MEMORY_MB": str(memory_mb), "PDF_SECONDS": str(max(1, int(seconds)))}
-    with PARSE_LOCK:
+    # A threading lock (one per process, every audit and thread), polled: an asyncio task
+    # blocked in acquire() could not be cancelled, and a thread left waiting for it would
+    # take the lock after its audit had already given up.
+    while not PARSE_LOCK.acquire(blocking=False):
+        await asyncio.sleep(LOCK_POLL)
+    proc = None
+    try:
         try:
-            done = subprocess.run([sys.executable, "-I", os.path.abspath(__file__)], input=body,
-                                  capture_output=True, timeout=seconds, env=env)
-        except subprocess.TimeoutExpired:
-            return {"error": TOO_SLOW}
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable, "-I", os.path.abspath(__file__), env=env, stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
         except OSError:
             return {"error": BROKEN}
-    if done.returncode != 0:
+        try:
+            async with asyncio.timeout(seconds):
+                stdout, _ = await proc.communicate(body)
+        except TimeoutError:
+            return {"error": TOO_SLOW}
+        returncode = proc.returncode
+    finally:
+        if proc is not None and proc.returncode is None:
+            proc.kill()                       # timed out or cancelled: never left running
+            try:
+                await asyncio.wait_for(proc.wait(), 5)
+            except BaseException:
+                pass
+        PARSE_LOCK.release()
+    if returncode != 0:
         # SIGXCPU (CPU limit) reads as too slow; MemoryError / anything else as broken
-        return {"error": TOO_SLOW if done.returncode in (-24, 152) else BROKEN}
+        return {"error": TOO_SLOW if returncode in (-24, 152) else BROKEN}
     try:
-        got = json.loads(done.stdout)
+        got = json.loads(stdout)
     except ValueError:
         return {"error": BROKEN}
     if "error" in got:

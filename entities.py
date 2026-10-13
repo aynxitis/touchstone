@@ -34,6 +34,9 @@ ACRONYMS = {"pv": ["photovoltaic"], "csp": ["concentrated solar power", "concent
             "kwh": ["kilowatt-hour", "kilowatt hour"], "mwh": ["megawatt-hour", "megawatt hour"],
             "gwh": ["gigawatt-hour", "gigawatt hour"], "twh": ["terawatt-hour", "terawatt hour"]}
 GENERIC |= set(ACRONYMS)
+# Quarter / half codes (Q2, T2 = French trimestre, H1) are periods, checked by
+# quote_check.period_caps(), never names.
+GENERIC |= {f"{p}{n}" for p in "qt" for n in "1234"} | {"h1", "h2"}
 
 # Demonyms and region adjectives: capitalized, but they describe, they don't name ("its total
 # European sales"). A run made only of these (and compass words) is never an entity; inside a

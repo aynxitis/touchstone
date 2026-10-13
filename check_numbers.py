@@ -255,18 +255,47 @@ def stat_texts(lines, run):
     return out, items[:max(vals[0] - 1, 0)]
 
 
+def row_cells(line):
+    """A table row's cells, links removed: "| Samsung | 18% | +3% [src](url) |" -> ["Samsung",
+    "18%", "+3%"]. A citation never ends up inside a cell value; a cell that held only a
+    link is "" (its column is then left out of the claim)."""
+    for a, b, _ in reversed(md_links(line)):
+        line = line[:a] + line[b:]
+    line = URL_RE.sub("", line)
+    out = []
+    for c in line.strip().strip("|").split("|"):
+        c = re.sub(r"\[[^\][]*\]\($|\(\s*\)", "", c).replace("**", "")
+        c = trim_parens(" ".join(c.split()).strip(" *[]"))     # "-1%" keeps its sign
+        out.append("" if re.fullmatch(r"[-\u2013\u2014]*", c) else c)   # "—" placeholder: empty
+    return out
+
+
+def row_text(head, cells):
+    """One table row as a claim: every cell paired with its column header, "Brand / group:
+    Samsung; Q2 2025 shipment share: 18%; Annual trend: +3%", so the header's period and unit
+    stay with the figure. Empty header cell -> the value alone; empty value -> column left
+    out; a row with fewer cells than headers pairs what it has, extra cells go unlabelled.
+    No header row: the cells joined with " \u2014 "."""
+    if not head:
+        return " \u2014 ".join(c for c in cells if c)
+    head = head + [""] * (len(cells) - len(head))
+    return "; ".join(f"{h}: {c}" if h else c for h, c in zip(head, cells) if c)
+
+
+def row_labels(head, cells):
+    """The header labels row_text() wrote for this row, one per line: the claim's context
+    (quote_check.own_text strips them, so coverage asks only for the row's own values)."""
+    return "\n".join(h for h, c in zip(head, cells) if h and c)
+
+
 def table_rows(lines, idx):
-    """A table's data rows as claim texts "Header: cell — Header: cell"."""
-    cells = lambda i: [c.strip() for c in lines[i].strip().strip("|").split("|")]
+    """A table's data rows as claim texts (row_text)."""
     rows = [i for i in idx if not RULE.fullmatch(lines[i].strip())]
     has_header = len(idx) > 1 and RULE.fullmatch(lines[idx[1]].strip())
     if not has_header:
-        return [" \u2014 ".join(c for c in cells(i) if c) for i in rows]
-    head = cells(rows[0])
-    out = []
-    for i in rows[1:]:
-        out.append(" \u2014 ".join(f"{h}: {c}" if h else c for h, c in zip(head, cells(i)) if c))
-    return out
+        return [row_text(None, row_cells(lines[i])) for i in rows]
+    head = row_cells(lines[rows[0]])
+    return [row_text(head, row_cells(lines[i])) for i in rows[1:]]
 
 
 def link_urls(line):
@@ -379,6 +408,7 @@ def blocks_ctx(report):
     report, _ = resolve_footnotes(copy_cleanup(report))
     report = attach_sources(report)
     out, block = [], []          # block: uncited lead-in + bullets waiting for a link
+    head, last_row = None, None  # current table's header cells; the previous uncited row
 
     def flush():                 # block ended without a link: each line is uncited
         out.extend((t, (), "") for t in block if not connector(t))
@@ -387,14 +417,31 @@ def blocks_ctx(report):
     for line in report.split("\n"):
         s = line.strip()
         if not s:
+            head = last_row = None                     # a blank line ends a table
             continue                                   # blank lines don't end a block
+        if s.startswith("|") and "-" in s and RULE.fullmatch(s):
+            flush()                                    # table separator: the row above is
+            head, last_row = last_row, None            # the header (alignment colons fine)
+            continue
         if s.startswith("#") or RULE.fullmatch(s):
             flush()
-            continue                                   # heading, table separator, rule
+            head = last_row = None
+            continue                                   # heading, rule
         links = list(URL_RE.finditer(line))
-        if not links and s.startswith("|"):
+        if s.startswith("|"):
             flush()
-            continue                                   # uncited table row = header
+            if not links:
+                last_row = row_cells(line)             # header (or uncited data row)
+                continue
+            # A cited row is one claim with all its links, every cell under its header.
+            cells = row_cells(line)
+            text = row_text(head, cells)
+            if HAS_WORD.search(text):
+                out.append((text, tuple(dict.fromkeys(m.group().rstrip(".,;:!?") for m in links)),
+                            row_labels(head, cells) if head else ""))
+            last_row = None
+            continue
+        head = last_row = None
         if block and not LIST_ITEM.match(line):
             flush()                                    # a non-bullet line ends the block
         groups, last = [], 0

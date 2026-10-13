@@ -178,9 +178,10 @@ def is_pdf(url, headers):
                                                                   "binary/octet-stream", "application/download"))
 
 
-def pdf_result(url, body):
-    """Parse a downloaded PDF (pdf_text: subprocess with memory/CPU/time limits)."""
-    got = pdf_text.extract(body)
+async def pdf_result(url, body):
+    """Parse a downloaded PDF (pdf_text: subprocess with memory/CPU/time limits, killed if
+    the fetch is cancelled)."""
+    got = await pdf_text.extract_async(body)
     if "error" in got:
         return {"url": url, "status": "PDF_ERROR", "detail": got["error"]}
     text = got["text"]
@@ -214,9 +215,10 @@ async def fetch_one(url):
     if isinstance(got, dict):
         return got
     if isinstance(got, bytes):
-        # Parsed outside the download's wall clock, in a thread (the subprocess has its own
-        # PDF_SECONDS limit), so the event loop keeps serving other fetches meanwhile.
-        return await asyncio.to_thread(pdf_result, url, got)
+        # Parsed outside the download's wall clock, in a child process with its own
+        # PDF_SECONDS limit; the event loop keeps serving other fetches meanwhile, and the
+        # audit's deadline (fetch_many's `within`) cancels the parse and kills the child.
+        return await pdf_result(url, got)
     html = got
     title, headings = outline(html)
     text = trafilatura.extract(html) or ""
@@ -282,19 +284,36 @@ async def _get(url, read_timeout=READ_TIMEOUT):
         return {"url": url, "status": "ERROR", "detail": type(e).__name__}
 
 
-async def _fetch_all(urls):
+LATE = "LATE"           # status of a fetch cut off by the audit's deadline: not checked
+
+
+async def _fetch_all(urls, within=None):
     sem = asyncio.Semaphore(8)
 
     async def one(u):
         async with sem:
             return await fetch_one(u)
-    return await asyncio.gather(*(one(u) for u in urls))
+    tasks = [asyncio.create_task(one(u)) for u in urls]
+    if within is None:
+        return await asyncio.gather(*tasks)
+    # Deadline: whatever is still downloading, queued or parsing a PDF is cancelled (sockets
+    # closed, PDF children killed) and comes back LATE.
+    await asyncio.wait(tasks, timeout=max(within, 0))
+    late = [t for t in tasks if not t.done()]
+    for t in late:
+        t.cancel()
+    await asyncio.gather(*late, return_exceptions=True)
+    return [{"url": u, "status": LATE, "detail": "audit time limit"} if t.cancelled()
+            else {"url": u, "status": "ERROR", "detail": type(t.exception()).__name__} if t.exception()
+            else t.result() for u, t in zip(urls, tasks)]
 
 
-def fetch_many(urls):
+def fetch_many(urls, within=None):
     """Fetch all URLs concurrently (8 at a time); results in the same order.
-    Each URL is bounded by TOTAL_SECONDS, so this returns within ~TOTAL_SECONDS * len/8."""
-    return asyncio.run(_fetch_all(urls)) if urls else []
+    Each URL is bounded by TOTAL_SECONDS, so this returns within ~TOTAL_SECONDS * len/8.
+    within: seconds left before the audit's deadline; fetches not done by then are cancelled
+    and come back with status LATE."""
+    return asyncio.run(_fetch_all(urls, within)) if urls else []
 
 
 def fetch(url):

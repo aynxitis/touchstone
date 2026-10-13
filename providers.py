@@ -8,12 +8,18 @@ import os
 
 from pydantic import BaseModel, Field
 
-from quote_check import MODEL as GROQ_MODEL, SYSTEM_MULTI, ask, best_excerpts, finish, safe_judge
+from quote_check import GROQ_TIMEOUT, MODEL as GROQ_MODEL, SYSTEM_MULTI, ask, best_excerpts, finish, safe_judge
 
 GEMINI_MODEL = "gemini-3.5-flash-lite"   # verified in Google's model list, 2026-10-09
 PAGE_CHARS = 100_000                     # page text per Gemini call (~25K tokens)
 GEMINI_TIMEOUT_MS = 90_000               # a 100K-char page takes longer than one excerpt
 OUTPUT_TOKENS_PER_CLAIM = 600            # for the pacing estimate only
+CLAIMS_PER_CALL = 10                     # a page cited by more claims gets several calls
+# Reply cap per call. The model allows 65,536 output tokens (models.get, 2026-10-11) and
+# thinks by default; thinking counts against this cap. 10 claims x ~600 tokens of JSON is
+# ~6K, so 32K leaves room for thinking while bounding a runaway reply. A reply cut off here
+# is unparseable: its claims become ERROR, never a verdict.
+MAX_OUTPUT_TOKENS = 32_768
 
 
 def provider_name():
@@ -37,7 +43,7 @@ def make_client(name):
         raise SystemExit("GROQ_API_KEY missing from .env")
     from groq import Groq
     # max_retries=0: audit() does the retrying (pacing.py), visibly.
-    return Groq(api_key=key, timeout=30, max_retries=0)
+    return Groq(api_key=key, timeout=GROQ_TIMEOUT, max_retries=0)
 
 
 # Response schema for Gemini: the per-claim JSON judge() already consumes, in a list.
@@ -113,8 +119,8 @@ class Groq:
     def __init__(self, client):
         self.client = client
 
-    def ask(self, claim, page):
-        return ask(self.client, claim, page)
+    def ask(self, claim, page, timeout=None):
+        return ask(self.client, claim, page, timeout)
 
     def finish(self, got, claim, page, url, meta=None, context=""):
         return finish(got, claim, page, url, meta, context)
@@ -126,6 +132,7 @@ class Groq:
 class Gemini:
     """One call per cited page, with all its claims."""
     name, model, per_source = "gemini", GEMINI_MODEL, True
+    claims_per_call = CLAIMS_PER_CALL
     show_raw = False                              # CLI --show-raw: print the model's reply
 
     def __init__(self, client):
@@ -136,15 +143,18 @@ class Gemini:
         sent = len(SYSTEM_MULTI) + len(gemini_prompt(claims, page_for_model(page, claims)))
         return sent // 4 + OUTPUT_TOKENS_PER_CLAIM * len(claims)
 
-    def ask_source(self, claims, page):
-        """The model call (retried by audit()): (raw reply, tokens)."""
+    def ask_source(self, claims, page, timeout=None):
+        """The model call (retried by audit()): (raw reply, tokens). timeout: seconds left
+        before the audit's deadline; the request is abandoned (connection closed) after it."""
         from google.genai import types
         text = page_for_model(page, claims)
+        ms = GEMINI_TIMEOUT_MS if timeout is None else max(1000, min(GEMINI_TIMEOUT_MS, int(timeout * 1000)))
         resp = self.client.models.generate_content(
             model=self.model, contents=gemini_prompt(claims, text),
             config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_MULTI, temperature=0, seed=0,
-                response_mime_type="application/json", response_schema=Results))
+                system_instruction=SYSTEM_MULTI, temperature=0, seed=0, max_output_tokens=MAX_OUTPUT_TOKENS,
+                response_mime_type="application/json", response_schema=Results,
+                http_options=types.HttpOptions(timeout=ms)))
         raw = resp.text or ""
         if self.show_raw:
             print("---- raw Gemini reply ----\n" + raw + "\n--------------------------")

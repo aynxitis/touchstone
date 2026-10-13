@@ -190,7 +190,7 @@ import touchstone as TS
 many = [f"https://s{i}.example/p" for i in range(50)]
 fetched = []
 real_fetch = TS.fetch_many
-TS.fetch_many = lambda urls: fetched.extend(urls) or [{"url": u, "status": "OK", "text": PAGE_A} for u in urls]
+TS.fetch_many = lambda urls, **k: fetched.extend(urls) or [{"url": u, "status": "OK", "text": PAGE_A} for u in urls]
 try:
     client, calls = fake_groq(groq_reply)
     ev = [e for e in audit(f"- {CLAIM} " + " ".join(many), client) if e["type"] == "claim"][0]
@@ -277,5 +277,17 @@ c77 = CLAIM + " (up 7.7%)"
 m = merge(c77, [(A, judge({"parts": [P(F1, "stated", Q_A1), P(F2, "missing")]}, c77, PAGE_A, A)),
                 (B, judge({"parts": [P(F1, "missing"), P(F2, "stated", Q_B2)]}, c77, PAGE_B, B))], [PAGE_A, PAGE_B])
 assert m["label"] == "COULDN'T CONFIRM" and "leaves out 7.7" in m["reason"], m
+
+# Period across sources: capped only if no source stating a fact shows the claim's quarter.
+qc = "Samsung's smartphone share was 18% in Q2 2025."
+qq = "Samsung's smartphone share was 18% in 2025."
+pq1 = "Market tracker\n" + qq
+pq2 = "Q2 2025 market tracker\n" + qq
+qr = {"parts": [P("Samsung's smartphone share was 18% in Q2 2025", "stated", qq)]}
+meta2 = {"title": "", "headings": [[2, "Q2 2025 market tracker"]]}
+both_lack = merge(qc, [(A, judge(qr, qc, pq1, A)), (B, judge(qr, qc, pq1, B))], [pq1, pq1])
+assert both_lack["label"] == "COULDN'T CONFIRM" and "the period Q2" in both_lack["reason"], both_lack
+one_has = merge(qc, [(A, judge(qr, qc, pq1, A)), (B, judge(qr, qc, pq2, B, meta=meta2))], [pq1, pq2])
+assert one_has["label"] == "SOURCED", one_has
 
 print("source checks passed")
