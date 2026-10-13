@@ -77,6 +77,38 @@ function updateCount() {
   $("count").classList.toggle("over", n > MAX_CHARS);
 }
 
+// The reason line restates the rows above it (quote_check.verdict(): "Stated: a; b." per
+// status, each fact's note, "Framing not checked: x."). Only what the rows don't show is
+// kept: caps, numbers not on the page, sources disagreeing, demoted quotes... Each piece is
+// removed only if it is exactly what the rows render, so no other reason can be lost.
+const REASON_PREFIX = [
+  ["contradicted", "Contradicted by the page"], ["stated", "Stated"],
+  ["unconfirmed", "Couldn't confirm (code check)"],
+  ["possible", "Possibly stated, check the page line shown"], ["missing", "Not in the checked passages"],
+];
+
+function reasonExtra(ev) {
+  let reason = str(ev.reason);
+  const facts = arr(ev.facts).filter((f) => f && typeof f === "object");
+  const shown = [];
+  for (const [status, prefix] of REASON_PREFIX) {
+    const xs = facts.filter((f) => str(f.status) === status).map((f) => str(f.fact));
+    if (xs.length) shown.push(`${prefix}: ${xs.join("; ")}.`);
+  }
+  for (const f of facts) if (str(f.note)) shown.push(str(f.note));
+  const framing = arr(ev.framing).filter((x) => str(x));
+  if (framing.length) shown.push(`Framing not checked: ${framing.join("; ")}.`);
+  for (const piece of shown) {
+    const i = reason.indexOf(piece);
+    const end = i + piece.length;
+    // A whole piece only: at the start or after a space, and at the end or before one.
+    if (i >= 0 && (i === 0 || reason[i - 1] === " ") && (end === reason.length || reason[end] === " ")) {
+      reason = reason.slice(0, i) + reason.slice(end);
+    }
+  }
+  return reason.replace(/\s{2,}/g, " ").trim();
+}
+
 function renderCard(ev) {
   const label = str(ev.label) || "UNKNOWN";
   const tone = TONES[label] || "grey";
@@ -130,7 +162,8 @@ function renderCard(ev) {
   }
   if (parts.childElementCount) card.append(parts);
 
-  if (str(ev.reason)) card.append(el("p", "reason", str(ev.reason)));
+  const extra = reasonExtra(ev);
+  if (extra) card.append(el("p", "reason", extra));
   if (str(ev.detail)) card.append(el("p", "detail", `Details: ${str(ev.detail)}`));
 
   // Several sources: each with its own outcome ("SOURCED", "SOURCE UNREACHABLE: ...").
@@ -215,7 +248,7 @@ function summaryLine(counts, checked, cited) {
 let lastRun = null;
 
 function offerDownload(run) {
-  run.created = new Date().toISOString();
+  run.created ||= new Date().toISOString();
   lastRun = run;
   $("download").hidden = false;
 }
@@ -248,6 +281,7 @@ function reset() {
   skipped.querySelector("ul").replaceChildren();
   skippedWhy.clear();
   $("nolinks").hidden = true;
+  $("replay").hidden = true;
   $("copy-prompt").textContent = "Copy";
 }
 
@@ -281,17 +315,9 @@ async function copyPrompt() {
   }
 }
 
-async function runAudit() {
-  const report = $("report").value;
-  if (!report.trim()) { setStatus("Paste a report first.", true); return; }
-  if (report.length > MAX_CHARS) {
-    setStatus(`Reports are limited to ${MAX_CHARS.toLocaleString()} characters.`, true);
-    return;
-  }
-  reset();
-  $("audit").disabled = $("example").disabled = true;
-  setStatus("Fetching sources…");
-
+// One results view, fed event by event: a live audit's stream and the saved example's
+// replay go through the same handler, so both render with the same card code.
+function resultsView(report) {
   let total = 0, cited = 0, limit = null, done = 0, finished = false, noLinks = false, sentences = 0, stopped = "";
   const counts = {};
   // Everything needed to re-check the run later: each claim event as received (facts,
@@ -358,23 +384,89 @@ async function runAudit() {
     }
   };
 
-  const showBad = () => {
-    const card = el("article", "card tone-grey");
-    card.append(el("p", "reason", "One result could not be read and was skipped."));
-    $("cards").append(card);
+  // A line that isn't a valid event: one grey card, the rest still render.
+  const feed = (ev) => {
+    try { handle(ev); } catch {
+      const card = el("article", "card tone-grey");
+      card.append(el("p", "reason", "One result could not be read and was skipped."));
+      $("cards").append(card);
+    }
   };
 
+  // The stream ended without "done".
+  const endedEarly = () => {
+    if (finished || $("status").classList.contains("error")) return;
+    setStatus(`The connection ended early. Claim ${done}/${total} done.`, true);
+    if (done) $("summary").textContent = summaryLine(counts, done, cited);
+    if (done) { run.stopped = "The connection ended early."; offerDownload(run); }
+  };
+
+  return { feed, endedEarly, progress: () => ({ done, total }) };
+}
+
+// Another visitor's audit holds the server (one at a time, up to 300 s): the page retries on
+// its own every 15 s for up to 6 minutes. A busy answer comes before the server's per-hour
+// count, so these retries never use up the visitor's audits.
+const BUSY_RETRY_S = 15;
+const BUSY_MAX_S = 360;
+let cancelBusy = null;
+
+const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+// Resolves true when it's time to retry, false if the visitor pressed Cancel.
+function waitWhileBusy(message, since) {
+  return new Promise((resolve) => {
+    let left = BUSY_RETRY_S, timer = null;
+    const finish = (retry) => {
+      clearInterval(timer);
+      cancelBusy = null;
+      $("cancel").hidden = true;
+      resolve(retry);
+    };
+    const tick = () => {
+      const waited = mmss(Math.round((Date.now() - since) / 1000));
+      setStatus(left > 0 ? `${message} Next try in ${left}s (waiting ${waited}).` : "Trying again…");
+      if (left-- <= 0) finish(true);
+    };
+    cancelBusy = () => finish(false);
+    $("cancel").hidden = false;
+    tick();
+    timer = setInterval(tick, 1000);
+  });
+}
+
+async function runAudit() {
+  const report = $("report").value;
+  if (!report.trim()) { setStatus("Paste a report first.", true); return; }
+  if (report.length > MAX_CHARS) {
+    setStatus(`Reports are limited to ${MAX_CHARS.toLocaleString()} characters.`, true);
+    return;
+  }
+  reset();
+  $("audit").disabled = $("example").disabled = $("run-live").disabled = true;
+  setStatus("Fetching sources…");
+  const view = resultsView(report);
+
   try {
-    const resp = await withWakeNotice(() => fetch("/api/audit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ report }),
-    }));
-    if (isWakePage(resp, "application/x-ndjson")) { setStatus(WAKE_RETRY, true); return; }
-    if (!resp.ok || !resp.body) {
-      let msg = `The server refused the audit (HTTP ${resp.status}).`;
-      try { msg = str((await resp.json()).error) || msg; } catch {}
-      setStatus(msg, true);
+    const since = Date.now();
+    let resp;
+    for (;;) {
+      resp = await withWakeNotice(() => fetch("/api/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ report }),
+      }));
+      if (isWakePage(resp, "application/x-ndjson")) { setStatus(WAKE_RETRY, true); return; }
+      if (resp.ok && resp.body) break;
+      let body = null;
+      try { body = await resp.json(); } catch {}
+      const msg = body && typeof body === "object" ? str(body.error) : "";
+      if (resp.status === 503 && body && body.busy === true) {
+        if (Date.now() - since >= BUSY_MAX_S * 1000) { setStatus("Still busy — please try again later.", true); return; }
+        if (!(await waitWhileBusy(msg || "Another audit is running.", since))) { setStatus("Cancelled."); return; }
+        continue;
+      }
+      setStatus(msg || `The server refused the audit (HTTP ${resp.status}).`, true);
       return;
     }
     const reader = resp.body.getReader();
@@ -387,23 +479,23 @@ async function runAudit() {
       buf = eof ? "" : lines.pop();
       for (const line of lines) {
         if (!line.trim()) continue;
-        try { handle(JSON.parse(line)); } catch { showBad(); }
+        let ev;
+        try { ev = JSON.parse(line); } catch { ev = null; }
+        view.feed(ev);
       }
       if (eof) break;
     }
-    if (!finished && !$("status").classList.contains("error")) {
-      setStatus(`The connection ended early. Claim ${done}/${total} done.`, true);
-      if (done) $("summary").textContent = summaryLine(counts, done, cited);
-      if (done) { run.stopped = "The connection ended early."; offerDownload(run); }
-    }
+    view.endedEarly();
   } catch {
     setStatus("Could not reach the server.", true);
   } finally {
     // Never leave a waiting/countdown status behind once the audit is over (B4).
     if (waitTimer || /^(Waiting for capacity|Resuming)/.test($("status").textContent)) {
+      const { done, total } = view.progress();
       setStatus(done ? `Done. Claim ${done}/${total}.` : "The audit ended.");
     }
-    $("audit").disabled = $("example").disabled = false;
+    if (cancelBusy) cancelBusy();
+    $("audit").disabled = $("example").disabled = $("run-live").disabled = false;
   }
 }
 
@@ -424,17 +516,63 @@ function isWakePage(resp, expected) {
   return resp.ok && !type.startsWith(expected);
 }
 
+// "Try an example": loads examples/demo.txt and replays its saved run (examples/demo_run.json,
+// a Download-button file) through the live renderer: no audit, no tokens, no limit used.
+// No saved run, or one that isn't a run of this exact text: the text alone, as before.
+const EXAMPLE_LOADED = "Example loaded: a Perplexity answer on Africa's smartphone market. Press Audit.";
+
+function validRun(run, report) {
+  return !!run && typeof run === "object" && run.format === "touchstone-run" && run.version === 1
+    && typeof run.report === "string" && run.report.trim() === report.trim()
+    && Array.isArray(run.claims) && run.claims.length > 0
+    && typeof run.created === "string" && !Number.isNaN(Date.parse(run.created));
+}
+
+// The saved run as the events a live audit would have streamed.
+function runEvents(run) {
+  const obj = (x) => (x && typeof x === "object" && !Array.isArray(x) ? x : null);
+  return [
+    { type: "start", cited: run.cited, checked: run.checked, limit: null },
+    ...arr(run.uncited).map((text) => ({ type: "claim", claim: null, text })),
+    ...run.claims.map((c) => (obj(c) && c.claim !== null ? { ...c, type: "claim" } : null)),
+    ...arr(run.not_checked).map((c) => (obj(c) ? { ...c, type: "skipped" } : null)),
+    ...(str(run.stopped) ? [{ type: "quota", message: run.stopped }] : []),
+    { type: "done", tokens: run.tokens },
+  ];
+}
+
+function replay(run) {
+  reset();
+  const view = resultsView(run.report);
+  for (const ev of runEvents(run)) view.feed(ev);
+  lastRun = run;   // "Download results" gives the saved file as it is
+  const date = new Date(run.created).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  setStatus("");
+  $("replay-msg").textContent = `Saved example run from ${date}. This is a real Perplexity answer; `
+    + "we changed one figure (Samsung 18% → 19%) to show a catch.";
+  $("replay").hidden = false;
+}
+
 async function loadExample() {
+  let text;
   try {
     const resp = await withWakeNotice(() => fetch("/api/example"));
     if (isWakePage(resp, "text/plain")) { setStatus(WAKE_RETRY, true); return; }
     if (!resp.ok) throw new Error();
-    $("report").value = await resp.text();
-    updateCount();
-    setStatus("Example loaded: an AI research report on Algeria's startup ecosystem. Press Audit.");
+    text = await resp.text();
   } catch {
     setStatus("Could not load the example.", true);
+    return;
   }
+  $("report").value = text;
+  updateCount();
+  let run = null;
+  try {
+    const resp = await fetch("/api/example-run");
+    if (resp.ok && !isWakePage(resp, "application/json")) run = await resp.json();
+  } catch {}
+  if (validRun(run, text)) replay(run);
+  else { reset(); setStatus(EXAMPLE_LOADED); }
 }
 
 $("report").addEventListener("input", updateCount);
@@ -442,4 +580,6 @@ $("audit").addEventListener("click", runAudit);
 $("example").addEventListener("click", loadExample);
 $("copy-prompt").addEventListener("click", copyPrompt);
 $("download").addEventListener("click", downloadRun);
+$("run-live").addEventListener("click", runAudit);
+$("cancel").addEventListener("click", () => { if (cancelBusy) cancelBusy(); });
 updateCount();

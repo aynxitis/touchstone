@@ -239,7 +239,17 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    style.css, no framework; index.html is served with /static/<name>?v=<sha256[:12]>
    computed at startup: versioned URLs get "public, max-age=31536000, immutable", the page and
    unversioned URLs "no-cache"); POST /api/audit {report} streams NDJSON events; GET /api/example
-   returns report2.txt. PROVIDER=gemini renders a plain bordered line (.notice) under the input,
+   returns examples/demo.txt (Perplexity, Africa smartphones; Samsung 18% changed to 19%).
+   "Try an example" (2026-10-13) loads it and replays examples/demo_run.json (GET
+   /api/example-run: a "touchstone-run" v1 Download file, made by Anis from the live site and
+   committed; 404 if missing/invalid) through the same resultsView()/renderCard() as a live
+   audit: zero tokens, no limit. The page shows it only if its report equals demo.txt (trimmed),
+   else the text alone. "Run it live" audits the box. Busy (another audit running): 503
+   {"busy": true, error: BUSY_MSG} before rate_limited(), so the page retries every 15 s
+   (countdown, Cancel) for up to 6 min without using the 5/hour limit, then "Still busy".
+   Cards (reasonExtra): the grey reason line drops the pieces the rows already show
+   ("Stated: ...", per-status lists, fact notes, "Framing not checked: ...", exact matches
+   only) and is hidden when nothing is left. PROVIDER=gemini renders a plain bordered line (.notice) under the input,
    server-side into index.html (no endpoint, no keys): "Reports are processed by Google Gemini
    (free tier), which may use inputs to improve Google's products. Don't paste anything
    private." Groq shows nothing. Limits: 20,000 chars, app.CAPS per provider: Groq 10 cited claims,

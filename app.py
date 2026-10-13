@@ -78,6 +78,8 @@ CAPS = {"groq": (10, None), "gemini": (25, 8)}   # provider -> (claims, distinct
 MAX_CLAIMS, MAX_URLS = CAPS[PROVIDER]
 DAILY_FULL = "Touchstone's free daily capacity is used up, try again tomorrow."
 MINUTE_FULL = "Touchstone is at its per-minute capacity right now. Try again in a minute."
+BUSY_MSG = ("Another audit is running (they take up to 5 minutes). "
+            "Your audit will start automatically when it's free.")
 HEARTBEAT = json.dumps({"type": "heartbeat"}) + "\n"
 
 # Groq: max_retries=0, audit() does the retrying, so a per-minute 429 becomes a visible
@@ -303,7 +305,29 @@ def index():
 
 @app.get("/api/example")
 def example():
-    return PlainTextResponse((HERE / "report2.txt").read_text(encoding="utf-8"))
+    return PlainTextResponse((HERE / "examples" / "demo.txt").read_text(encoding="utf-8"))
+
+
+def example_run(path=HERE / "examples" / "demo_run.json"):
+    """The saved run of demo.txt (a "touchstone-run" v1 file from the Download button), or
+    None if it is missing or not that format. Read per request: committing a new one needs
+    no code change."""
+    try:
+        run = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    ok = (isinstance(run, dict) and run.get("format") == "touchstone-run" and run.get("version") == 1
+          and isinstance(run.get("report"), str) and isinstance(run.get("claims"), list))
+    return run if ok else None
+
+
+@app.get("/api/example-run")
+def example_replay():
+    """Replayed by the page itself: no audit, no model call, no rate limit."""
+    run = example_run()
+    if run is None:
+        return JSONResponse({"error": "No saved example run."}, status_code=404)
+    return JSONResponse(run, headers={"Cache-Control": "no-cache"})
 
 
 async def read_report(request):
@@ -344,8 +368,9 @@ async def run_audit(request: Request):
                                  media_type="application/x-ndjson",
                                  headers={"Cache-Control": "no-store"})
     if not busy.acquire(blocking=False):
-        return JSONResponse({"error": "Another audit is running. Try again in a minute."},
-                            status_code=503)
+        # "busy": the page retries every 15 s on its own; rate_limited() hasn't run yet, so
+        # these retries never count toward the per-hour limit.
+        return JSONResponse({"error": BUSY_MSG, "busy": True}, status_code=503)
     if daily_used_up():        # checked under the busy lock: no audit can start in between
         busy.release()
         return JSONResponse({"error": DAILY_FULL}, status_code=429)

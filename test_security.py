@@ -713,4 +713,51 @@ seen.clear()
 r, took = run_fetch(hangs, MAX_SECONDS=0.6, TOTAL_SECONDS=1.0, RETRY_MIN_SECONDS=0.5)
 assert r["status"] == "TIMEOUT" and len(seen) == 1 and took < 0.9, (r, seen, took)  # too little left
 
+# 12. "Try an example": demo.txt as text; its saved run (demo_run.json) only if it is a
+#     "touchstone-run" v1 file, else 404 so the page falls back to the text alone. Neither
+#     request touches the audit limits.
+import tempfile as _tf
+from pathlib import Path as _P
+with TestClient(A.app) as tc:
+    A.hits.clear()
+    r = tc.get("/api/example")
+    assert r.status_code == 200 and r.text == open("examples/demo.txt", encoding="utf-8").read()
+    assert "Samsung | 19%" in r.text
+    shipped = tc.get("/api/example-run")
+    assert shipped.status_code in (200, 404), shipped.status_code          # 404 until demo_run.json is committed
+    assert not A.hits
+with _tf.TemporaryDirectory() as d:
+    f = _P(d) / "demo_run.json"
+    assert A.example_run(f) is None                                       # missing
+    for bad in ("{not json", "[]", '{"format": "touchstone-run", "version": 2, "report": "x", "claims": []}',
+                '{"format": "touchstone-run", "version": 1, "report": "x"}'):
+        f.write_text(bad)
+        assert A.example_run(f) is None, bad
+    good = {"format": "touchstone-run", "version": 1, "created": "2026-10-13T10:00:00Z", "report": "x",
+            "claims": [{"claim": 1, "label": "SOURCED"}]}
+    f.write_text(json.dumps(good))
+    assert A.example_run(f) == good
+    real_run = A.example_run
+    A.example_run = lambda: good
+    with TestClient(A.app) as tc:
+        r = tc.get("/api/example-run")
+        assert r.status_code == 200 and r.json() == good and r.headers["cache-control"] == "no-cache"
+    A.example_run = lambda: None
+    with TestClient(A.app) as tc:
+        assert tc.get("/api/example-run").status_code == 404
+    A.example_run = real_run
+
+# 13. Busy server: a second audit gets 503 {"busy": true} with the honest wait message, and
+#     its retries never count toward the per-hour limit (the page retries every 15 s).
+A.hits.clear(); A.daily.update(day=A.utc_today(), count=0)
+assert A.busy.acquire(blocking=False)
+try:
+    with TestClient(A.app) as tc:
+        for _ in range(A.RATE_LIMIT + 3):
+            r = tc.post("/api/audit", json={"report": "- Yassir raised 150 million dollars https://example.com/y"})
+            assert r.status_code == 503 and r.json() == {"error": A.BUSY_MSG, "busy": True}, r.text
+    assert "up to 5 minutes" in A.BUSY_MSG and not A.hits and A.daily["count"] == 0
+finally:
+    A.busy.release()
+
 print("security checks passed")
