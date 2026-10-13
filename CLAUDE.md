@@ -112,6 +112,18 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    blanked in numbers_not_in (Q1 vs Q2 is never a value conflict, "2" of "Q2" never a
    key-term number) and are never names (entities GENERIC). merge(): capped only if every
    source stating a fact has the cap.
+   Table columns (2026-10-13, column_check): a quoted row (or A2 line) that is a page table row
+   ("| a | b |" or tab-separated) gets its header from the page (the row above |---|, same cell
+   count; no separator -> the top row of the same-width run if it has no figure; else no check).
+   A fact's period (its own; the claim's only if the claim has one figure; one year, <= 1
+   quarter/half) picks columns. A fact figure found in the row ONLY under other-period columns:
+   if exactly one column of the fact's period (same % kind; header words break ties) holds
+   another figure -> "conflict" ("The page gives 18% for Q2 2025; 19% is its Q2 2024 figure."):
+   CONTRADICTED when the model said contradicted/missing and the row's label cell ("Samsung")
+   is named in the fact, unconfirmed if the model said stated (A1); else "elsewhere"
+   ("This figure appears on the page under 'Q2 2024 share', not Q2 2025.") -> unconfirmed,
+   never "possibly stated". A figure under a matching or period-free column (Brand, YoY), or
+   not in the row at all, is left to the existing checks.
    Name check (entities.py, code-only): a "stated" fact's names (only the claim's names that
    appear in the fact's own text, plus the claim's lead name if the fact opens with It/The
    company) must be in the quote's paragraph or be the page's subject (2+ paragraphs);

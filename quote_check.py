@@ -513,6 +513,128 @@ def evidence_window(line, fact, subject=None, euro=None):
     return (ELLIPSIS if a > 0 else "") + text + (ELLIPSIS if b < len(line) else "")
 
 
+# Column-aware table checks (2026-10-13). A row holds one figure per column, so "19%" being in
+# Samsung's row says nothing about Q2 2025 if it sits under "Q2 2024 share". The row's header
+# (found on the page) maps each cell to its column; a fact's period (Q2 2025, T2 2025, H1,
+# a year) picks the column. Only what is reliably detectable: markdown rows ("| a | b |",
+# trafilatura's table output) and tab-separated rows; anything else gets no column check.
+PERCENT_AFTER = re.compile(r"[   ]{0,2}(?:%|percent\b|per cent\b|pour cent\b)", re.I)
+
+
+def row_cells(line):
+    """The cells of a table row ('| a | b |' or tab-separated), else None."""
+    s = line.strip()
+    if s.startswith("|"):
+        s = s[1:-1] if s.endswith("|") and len(s) > 1 else s[1:]
+        return [c.strip() for c in s.split("|")]
+    if "\t" in s:
+        return [c.strip() for c in s.split("\t")]
+    return None
+
+
+def row_label(line):
+    """A table row's label: its first cell with letters and no figure ("Samsung"), or None."""
+    return next((c for c in row_cells(line) or [] if re.search(r"[^\W\d_]", c) and not figures(c)), None)
+
+
+def is_separator(cells):
+    return all(c and set(c) <= set(":-") and "-" in c for c in cells)
+
+
+def figures(text):
+    """The text's numbers that are figures: not years, not period codes."""
+    return [m.group() for m in NUMBER_RE.finditer(unperiod(text)) if not is_year(m.group())]
+
+
+def table_header(row, page):
+    """The header cells of the page table holding this row, or None if it can't be found
+    for sure: the row above the |---| separator of the row's table (same cell count, rows
+    contiguous), or, without a separator, the top row of the contiguous same-width run if it
+    holds no figure (labels, years, periods only). trafilatura glues tables without a <th>
+    to the table above them: the cell count keeps them apart."""
+    want = row_cells(row) if row else None
+    if not want or len(want) < 2:
+        return None
+    lines = page.split("\n")
+    idx = next((i for i, l in enumerate(lines) if l.strip() == row.strip()), None)
+    if idx is None:
+        return None
+    i = idx
+    while i > 0:
+        above = row_cells(lines[i - 1])
+        if above is None or len(above) != len(want):
+            break
+        if is_separator(above):
+            head = row_cells(lines[i - 2]) if i >= 2 else None
+            return head if head and len(head) == len(want) and not is_separator(head) else None
+        i -= 1
+    if i == idx:
+        return None
+    top = row_cells(lines[i])
+    return None if any(figures(c) for c in top) else top
+
+
+def signature(text):
+    """The period a text names: {("Q"|"H", n)} plus {("Y", year)}. "2Q25" carries 2025."""
+    sig = set(periods(text))
+    for m in NUMBER_RE.finditer(text):
+        if is_year(m.group()):
+            sig.add(("Y", m.group()))
+    for m in PERIOD_CODE.finditer(text):
+        if m[5] and len(m.group()) > 2:
+            yy = m.group()[2:]
+            sig.add(("Y", yy if len(yy) == 4 else "20" + yy))
+    return frozenset(sig)
+
+
+def period_label(text):
+    """The text's period as written: "Q2 2025", "T2 2024", "H1", "2025"."""
+    written = list(periods(text).values())
+    years = [m.group() for m in NUMBER_RE.finditer(text) if is_year(m.group())
+             and not any(m.group() in w for w in written)]
+    return " ".join(dict.fromkeys(written + years))
+
+
+def column_check(fact, row, page, fallback=(frozenset(), "")):
+    """None if the row's columns say nothing either way, else (kind, reason) for a fact
+    figure found in the quoted row ONLY under columns naming another period than the fact's:
+    "conflict" if the fact's own period has exactly one column of the same kind (% or not)
+    with a different figure ("The page gives 18% for Q2 2025; 19% is its Q2 2024 figure."),
+    "elsewhere" if not ("This figure appears on the page under 'Q2 2024', not Q2 2025.").
+    The fact's period is its own, or fallback (the claim's, if the claim has one figure);
+    one year and at most one quarter/half, else no check. A figure in a column of the fact's
+    period, or in one naming no period (Brand, YoY), passes; one not in the row at all is
+    value_conflict()'s business."""
+    sig, want = (signature(fact), period_label(fact)) if signature(fact) else fallback
+    if (not sig or sum(k[0] == "Y" for k in sig) != 1 or sum(k[0] != "Y" for k in sig) > 1
+            or not (head := table_header(row, page))):
+        return None
+    cells, euro = row_cells(row), locnum.european(page)
+    heads = [signature(h) for h in head]
+    clean = unperiod(fact)
+    for m in NUMBER_RE.finditer(clean):
+        if is_year(m.group()):
+            continue
+        pct = bool(PERCENT_AFTER.match(clean, m.end()))
+        where = [j for j, c in enumerate(cells) if not numbers_not_in(m.group(), c, min_digits=1, euro=euro)]
+        if not where or any(not heads[j] or sig <= heads[j] for j in where):
+            continue
+        cand = [j for j, h in enumerate(heads) if sig <= h]
+        cand = [j for j in cand if heads[j] == sig] or cand
+        cand = [j for j in cand if figures(cells[j]) and ("%" in cells[j]) == pct]
+        if len(cand) > 1:          # Q2 2025 units / Q2 2025 share: the header word the fact uses
+            words = set(content_words(fact))
+            cand = [j for j in cand if words & set(content_words(unperiod(head[j])))] or cand
+        figure = m.group() + ("%" if pct else "")
+        other = period_label(head[where[0]]) or head[where[0]]
+        if len(cand) == 1:
+            t = cand[0]
+            return ("conflict", f"The page gives {cells[t]} for {period_label(head[t]) or want}; "
+                                f"{figure} is its {other} figure.")
+        return ("elsewhere", f"This figure appears on the page under '{head[where[0]]}', not {want}.")
+    return None
+
+
 def missing_numbers(claim, page):
     """Numbers in the claim that never appear on the page (single digits ignored: too noisy)."""
     return numbers_not_in(claim, page)
@@ -700,6 +822,15 @@ def judge(out, claim, page, url="", raw="", meta=None, context=""):
         # never dropped silently: the rest is unchecked, so the claim can't be SOURCED
         too_many = [f"{TOO_MANY} {len(raw_facts)} facts; only the first {MAX_FACTS} were checked."]
     facts, demoted = [], False
+    # Table columns: the claim's period stands in for a fact's only if the claim has one figure
+    # ("18% in Q2 2025, down from 19%" leaves each fact to name its own period).
+    whole = claim + "\n" + context
+    fallback = (signature(whole), period_label(whole)) if len(figures(claim)) == 1 else (frozenset(), "")
+    row_of = lambda q: paragraph_of(q, page, quote_on_page)
+    columns = lambda text, q: column_check(text, row_of(q), page, fallback) if row_of(q) else None
+    # A column conflict may turn red only for a row about the fact's own subject: the row's
+    # label (its first cell with words, "Samsung") is named in the fact.
+    about = lambda text, line: (lab := row_label(line)) is not None and named_in(lab, text)
     for f in raw_facts[:MAX_FACTS]:
         status = f["status"] if f["status"] in ("stated", "missing", "contradicted") else "missing"
         quote = f["quote"] if status != "missing" else ""
@@ -710,13 +841,23 @@ def judge(out, claim, page, url="", raw="", meta=None, context=""):
             demoted = True
         elif status == "contradicted" and not value_conflict(fact["fact"], quote):
             # CONTRADICTED needs a different value in the quote, not just the model's word:
-            # without one, the page simply doesn't support the fact.
-            fact.update(status="missing", quote="", unmatched_quote=quote,
-                        note="The model judged this contradicted, but its quote shows no conflicting figure.")
+            # without one, the page simply doesn't support the fact. A table row's figure under
+            # another period's column, with the fact's period column saying otherwise, is one.
+            col = columns(fact["fact"], quote)
+            if col and col[0] == "conflict" and about(fact["fact"], row_of(quote)):
+                fact.update(note=col[1])
+            elif col:
+                fact.update(status="unconfirmed", note=col[1])
+            else:
+                fact.update(status="missing", quote="", unmatched_quote=quote,
+                            note="The model judged this contradicted, but its quote shows no conflicting figure.")
         elif status == "stated" and (gone := numbers_not_in_passage(fact["fact"], quote, page, meta)):
             # Key-term check: the fact's numbers must be in its quote or the quote's paragraph.
             # A code heuristic alone never accuses: the model found it stated, so it's amber.
             fact.update(status="unconfirmed", note=f"Quote found, but {', '.join(gone)} not in its passage.")
+        elif status == "stated" and (col := columns(fact["fact"], quote)):
+            # The figure is in the row, but under another period's column: amber (A1).
+            fact.update(status="unconfirmed", note=col[1])
         elif status == "stated":
             # Name check: a verified quote about someone else is not support (claim 26). Code
             # only, so "couldn't confirm" with the reason, never an accusation by itself.
@@ -729,8 +870,17 @@ def judge(out, claim, page, url="", raw="", meta=None, context=""):
                             note=f"Quote found, but {', '.join(hit[1])} not named in its passage.")
         if fact["status"] == "missing" and (line := line_on_page(fact["fact"], page, names)):
             # Full-page fallback: a line elsewhere on the page has all the fact's figures (and
-            # its subject). Never "not found" then; shown for a human to check.
-            fact.update(status="possible", evidence=line)
+            # its subject). Never "not found" then; shown for a human to check. Unless the line
+            # is a table row holding the figure under another period's column: then it's no
+            # "possibly stated" (amber with the column), or red if the fact's own period
+            # column, in its subject's row, gives another figure.
+            col = columns(fact["fact"], line)
+            if col and col[0] == "conflict" and about(fact["fact"], line):
+                fact.update(status="contradicted", quote=row_of(line).strip(), note=col[1])
+            elif col:
+                fact.update(status="unconfirmed", evidence=line, note=col[1])
+            else:
+                fact.update(status="possible", evidence=line)
         facts.append(fact)
 
     # Coverage after the checks: only quotes still attached to a fact are verified.

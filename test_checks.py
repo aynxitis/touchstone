@@ -666,4 +666,62 @@ r = judge({"parts": [fact("Renault sold 412 000 vehicles in Q2 2025", "Renault s
           "https://renault.example/t", meta={"title": "Renault Q3 2025 sales results", "headings": []})
 assert r["label"] == "COULDN'T CONFIRM" and "period Q2" in r["reason"], r
 
+# Column-aware table checks: a figure in the quoted row counts for the column it sits under.
+from quote_check import table_header, column_check
+row_s = "| Samsung | 3.4 | 18% | 3.3 | 19% | +3% |"
+head_s = "| Brand | Q2 2025 units | Q2 2025 share | Q2 2024 units | Q2 2024 share | YoY |"
+cols_page = ("Smartphone shipments by vendor, in millions\n" + head_s + "\n|---|---|---|---|---|---|\n"
+             + row_s + " \n| Apple | 3.0 | 16% | 2.9 | 15% | +2% |\n| Brand | 2024 | 2025 |\n| Tesla | 10 | 12 |")
+P = lambda t, st, q="": {"text": t, "kind": "fact", "status": st, "quote": q}
+U = "https://phones.example/q2"
+c19 = "Samsung held 19% of smartphone shipments in Q2 2025."
+f19 = "Samsung held 19% of smartphone shipments in Q2 2025"
+column_reason = "The page gives 18% for Q2 2025; 19% is its Q2 2024 figure."
+for st, q in (("contradicted", row_s), ("missing", "")):     # the model's word + the column: red
+    r = judge({"parts": [P(f19, st, q)]}, c19, cols_page, U)
+    assert r["label"] == "CONTRADICTED" and column_reason in r["reason"], (st, r)
+    assert "possibly stated" not in r["reason"].lower() and r["facts"][0]["quote"] == row_s, r
+# The model saying stated: amber (a code check alone never accuses), never SOURCED.
+r = judge({"parts": [P(f19, "stated", row_s)]}, c19, cols_page, U)
+assert r["label"] == "COULDN'T CONFIRM" and column_reason in r["reason"], r
+r = judge({"parts": [P("Samsung held 18% of smartphone shipments in Q2 2025", "stated", row_s)]},
+          "Samsung held 18% of smartphone shipments in Q2 2025.", cols_page, U)
+assert r["label"] == "SOURCED", r
+# Header found by its separator; a glued table without one keeps its own (same-width) header.
+assert table_header(row_s, cols_page)[1] == "Q2 2025 units"
+assert table_header("| Tesla | 10 | 12 |", cols_page) == ["Brand", "2024", "2025"]
+r = judge({"parts": [P("Tesla sold 10 units in 2025", "contradicted", "| Tesla | 10 | 12 |")]},
+          "Tesla sold 10 units in 2025.", cols_page, U)
+assert r["label"] == "CONTRADICTED" and "The page gives 12 for 2025; 10 is its 2024 figure." in r["reason"], r
+# No findable header (a row with a figure on top, no separator): today's behaviour.
+bare = "Vendor figures\n| Samsung | 3.4 | 18% | 3.3 | 19% |\n| Apple | 3.0 | 16% | 2.9 | 15% |"
+assert table_header("| Samsung | 3.4 | 18% | 3.3 | 19% |", bare) is None
+r = judge({"parts": [P(f19, "contradicted", "| Samsung | 3.4 | 18% | 3.3 | 19% |")]}, c19, bare, U)
+assert r["label"] == "COULDN'T CONFIRM" and r["facts"][0]["status"] == "possible", r
+# A claim with no period whose figure is in some column: today's behaviour.
+r = judge({"parts": [P("Samsung held 19% of smartphone shipments", "missing")]},
+          "Samsung held 19% of smartphone shipments.", cols_page, U)
+assert r["label"] == "COULDN'T CONFIRM" and r["facts"][0]["status"] == "possible", r
+assert column_check("Samsung grew 3% year over year in Q2 2025", row_s, cols_page) is None   # YoY: no period
+# Only under another period, and no column for the claim's: amber, never "possibly stated".
+only24 = "Shipments\n| Brand | Q2 2024 share |\n|---|---|\n| Samsung | 19% |"
+r = judge({"parts": [P(f19, "missing")]}, c19, only24, U)
+assert r["label"] == "COULDN'T CONFIRM" and r["facts"][0]["status"] == "unconfirmed", r
+assert "This figure appears on the page under 'Q2 2024 share', not Q2 2025." in r["reason"], r
+assert "possibly" not in r["reason"].lower()
+# Two periods in one claim: a fact without its own period is never pinned to the claim's.
+r = judge({"parts": [P("Samsung held 18% in Q2 2025", "stated", row_s),
+                     P("Samsung was down from 19% a year earlier", "stated", row_s)]},
+          "Samsung held 18% in Q2 2025, down from 19% a year earlier.", cols_page, U)
+assert r["label"] != "CONTRADICTED" and "Q2 2024 figure" not in r["reason"], r
+# French headers: T2 2025 / T2 2024 (T2 = Q2).
+fr_row = "| Renault | 18 % | 19 % |"
+fr_page = "Parts de marché\n| Marque | T2 2025 | T2 2024 |\n|---|---|---|\n" + fr_row
+r = judge({"parts": [P("Renault détenait 19 % du marché au T2 2025", "contradicted", fr_row)]},
+          "Renault détenait 19 % du marché au T2 2025.", fr_page, U)
+assert r["label"] == "CONTRADICTED" and "The page gives 18 % for T2 2025; 19% is its T2 2024 figure." in r["reason"], r
+r = judge({"parts": [P("Renault détenait 18 % du marché au deuxième trimestre 2025", "stated", fr_row)]},
+          "Renault détenait 18 % du marché au deuxième trimestre 2025.", fr_page, U)
+assert r["label"] == "SOURCED", r
+
 print("check tests passed")
