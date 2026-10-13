@@ -829,8 +829,11 @@ def judge(out, claim, page, url="", raw="", meta=None, context=""):
     row_of = lambda q: paragraph_of(q, page, quote_on_page)
     columns = lambda text, q: column_check(text, row_of(q), page, fallback) if row_of(q) else None
     # A column conflict may turn red only for a row about the fact's own subject: the row's
-    # label (its first cell with words, "Samsung") is named in the fact.
-    about = lambda text, line: (lab := row_label(line)) is not None and named_in(lab, text)
+    # label (its first cell with words, "Samsung") is named in the fact, or, for a fact naming
+    # none of the claim's names ("Q2 2025 shipment share: 19%" of a header-paired table row),
+    # in the claim itself. A fact naming someone else ("Xiaomi held 19%") never borrows it.
+    about = lambda text, line: (lab := row_label(line)) is not None and (
+        named_in(lab, text) or (not any(named_in(n, text) for n in names) and named_in(lab, claim)))
     for f in raw_facts[:MAX_FACTS]:
         status = f["status"] if f["status"] in ("stated", "missing", "contradicted") else "missing"
         quote = f["quote"] if status != "missing" else ""

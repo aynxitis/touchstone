@@ -723,5 +723,25 @@ assert r["label"] == "CONTRADICTED" and "The page gives 18 % for T2 2025; 19% is
 r = judge({"parts": [P("Renault détenait 18 % du marché au deuxième trimestre 2025", "stated", fr_row)]},
           "Renault détenait 18 % du marché au deuxième trimestre 2025.", fr_page, U)
 assert r["label"] == "SOURCED", r
+# A header-paired table claim: the row label sits in its own part, so the number part names
+# no one; the claim's text names the row (Samsung): red like the sentence form.
+hp = lambda brand, share: (f"Brand / group: {brand}; Q2 2025 shipment share: {share}; "
+                           "Annual trend: +3% year over year")
+hp_ctx = "Brand / group\nQ2 2025 shipment share\nAnnual trend"
+hp_parts = lambda brand, share, st: {"parts": [
+    {"text": f"Brand / group: {brand}", "kind": "framing", "status": "", "quote": ""},
+    P(f"Q2 2025 shipment share: {share}", st, row_s),
+    P("Annual trend: +3% year over year", "stated", row_s)]}
+r = judge(hp_parts("Samsung", "19%", "contradicted"), hp("Samsung", "19%"), cols_page, U, context=hp_ctx)
+assert r["label"] == "CONTRADICTED" and column_reason in r["reason"], r
+# The same figures claimed for Xiaomi, quoting Samsung's row: never red.
+r = judge(hp_parts("Xiaomi", "19%", "contradicted"), hp("Xiaomi", "19%"), cols_page, U, context=hp_ctx)
+assert r["label"] != "CONTRADICTED", r
+# A sentence naming two brands: the fact about Xiaomi doesn't borrow the claim's Samsung.
+r = judge({"parts": [P("Xiaomi held 19% in Q2 2025", "contradicted", row_s)]},
+          "Samsung and Xiaomi held 18% and 19% in Q2 2025.", cols_page, U)
+assert r["label"] != "CONTRADICTED", r
+r = judge(hp_parts("Samsung", "18%", "stated"), hp("Samsung", "18%"), cols_page, U, context=hp_ctx)
+assert r["label"] == "SOURCED", r
 
 print("check tests passed")
