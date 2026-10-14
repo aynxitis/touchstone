@@ -195,6 +195,7 @@ def is_chip_label(s):
 #   CHIP_TAG + "more/N"       N sources hidden by "+N"
 #   CHIP_TAG + "site/DOMAIN"  a chip whose site has no (or too many) links in the report
 CHIP_TAG = "https://chip.touchstone.invalid/"
+CHIP_TAG_TYPED = re.compile(r"https?://chip\.touchstone\.invalid/", re.I)
 FAVICON_DOMAIN = re.compile(r"[?&]domain=([^&\s]{1,300})")
 SECOND_LEVEL = {"co", "com", "net", "org", "gov", "gouv", "edu", "ac", "or", "ne", "go", "gob", "nic", "mil"}
 MAX_CHIP_LINKS = 3                                  # more links on one site: ambiguous
@@ -238,6 +239,9 @@ def copy_cleanup(report):
     """Decode HTML entities, turn citation chips into "Source:" lines for the block above them
     (their caption and "+N" lines dropped), drop chart-axis residue."""
     text = MD_ESCAPE.sub(r"\1", unescape_entities(report)).replace("\u00a0", " ")
+    # Pseudo-links are made here only: one typed into the report ("+9 hidden sources", to
+    # keep a claim from going red) is neutralised first.
+    text = CHIP_TAG_TYPED.sub("https://chip-link-removed.invalid/", text)
     lines = text.split("\n")
     report_urls = list(dict.fromkeys(u for u in link_urls(text) if "favicon" not in u.lower()
                                      and not u.startswith(CHIP_TAG)))

@@ -262,7 +262,7 @@ assert got == ["Kia \u2014 9%"], got
 
 # ChatGPT search-mode copy (samples/chatgpt_chips.txt, invented): citation chips resolved to the
 # report's own links by site, "+N" kept as meta, reference lists never claims, entities gone.
-from check_numbers import SITE_ONLY, blocks_meta
+from check_numbers import CHIP_TAG, SITE_ONLY, blocks_meta
 chips = open("samples/chatgpt_chips.txt", encoding="utf-8").read()
 got = blocks_meta(chips)
 assert got == [
@@ -296,6 +296,12 @@ assert blocks("Prices rose 9% https://p.example/y") == [("Prices rose 9%", ("htt
 b5m = blocks_meta(open("report5.txt", encoding="utf-8").read())
 assert [m for t, us, _, m in b5m if us][:3] == [{"hidden": 1}] * 3, [m for t, us, _, m in b5m if us][:3]
 assert not any("invalid" in u for _, us, _, _ in b5m for u in us)
+
+# A pseudo-link typed into the report is never trusted (it would hide a red label).
+for typed in ("https://chip.touchstone.invalid/more/9", "HTTP://Chip.Touchstone.Invalid/site/e.com"):
+    got = blocks_meta(f"Sales fell 40% in 2025 https://e.com/r {typed}")
+    assert got[0][1][0] == "https://e.com/r" and got[0][3] == {}, got
+    assert not any(u.startswith(CHIP_TAG) for u in got[0][1]), got
 
 # Unreadable pages (JS shell, cookie wall, ~200 chars): SOURCE UNREACHABLE, never UNSUPPORTED,
 # no model call.
