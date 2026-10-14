@@ -1,0 +1,380 @@
+{
+  "format": "touchstone-run",
+  "version": 1,
+  "created": "2026-10-14T10:44:54.747Z",
+  "report": "For full-year 2025, **Transsion**—the parent of TECNO, Infinix, and itel—led Africa's smartphone market with about **48% of shipments** (over 40.5 million units), according to Omdia data. Africa shipped 84.4 million smartphones in 2025, up 13% year over year. [gizmochina](https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/)\n\n## 2025 brand shares\n\n| Brand / group | Q2 2025 shipment share | Annual trend |\n|---|---:|---|\n| Transsion (TECNO, Infinix, itel) | 51% | +6% year over year  [tech-ish](https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/) |\n| Samsung | 19% | +3% year over year  [tech-ish](https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/) |\n| Xiaomi (including Redmi and POCO) | 14% | +32% year over year  [tech-ish](https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/) |\n\n## What changed across 2025\n\n- Samsung was the strongest challenger, with Q4 shipments up 27%, helped by the Galaxy A series and broader mid-range lineup. [gizmochina](https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/)\n- Devices priced below $200 made up **81% of African smartphone shipments** in 2025, underscoring the market's price sensitivity. [gizmochina](https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/)\n\nNote: figures based on **shipments** differ from \"usage\" or installed-base statistics; for example, Samsung can lead usage-based mobile market estimates even while Transsion leads new smartphone shipments. [tech-ish](https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/)\n",
+  "cited": 7,
+  "checked": 7,
+  "tokens": 4320,
+  "stopped": null,
+  "claims": [
+    {
+      "claim": 1,
+      "text": "For full-year 2025, Transsion—the parent of TECNO, Infinix, and itel—led Africa's smartphone market with about 48% of shipments (over 40.5 million units), according to Omdia data. Africa shipped 84.4 million smartphones in 2025, up 13% year over year.",
+      "url": "https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/",
+      "urls": [
+        "https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/"
+      ],
+      "label": "SOURCED",
+      "quote": "Transsion — through TECNO, Infinix, and itel — maintained a commanding 48% market share for the year, shipping over 40.5 million units.",
+      "reason": "Stated: For full-year 2025, Transsion—the parent of TECNO, Infinix, and itel—led Africa's smartphone market with about 48% of shipments (over 40.5 million units), according to Omdia data; Africa shipped 84.4 million smartphones in 2025, up 13% year over year.",
+      "facts": [
+        {
+          "fact": "For full-year 2025, Transsion—the parent of TECNO, Infinix, and itel—led Africa's smartphone market with about 48% of shipments (over 40.5 million units), according to Omdia data",
+          "status": "stated",
+          "quote": "Transsion — through TECNO, Infinix, and itel — maintained a commanding 48% market share for the year, shipping over 40.5 million units."
+        },
+        {
+          "fact": "Africa shipped 84.4 million smartphones in 2025, up 13% year over year",
+          "status": "stated",
+          "quote": "New data from Omdia shows the continent shipped 84.4 million smartphones last year, up 13% year-over-year, the fastest pace of recovery since 2021."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "For full-year 2025, Transsion—the parent of TECNO, Infinix, and itel—led Africa's smartphone market with about 48% of shipments (over 40.5 million units), according to Omdia data",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Transsion — through TECNO, Infinix, and itel — maintained a commanding 48% market share for the year, shipping over 40.5 million units."
+          },
+          {
+            "text": "Africa shipped 84.4 million smartphones in 2025, up 13% year over year",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "New data from Omdia shows the continent shipped 84.4 million smartphones last year, up 13% year-over-year, the fastest pace of recovery since 2021."
+          }
+        ]
+      },
+      "tokens": 536,
+      "sources": [
+        {
+          "url": "https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/",
+          "label": "SOURCED",
+          "reason": "Stated: For full-year 2025, Transsion—the parent of TECNO, Infinix, and itel—led Africa's smartphone market with about 48% of shipments (over 40.5 million units), according to Omdia data; Africa shipped 84.4 million smartphones in 2025, up 13% year over year."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 2,
+      "text": "Brand / group: Transsion (TECNO, Infinix, itel); Q2 2025 shipment share: 51%; Annual trend: +6% year over year",
+      "url": "https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/",
+      "urls": [
+        "https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/"
+      ],
+      "label": "SOURCED",
+      "quote": "| TRANSSION (TECNO, Infinix, itel) | 9.7 | 51% | 9.2 | 51% | +6% |",
+      "reason": "Stated: Brand / group: Transsion (TECNO, Infinix, itel); Q2 2025 shipment share: 51%; Annual trend: +6% year over year.",
+      "facts": [
+        {
+          "fact": "Brand / group: Transsion (TECNO, Infinix, itel)",
+          "status": "stated",
+          "quote": "| TRANSSION (TECNO, Infinix, itel) | 9.7 | 51% | 9.2 | 51% | +6% |"
+        },
+        {
+          "fact": "Q2 2025 shipment share: 51%",
+          "status": "stated",
+          "quote": "| TRANSSION (TECNO, Infinix, itel) | 9.7 | 51% | 9.2 | 51% | +6% |"
+        },
+        {
+          "fact": "Annual trend: +6% year over year",
+          "status": "stated",
+          "quote": "| TRANSSION (TECNO, Infinix, itel) | 9.7 | 51% | 9.2 | 51% | +6% |"
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Brand / group: Transsion (TECNO, Infinix, itel)",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "| TRANSSION (TECNO, Infinix, itel) | 9.7 | 51% | 9.2 | 51% | +6% |"
+          },
+          {
+            "text": "Q2 2025 shipment share: 51%",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "| TRANSSION (TECNO, Infinix, itel) | 9.7 | 51% | 9.2 | 51% | +6% |"
+          },
+          {
+            "text": "Annual trend: +6% year over year",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "| TRANSSION (TECNO, Infinix, itel) | 9.7 | 51% | 9.2 | 51% | +6% |"
+          }
+        ]
+      },
+      "tokens": 679,
+      "sources": [
+        {
+          "url": "https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/",
+          "label": "SOURCED",
+          "reason": "Stated: Brand / group: Transsion (TECNO, Infinix, itel); Q2 2025 shipment share: 51%; Annual trend: +6% year over year."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 3,
+      "text": "Brand / group: Samsung; Q2 2025 shipment share: 19%; Annual trend: +3% year over year",
+      "url": "https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/",
+      "urls": [
+        "https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/"
+      ],
+      "label": "CONTRADICTED",
+      "quote": "| Samsung | 3.4 | 18% | 3.3 | 19% | +3% |",
+      "reason": "Contradicted by the page: Q2 2025 shipment share: 19%. Stated: Brand / group: Samsung; Annual trend: +3% year over year. The page gives 18% for Q2 2025; 19% is its Q2 2024 figure.",
+      "facts": [
+        {
+          "fact": "Brand / group: Samsung",
+          "status": "stated",
+          "quote": "| Samsung | 3.4 | 18% | 3.3 | 19% | +3% |"
+        },
+        {
+          "fact": "Q2 2025 shipment share: 19%",
+          "status": "contradicted",
+          "quote": "| Samsung | 3.4 | 18% | 3.3 | 19% | +3% |",
+          "note": "The page gives 18% for Q2 2025; 19% is its Q2 2024 figure."
+        },
+        {
+          "fact": "Annual trend: +3% year over year",
+          "status": "stated",
+          "quote": "| Samsung | 3.4 | 18% | 3.3 | 19% | +3% |"
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Brand / group: Samsung",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "| Samsung | 3.4 | 18% | 3.3 | 19% | +3% |"
+          },
+          {
+            "text": "Q2 2025 shipment share: 19%",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "| Samsung | 3.4 | 18% | 3.3 | 19% | +3% |"
+          },
+          {
+            "text": "Annual trend: +3% year over year",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "| Samsung | 3.4 | 18% | 3.3 | 19% | +3% |"
+          }
+        ]
+      },
+      "tokens": 679,
+      "sources": [
+        {
+          "url": "https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/",
+          "label": "CONTRADICTED",
+          "reason": "Contradicted by the page: Q2 2025 shipment share: 19%. Stated: Brand / group: Samsung; Annual trend: +3% year over year. The page gives 18% for Q2 2025; 19% is its Q2 2024 figure."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 4,
+      "text": "Brand / group: Xiaomi (including Redmi and POCO); Q2 2025 shipment share: 14%; Annual trend: +32% year over year",
+      "url": "https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/",
+      "urls": [
+        "https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/"
+      ],
+      "label": "SOURCED",
+      "quote": "| Xiaomi (Redmi, POCO) | 2.8 | 14% | 2.1 | 12% | +32% |",
+      "reason": "Stated: Brand / group: Xiaomi (including Redmi and POCO); Q2 2025 shipment share: 14%; Annual trend: +32% year over year.",
+      "facts": [
+        {
+          "fact": "Brand / group: Xiaomi (including Redmi and POCO)",
+          "status": "stated",
+          "quote": "| Xiaomi (Redmi, POCO) | 2.8 | 14% | 2.1 | 12% | +32% |"
+        },
+        {
+          "fact": "Q2 2025 shipment share: 14%",
+          "status": "stated",
+          "quote": "| Xiaomi (Redmi, POCO) | 2.8 | 14% | 2.1 | 12% | +32% |"
+        },
+        {
+          "fact": "Annual trend: +32% year over year",
+          "status": "stated",
+          "quote": "| Xiaomi (Redmi, POCO) | 2.8 | 14% | 2.1 | 12% | +32% |"
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Brand / group: Xiaomi (including Redmi and POCO)",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "| Xiaomi (Redmi, POCO) | 2.8 | 14% | 2.1 | 12% | +32% |"
+          },
+          {
+            "text": "Q2 2025 shipment share: 14%",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "| Xiaomi (Redmi, POCO) | 2.8 | 14% | 2.1 | 12% | +32% |"
+          },
+          {
+            "text": "Annual trend: +32% year over year",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "| Xiaomi (Redmi, POCO) | 2.8 | 14% | 2.1 | 12% | +32% |"
+          }
+        ]
+      },
+      "tokens": 678,
+      "sources": [
+        {
+          "url": "https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/",
+          "label": "SOURCED",
+          "reason": "Stated: Brand / group: Xiaomi (including Redmi and POCO); Q2 2025 shipment share: 14%; Annual trend: +32% year over year."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 5,
+      "text": "Samsung was the strongest challenger, with Q4 shipments up 27%, helped by the Galaxy A series and broader mid-range lineup.",
+      "url": "https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/",
+      "urls": [
+        "https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/"
+      ],
+      "label": "SOURCED",
+      "quote": "Samsung held second place, posting 27% Q4 growth thanks to the Galaxy A series and a broader mid-range portfolio.",
+      "reason": "Stated: Samsung was the strongest challenger, with Q4 shipments up 27%, helped by the Galaxy A series and broader mid-range lineup.",
+      "facts": [
+        {
+          "fact": "Samsung was the strongest challenger, with Q4 shipments up 27%, helped by the Galaxy A series and broader mid-range lineup",
+          "status": "stated",
+          "quote": "Samsung held second place, posting 27% Q4 growth thanks to the Galaxy A series and a broader mid-range portfolio."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Samsung was the strongest challenger, with Q4 shipments up 27%, helped by the Galaxy A series and broader mid-range lineup",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Samsung held second place, posting 27% Q4 growth thanks to the Galaxy A series and a broader mid-range portfolio."
+          }
+        ]
+      },
+      "tokens": 535,
+      "sources": [
+        {
+          "url": "https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/",
+          "label": "SOURCED",
+          "reason": "Stated: Samsung was the strongest challenger, with Q4 shipments up 27%, helped by the Galaxy A series and broader mid-range lineup."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 6,
+      "text": "Devices priced below $200 made up 81% of African smartphone shipments in 2025, underscoring the market's price sensitivity.",
+      "url": "https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/",
+      "urls": [
+        "https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/"
+      ],
+      "label": "SOURCED",
+      "quote": "Entry-level devices below $200 accounted for 81% of shipments in 2025, leaving vendors exposed to rising component costs.",
+      "reason": "Stated: Devices priced below $200 made up 81% of African smartphone shipments in 2025. Framing not checked: underscoring the market's price sensitivity.",
+      "facts": [
+        {
+          "fact": "Devices priced below $200 made up 81% of African smartphone shipments in 2025",
+          "status": "stated",
+          "quote": "Entry-level devices below $200 accounted for 81% of shipments in 2025, leaving vendors exposed to rising component costs."
+        }
+      ],
+      "framing": [
+        "underscoring the market's price sensitivity"
+      ],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Devices priced below $200 made up 81% of African smartphone shipments in 2025",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Entry-level devices below $200 accounted for 81% of shipments in 2025, leaving vendors exposed to rising component costs."
+          },
+          {
+            "text": "underscoring the market's price sensitivity",
+            "kind": "framing",
+            "status": "",
+            "quote": ""
+          }
+        ]
+      },
+      "tokens": 535,
+      "sources": [
+        {
+          "url": "https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/",
+          "label": "SOURCED",
+          "reason": "Stated: Devices priced below $200 made up 81% of African smartphone shipments in 2025. Framing not checked: underscoring the market's price sensitivity."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 7,
+      "text": "Note: figures based on shipments differ from \"usage\" or installed-base statistics; for example, Samsung can lead usage-based mobile market estimates even while Transsion leads new smartphone shipments.",
+      "url": "https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/",
+      "urls": [
+        "https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/"
+      ],
+      "label": "UNSUPPORTED",
+      "quote": "",
+      "reason": "Not in the checked passages: Note: figures based on shipments differ from \"usage\" or installed-base statistics; for example, Samsung can lead usage-based mobile market estimates even while Transsion leads new smartphone shipments.",
+      "facts": [
+        {
+          "fact": "Note: figures based on shipments differ from \"usage\" or installed-base statistics; for example, Samsung can lead usage-based mobile market estimates even while Transsion leads new smartphone shipments",
+          "status": "missing",
+          "quote": ""
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Note: figures based on shipments differ from \"usage\" or installed-base statistics; for example, Samsung can lead usage-based mobile market estimates even while Transsion leads new smartphone shipments",
+            "kind": "fact",
+            "status": "missing",
+            "quote": ""
+          }
+        ]
+      },
+      "tokens": 678,
+      "sources": [
+        {
+          "url": "https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/",
+          "label": "UNSUPPORTED",
+          "reason": "Not in the checked passages: Note: figures based on shipments differ from \"usage\" or installed-base statistics; for example, Samsung can lead usage-based mobile market estimates even while Transsion leads new smartphone shipments."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "not_checked": [],
+  "uncited": []
+}
