@@ -379,6 +379,10 @@ its whole sentence carries meta "sentence" (sentence_of), sent to the model as F
 (context only; Groq and Gemini); coverage still uses the fragment. (5) Prompt: one assertion per
 fact, each with its own quote (invented Tunisia example); qualifiers kept with numbers.
 Rescore report4/report5: no label changed.
+Fix (2026-10-14): quantity_tokens read a page number's %/unit at its LINE offset in the
+WHOLE page (locnum.tokens page=True matches per line), so on multi-line pages qualifiers
+never matched ("over 72%" vs 74.2 percent -> "Numbers not on page: 72"); now m.string.
+Excerpt anchors (has_anchor) also use bound_supported. Rescore report4/report5: no change.
 Labels: SOURCED / PARTIAL / COULDN'T CONFIRM / UNSUPPORTED / CONTRADICTED / UNVERIFIED / OPINION / SOURCE UNREACHABLE /
 NO SOURCE GIVEN / NOT CHECKED / ERROR. Verdicts judge factual parts only; editorial framing is noted, not penalized.
 

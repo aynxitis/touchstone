@@ -840,6 +840,24 @@ assert not nni("nearly 20 million users", "19.6 million users") and nni("nearly 
 assert not nni("nearly 20 million users", "19 600 000 users") and nni("over 65% of users", "68 users")  # % needs %
 assert nni("over 65% of users in 2025", "70% of users in 2024")  # the year is no bound
 assert not nni("au moins 30 %", "Le taux atteint 30 %.") and not nni("plus de 5 millions", "5,4 millions")
+# Multi-line pages (2026-10-14 bug): a page number's "percent" is read on its own line, not at
+# its line offset in the whole page ("Numbers not on page: 72" on a page saying 74.2 percent).
+def page_of(line):
+    return f"Social media in Algeria\n\nAudience overview for the year.\n\n{line}\n\nThe country had 24.1 million users."
+fb = "Facebook reaches over 72% of local internet users"
+fbq = "Facebook's ad reach in Algeria was equivalent to 74.2 percent of the local internet user base"
+r = one(fb, fb, "..." + fbq + "...", "stated", page_of(fbq + " in January 2025."))
+assert r["label"] == "SOURCED", r
+fbq2 = "Facebook's ad reach in Algeria was equivalent to 70.1 percent of the local internet user base"
+assert one(fb, fb, fbq2, "stated", page_of(fbq2 + "."))["label"] != "SOURCED"
+lt = "Fraudulent transactions are less than 1% of card payments"
+ltq = "Fraudulent transactions made up 0.8 percent of card payments last year"
+assert one(lt, lt, ltq, "stated", page_of(ltq + "."))["label"] == "SOURCED"
+assert not nni(fb, page_of(fbq)) and nni(fb, page_of(fbq2))
+# Excerpt anchors use the same comparison: the 74.2 percent paragraph is picked for "over 72%".
+from quote_check import best_excerpts
+filler = "\n\n".join(["Local internet users and their habits online, seen through many surveys."] * 80)
+assert any("74.2 percent" in p for p in best_excerpts(fb, filler + "\n\n" + fbq + ".\n\n" + filler))
 # Columns: "over 15%" under Q2 2025 is any figure above 15% in that column.
 qtab = "| Brand | Q2 2025 share | Q2 2024 share |\n|---|---|---|\n| Samsung | 18% | 15% |"
 assert colc("Samsung held over 15% in Q2 2025", "| Samsung | 18% | 15% |", qtab) is None

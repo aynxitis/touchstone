@@ -194,8 +194,9 @@ def has_anchor(kind, value, para, claim):
         return value in plain(para)
     if kind == "name":
         return named_in(value, para)
-    vals, offsets = value                      # any locale format, or unit-scaled (15.9 GW)
-    return bool(vals & locnum.values(para)) or bool(offsets & unit_supported(claim, para))
+    vals, offsets = value      # any locale format, unit-scaled (15.9 GW) or a met qualifier (over 72%)
+    return bool(vals & locnum.values(para)) or bool(
+        offsets & (unit_supported(claim, para) | bound_supported(claim, para)))
 
 
 ITEM_LINE = re.compile(r"^(?:[-*+\u2022]\s|\d{1,3}[.)]\s|\|)")   # list item or table row
@@ -340,14 +341,16 @@ def bound_op(word):
 
 def quantity_tokens(text, page=False, euro=None):
     """[(match, values, percent, unit family or None)] for each number: values scaled by its
-    unit (53.6 million -> 53600000), percent if % / percent follows."""
+    unit (53.6 million -> 53600000), percent if % / percent follows. Page side: offsets are
+    into the token's line (m.string), so its unit and % are read there, never at that offset
+    in the whole page (2026-10-14: "74.2 percent" on line 3 read as a plain 74.2)."""
     out = []
     for m, rs in locnum.tokens(text, page=page, euro=euro):
-        end, scale, fam = m.end(), 1, None
-        if (u := UNIT_AFTER.match(text, end)) and not (u.group("mw") == "m" and u.start("mw") > end):
+        s, end, scale, fam = m.string, m.end(), 1, None
+        if (u := UNIT_AFTER.match(s, end)) and not (u.group("mw") == "m" and u.start("mw") > end):
             fam, scale = _unit(u)
             end = u.end()
-        pct = bool(PERCENT_AFTER.match(text, end))
+        pct = bool(PERCENT_AFTER.match(s, end))
         out.append((m, {r * scale for r in rs}, pct, fam))
     return out
 
@@ -358,7 +361,7 @@ def bounds(text):
     for m, vals, pct, fam in quantity_tokens(text):
         if fam is None and not pct and is_year(m.group()):
             continue                                   # "up to 2025" is a date, not a bound
-        if q := QUALIFIER.search(text, max(0, m.start() - 30), m.start()):
+        if q := QUALIFIER.search(m.string, max(0, m.start() - 30), m.start()):
             out.append((m.start(), bound_op(q.group(1)), vals, pct, fam))
     return out
 
