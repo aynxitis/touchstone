@@ -3,6 +3,7 @@ appear in the page that claim cites?"""
 import html
 import json
 import re
+import secrets
 import sys
 from urllib.parse import unquote, urlsplit
 
@@ -194,8 +195,11 @@ def is_chip_label(s):
 # pseudo-link (CHIP_TAG, never fetched: blocks_meta() turns it into the claim's meta):
 #   CHIP_TAG + "more/N"       N sources hidden by "+N"
 #   CHIP_TAG + "site/DOMAIN"  a chip whose site has no (or too many) links in the report
-CHIP_TAG = "https://chip.touchstone.invalid/"
-CHIP_TAG_TYPED = re.compile(r"https?://chip\.touchstone\.invalid/", re.I)
+# Unguessable per process: later steps join text (a favicon removed mid-line, a footnote marker
+# with no link), so filtering typed tags can't stop a report from assembling one; a random
+# host can. It never leaves blocks_meta() (claim texts and urls never carry it).
+CHIP_TAG = f"https://chip-{secrets.token_hex(12)}.touchstone.invalid/"
+CHIP_TAG_TYPED = re.compile(r"https?://chip[\w-]{0,40}\.touchstone\.invalid/", re.I)
 FAVICON_DOMAIN = re.compile(r"[?&]domain=([^&\s]{1,300})")
 SECOND_LEVEL = {"co", "com", "net", "org", "gov", "gouv", "edu", "ac", "or", "ne", "go", "gob", "nic", "mil"}
 MAX_CHIP_LINKS = 3                                  # more links on one site: ambiguous

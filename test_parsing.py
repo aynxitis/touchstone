@@ -298,7 +298,9 @@ assert [m for t, us, _, m in b5m if us][:3] == [{"hidden": 1}] * 3, [m for t, us
 assert not any("invalid" in u for _, us, _, _ in b5m for u in us)
 
 # A pseudo-link typed into the report is never trusted (it would hide a red label).
-for typed in ("https://chip.touchstone.invalid/more/9", "HTTP://Chip.Touchstone.Invalid/site/e.com"):
+for typed in ("https://chip.touchstone.invalid/more/9", "HTTP://Chip.Touchstone.Invalid/site/e.com",
+              "https://chip.touchst[image](https://g.com/s2/favicons?domain=x.com)one.invalid/more/9",
+              "https://chip.touchstone.inv[1]alid/more/9\n\nSources\n1. Reuters"):
     got = blocks_meta(f"Sales fell 40% in 2025 https://e.com/r {typed}")
     assert got[0][1][0] == "https://e.com/r" and got[0][3] == {}, got
     assert not any(u.startswith(CHIP_TAG) for u in got[0][1]), got
