@@ -334,4 +334,18 @@ cl = [e for e in audit(f"{MC} {M}", client, pages={M: {"status": "OK", "text": P
       if e["type"] == "claim"]
 assert cl[0]["label"] == "SOURCE UNREACHABLE" and cl[0]["reason"] == UNREADABLE, cl[0]
 
+# Homepage citations (2026-10-14): a homepage that doesn't state the claim is never red.
+from touchstone import HOMEPAGE_REASON
+for u in ("https://www.itu.int", "https://www.arpce.dz/en/", "https://x.org/fr", "https://x.org/en-us/"):
+    assert vague_note(u) == HOMEPAGE, u
+assert vague_note("https://www.worldbank.org/en/country/algeria") is None
+hp = {"https://www.itu.int": {"status": "OK", "text": "ITU news of the day."}}
+for label in ("UNSUPPORTED", "CONTRADICTED", "UNVERIFIED"):
+    out = combine("Algeria has 50 million lines", [("https://www.itu.int", {"label": label, "quote": "", "reason": "x", "facts": [], "tokens": 0})], hp)
+    assert out["label"] == "COULDN'T CONFIRM" and out["reason"] == HOMEPAGE_REASON and "homepage" not in out, out
+out = combine("Algeria has 50 million lines", [("https://www.itu.int", {"label": "SOURCED", "quote": "q", "reason": "Stated.", "facts": [], "tokens": 0})], hp)
+assert out["label"] == "SOURCED"
+out = combine("Algeria has 50 million lines", [("https://www.worldbank.org/en/country/algeria", {"label": "UNSUPPORTED", "quote": "", "reason": "x", "facts": [], "tokens": 0})], {})
+assert out["label"] == "UNSUPPORTED"
+
 print("source checks passed")

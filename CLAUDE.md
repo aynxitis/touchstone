@@ -363,6 +363,22 @@ a name inside X is satisfied when the page is X's own (site_of: the site's name 
 (registrable domain minus TLD/gov/com..., "mpt" of www.mpt.gov.dz) EQUALS X or its 3+ letter
 initials; never a host substring, a hosting subdomain, or the page title, which any page
 can set to "Indicators | ARPCE" (security review)); no other name is.
+2026-10-14 (freeze; last engine change): (1) Qualifiers (quote_check.bound_supported, inside
+numbers_not_in, so every number check, value_conflict, A2 and column_check get it): over/more
+than/above/exceeds/plus de X -> page > X; at least/au moins/supérieur à -> >=; under/less than/
+below/moins de -> <; at most/up to/inférieur à/jusqu'à -> <=; nearly/almost/près de/presque ->
+[0.9X, X]. Same kind only (% for %, same unit family, a plain number for a magnitude word, never
+a year). A fact that drops the claim's qualifier inherits it (CLAIM_BOUNDS, set in judge/merge).
+(2) date_reason(): a CONTRADICTED value conflict whose quote dates the page figure (year or
+month+year) unlike the claim -> reason "The page gives X for <date>. Your figure may be from a
+different date..." (label kept). (3) Homepage citations (path "", "/", or a language segment
+/en, /fr/, /en-us): UNSUPPORTED/CONTRADICTED/UNVERIFIED -> COULDN'T CONFIRM HOMEPAGE_REASON
+(touchstone.homepage_result, rescore too); its facts never vote in a multi-source merge.
+(4) Fragment claims: leading ". " / ", " stripped (LEAD_PUNCT); a line's cited piece that isn't
+its whole sentence carries meta "sentence" (sentence_of), sent to the model as FULL SENTENCE
+(context only; Groq and Gemini); coverage still uses the fragment. (5) Prompt: one assertion per
+fact, each with its own quote (invented Tunisia example); qualifiers kept with numbers.
+Rescore report4/report5: no label changed.
 Labels: SOURCED / PARTIAL / COULDN'T CONFIRM / UNSUPPORTED / CONTRADICTED / UNVERIFIED / OPINION / SOURCE UNREACHABLE /
 NO SOURCE GIVEN / NOT CHECKED / ERROR. Verdicts judge factual parts only; editorial framing is noted, not penalized.
 

@@ -1,16 +1,18 @@
 """Touchstone step 3: for each claim, find the exact supporting quote on the cited page.
 The model proposes a quote; code confirms the quote really exists on the page."""
+import contextvars
 import json
 import os
 import re
 import sys
+from decimal import Decimal
 
 from dotenv import load_dotenv
 from rapidfuzz import fuzz
 
 from check_numbers import NUM_RE, blocks
 from entities import check_fact, entities, fold, named_in, names_country, paragraph_of
-from units import UNIT_AFTER, unit_supported
+from units import UNIT_AFTER, _unit, unit_supported
 import locnum
 from locnum import NUMBER_RE
 
@@ -41,9 +43,18 @@ framing. Reply with JSON only, one entry per claim id:
 
 """
 RULES = """- kind "fact": anything that describes what is the case: who, what, where, when, how many,
-  trends, concentration, causes. Vague wording is still a fact. At most 5 facts; merge small ones.
+  trends, concentration, causes. Vague wording is still a fact. At most 5 facts.
   Each fact must be self-contained and name its subject: write "VOLZ raised $5 million",
   never "It raised..." or "The company raised...".
+- One assertion per fact: a sentence that packs several assertions is split, each with its own
+  quote. "Tunisia's olive oil exports are growing, supported by EU demand and a rising number of
+  private mills" -> three facts: "Tunisia's olive oil exports are growing"; "Tunisia's olive oil
+  exports are supported by EU demand"; "The number of private olive mills in Tunisia is rising".
+  One quote may back several facts only if it actually states each of them.
+- Keep a number's qualifier with it ("over 65%", "nearly 20 million", "up to 3 GW").
+- A claim may come with its FULL SENTENCE (the claim is one cited piece of it): use the
+  sentence only to understand the claim (what "which" or "it" refers to); split and judge
+  only the claim itself.
 - Write every part in the SAME language as the claim, reusing the claim's own wording (a
   French claim gets French parts), even when the excerpts are in another language. Quotes
   stay exactly as written in the excerpts.
@@ -295,7 +306,103 @@ def numbers_not_in(text, passage, min_digits=2, euro=None):
     "1er trimestre") are not numbers: period_caps() checks them, amber at worst, so "Q2" vs a
     passage's "Q1" is never a figure conflict."""
     text, passage = unperiod(text), unperiod(passage)
-    return locnum.missing(text, passage, min_digits, scaled=unit_supported(text, passage, euro), euro=euro)
+    ok = unit_supported(text, passage, euro) | bound_supported(text, passage, euro)
+    return locnum.missing(text, passage, min_digits, scaled=ok, euro=euro)
+
+
+# Comparison qualifiers (2026-10-14): "over 65%" is supported by a page's 68.1%, never
+# contradicted by it. A qualifier sits right before its number (a currency sign may come
+# between). Strict: over / more than / above / exceeds / plus de; at least / au moins /
+# supérieur à allow equality; same for the upper bounds; nearly / almost / près de / presque
+# X = [0.9X, X]. Checked on a bounded window before each number (linear).
+QUALIFIER = re.compile(
+    r"(?<![\w'])(over|more than|above|exceed(?:s|ing)?|in excess of|plus de|at least|au moins|"
+    r"sup[ée]rieure?s? [àa]|under|less than|fewer than|below|moins de|at most|up to|"
+    r"inf[ée]rieure?s? [àa]|jusqu['’][àa]|nearly|almost|pr[èe]s de|presque)"
+    r"[ \t ]{1,3}(?:[$€£][  ]?)?$", re.I)
+BOUND_OPS = {"over": ">", "more than": ">", "above": ">", "exceed": ">", "exceeds": ">",
+             "exceeding": ">", "in excess of": ">", "plus de": ">", "at least": ">=", "au moins": ">=",
+             "under": "<", "less than": "<", "fewer than": "<", "below": "<", "moins de": "<",
+             "at most": "<=", "up to": "<=", "nearly": "~", "almost": "~", "près de": "~",
+             "pres de": "~", "presque": "~"}
+# The claim being judged: a fact that drops the claim's "over" ("65% of users") still gets it.
+CLAIM_BOUNDS = contextvars.ContextVar("claim_bounds", default=())
+
+
+def bound_op(word):
+    w = " ".join(word.lower().split()).replace("’", "'")
+    if w.startswith(("supérieur", "superieur")):
+        return ">="
+    if w.startswith(("inférieur", "inferieur", "jusqu")):
+        return "<="
+    return BOUND_OPS[w]
+
+
+def quantity_tokens(text, page=False, euro=None):
+    """[(match, values, percent, unit family or None)] for each number: values scaled by its
+    unit (53.6 million -> 53600000), percent if % / percent follows."""
+    out = []
+    for m, rs in locnum.tokens(text, page=page, euro=euro):
+        end, scale, fam = m.end(), 1, None
+        if (u := UNIT_AFTER.match(text, end)) and not (u.group("mw") == "m" and u.start("mw") > end):
+            fam, scale = _unit(u)
+            end = u.end()
+        pct = bool(PERCENT_AFTER.match(text, end))
+        out.append((m, {r * scale for r in rs}, pct, fam))
+    return out
+
+
+def bounds(text):
+    """[(start offset, op, values, percent, family)] for the text's qualified numbers."""
+    out = []
+    for m, vals, pct, fam in quantity_tokens(text):
+        if fam is None and not pct and is_year(m.group()):
+            continue                                   # "up to 2025" is a date, not a bound
+        if q := QUALIFIER.search(text, max(0, m.start() - 30), m.start()):
+            out.append((m.start(), bound_op(q.group(1)), vals, pct, fam))
+    return out
+
+
+def satisfies(op, want, have):
+    if op == ">":
+        return have > want
+    if op == ">=":
+        return have >= want
+    if op == "<":
+        return have < want
+    if op == "<=":
+        return have <= want
+    return want * Decimal("0.9") <= have <= want
+
+
+def bound_supported(text, passage, euro=None):
+    """Start offsets (in text) of numbers whose qualifier a passage number satisfies ("over
+    65%" and 68.1%; "nearly 20 million" and 19.6 million). The passage number must be of the
+    same kind: % for %, the same unit family (or a plain number for a magnitude word), never
+    a year. A text number with no qualifier of its own takes the claim's (CLAIM_BOUNDS) when
+    the claim qualifies the same value."""
+    own = {b[0]: b[1:] for b in bounds(text)}
+    claim = CLAIM_BOUNDS.get()
+    want = []
+    for m, vals, pct, fam in quantity_tokens(text):
+        if fam is None and not pct and is_year(m.group()):
+            continue
+        b = own.get(m.start()) or next((c for c in claim if c[1] & vals and c[2] == pct and c[3] == fam), None)
+        if b:
+            want.append((m.start(), *b))
+    if not want:
+        return set()
+    have = [(vals, pct, fam) for m, vals, pct, fam in quantity_tokens(passage, page=True, euro=euro)
+            if not (fam is None and not pct and is_year(m.group()))]
+    out = set()
+    for start, op, wants, pct, fam in want:
+        for vals, hpct, hfam in have:
+            if hpct != pct or not (hfam == fam or (hfam is None and fam == "x") or (fam is None and hfam == "x")):
+                continue
+            if any(satisfies(op, w, h) for w in wants for h in vals):
+                out.add(start)
+                break
+    return out
 
 
 def unperiod(text):
@@ -622,6 +729,9 @@ def column_check(fact, row, page, fallback=(frozenset(), "")):
         pct = bool(PERCENT_AFTER.match(clean, m.end()))
         # with its unit: "2.6 million" is the cell "2 565 347" (rounded), never a conflict
         num = m.group() + (u.group() if (u := UNIT_AFTER.match(clean, m.end())) else "")
+        # with its qualifier: "over 15%" is any cell above 15% (bound_supported)
+        q = QUALIFIER.search(clean, max(0, m.start() - 30), m.start())
+        num = (q.group() if q else "") + num + ("%" if pct and q else "")
         where = [j for j, c in enumerate(cells) if not numbers_not_in(num, c, min_digits=1, euro=euro)]
         if not where or any(not heads[j] or sig <= heads[j] for j in where):
             continue
@@ -631,7 +741,7 @@ def column_check(fact, row, page, fallback=(frozenset(), "")):
         if len(cand) > 1:          # Q2 2025 units / Q2 2025 share: the header word the fact uses
             words = set(content_words(fact))
             cand = [j for j in cand if words & set(content_words(unperiod(head[j])))] or cand
-        figure = m.group() + ("%" if pct else "")
+        figure = cells[where[0]] if q else m.group() + ("%" if pct else "")
         other = period_label(head[where[0]]) or head[where[0]]
         if len(cand) == 1:
             t = cand[0]
@@ -747,14 +857,16 @@ def check(client, claim, page, url="", meta=None, context=""):
     return finish(ask(client, claim, page), claim, page, url, meta, context)
 
 
-def ask(client, claim, page, timeout=None):
+def ask(client, claim, page, timeout=None, sentence=""):
     """The model-call half of check(), the only part worth retrying: (parsed reply, raw text,
     tokens), or None when the page has no passage for the claim (no call made). timeout:
-    seconds left before the audit's deadline (the request is abandoned after it)."""
+    seconds left before the audit's deadline (the request is abandoned after it). sentence:
+    the full sentence a fragment claim was cut from (check_numbers.sentence_of), context only."""
     excerpts = best_excerpts(claim, page)
     if not excerpts:
         return None
-    user = "CLAIM:\n" + claim + "\n\nEXCERPTS:\n<<<\n" + "\n\n".join(excerpts) + "\n>>>"
+    user = ("CLAIM:\n" + claim + (f"\n\nFULL SENTENCE (context only):\n{sentence}" if sentence else "")
+            + "\n\nEXCERPTS:\n<<<\n" + "\n\n".join(excerpts) + "\n>>>")
     resp = client.chat.completions.create(
         model=MODEL, temperature=0, seed=0, reasoning_effort="low",   # seed: best-effort repeatability
         messages=[{"role": "system", "content": SYSTEM},
@@ -795,6 +907,19 @@ def safe_judge(out, claim, page, url="", raw="", meta=None, context=""):
 
 
 def judge(out, claim, page, url="", raw="", meta=None, context=""):
+    """_judge() with the claim's qualified numbers ("over 65%") in CLAIM_BOUNDS, so a fact
+    that drops the qualifier is still compared as the claim states it."""
+    token = CLAIM_BOUNDS.set(tuple(b[1:] for b in bounds(claim)))
+    try:
+        r = _judge(out, claim, page, url, raw, meta, context)
+    finally:
+        CLAIM_BOUNDS.reset(token)
+    if r["label"] == "CONTRADICTED" and (why := date_reason(claim + "\n" + context, r["facts"])):
+        r["reason"] = why
+    return r
+
+
+def _judge(out, claim, page, url="", raw="", meta=None, context=""):
     """Code-only half of check(): turn the model's parsed reply into facts, framing and a
     label. No tokens, so saved runs can be re-scored after a change to the code checks.
     The result's "model" field is the model's reply as judged (sanitized parts; None if it
@@ -908,6 +1033,56 @@ def judge(out, claim, page, url="", raw="", meta=None, context=""):
             "model": {"opinion": False, "parts": parts_in} if out else None}
 
 
+# A contradicting figure with its own date ("33.49 million ... in January 2024") against a
+# claim with no date or another one: likely an older or newer source, not a wrong number.
+MONTHS = {m: i for i, ms in enumerate((
+    "january jan janvier janv", "february feb fevrier fevr", "march mar mars", "april apr avril avr",
+    "may mai", "june jun juin", "july jul juillet juil", "august aug aout", "september sep sept septembre",
+    "october oct octobre", "november nov novembre", "december dec decembre"), 1) for m in ms.split()}
+DATE_RE = re.compile(r"(?:\b([A-Za-zéûÉ]{3,9})\.?[ \t\u00a0]{1,3})?\b((?:19|20)\d{2})\b")
+DATE_REASON = ("The page gives {} for {}. Your figure may be from a different date \u2014 the citation "
+               "may point to an older or different source.")
+
+
+def dates(text):
+    """[(start, end, year, month or None, as written)] of the text's years / month-years."""
+    out = []
+    for m in DATE_RE.finditer(text):
+        month = MONTHS.get(fold(m[1]).lower()) if m[1] else None
+        start = m.start() if month else m.start(2)
+        out.append((start, m.end(), m[2], month, text[start:m.end()]))
+    return out
+
+
+def date_reason(claim, facts):
+    """DATE_REASON for the first contradicted fact whose quote gives a conflicting figure
+    with a date, when the claim has no date or another one; else None."""
+    have = {(y, mo) for _, _, y, mo, _ in dates(claim)}
+    years = {y for y, _ in have}
+    for f in facts:
+        quote = f.get("quote") or ""
+        if f.get("status") != "contradicted" or not quote or f.get("note"):
+            continue
+        q = unperiod(quote)
+        figs = [m for m in NUMBER_RE.finditer(q) if not is_year(m.group())
+                and numbers_not_in(m.group(), f["fact"], min_digits=1)]
+        when = dates(q)
+        if not figs or not when:
+            continue
+        m = figs[0]
+        end = m.end()
+        if (u := UNIT_AFTER.match(q, end)) and not (u.group("mw") == "m" and u.start("mw") > end):
+            end = u.end()
+        if p := PERCENT_AFTER.match(q, end):
+            end = p.end()
+        start, _, year, month, written = min(when, key=lambda d: min(abs(d[0] - end), abs(d[1] - m.start())))
+        if year in years and (month is None or (year, month) in have
+                              or not any(y == year and mo for y, mo in have)):
+            return None                        # same date: the figure itself disagrees
+        return DATE_REASON.format(q[m.start():end].strip(), written)
+    return None
+
+
 def verdict(facts, framing, demoted, missing, ok=True, raw="", caps=()):
     """Label, quote and reason from checked facts: shared by judge() (one source) and merge()
     (several). missing: the claim's numbers on none of the pages; ok: the reply parsed.
@@ -1018,7 +1193,13 @@ def merge(claim, results, texts, context=""):
     per_src = [[c for c in r.get("caps") or [] if c.startswith(PERIOD_CAP)] for r in stating]
     if stating and all(per_src):
         caps.append(per_src[0][0])
-    v = verdict(facts, base["framing"], demoted, missing_numbers(claim, "\n".join(texts)), caps=caps)
+    token = CLAIM_BOUNDS.set(tuple(b[1:] for b in bounds(claim)))
+    try:
+        v = verdict(facts, base["framing"], demoted, missing_numbers(claim, "\n".join(texts)), caps=caps)
+    finally:
+        CLAIM_BOUNDS.reset(token)
+    if v["label"] == "CONTRADICTED" and (why := date_reason(claim + "\n" + context, facts)):
+        v["reason"] = why
     return {**v, "facts": facts, "framing": base["framing"], "caps": caps,
             **({"disagree": disagree} if disagree else {})}
 

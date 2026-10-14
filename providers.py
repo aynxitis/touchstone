@@ -106,8 +106,11 @@ def page_for_model(page, claims, cap=PAGE_CHARS):
     return "\n".join(out)
 
 
-def gemini_prompt(claims, text):
-    numbered = "\n".join(f"[{i}] {c}" for i, c in enumerate(claims, 1))
+def gemini_prompt(claims, text, sentences=None):
+    """sentences: per claim, the full sentence a fragment claim was cut from ("" if none)."""
+    sentences = sentences or [""] * len(claims)
+    numbered = "\n".join(f"[{i}] {c}" + (f"\n    FULL SENTENCE (context only): {s}" if s else "")
+                         for i, (c, s) in enumerate(zip(claims, sentences), 1))
     return "CLAIMS:\n" + numbered + "\n\nEXCERPTS:\n<<<\n" + text + "\n>>>"
 
 
@@ -119,8 +122,8 @@ class Groq:
     def __init__(self, client):
         self.client = client
 
-    def ask(self, claim, page, timeout=None):
-        return ask(self.client, claim, page, timeout)
+    def ask(self, claim, page, timeout=None, sentence=""):
+        return ask(self.client, claim, page, timeout, sentence)
 
     def finish(self, got, claim, page, url, meta=None, context=""):
         return finish(got, claim, page, url, meta, context)
@@ -143,14 +146,14 @@ class Gemini:
         sent = len(SYSTEM_MULTI) + len(gemini_prompt(claims, page_for_model(page, claims)))
         return sent // 4 + OUTPUT_TOKENS_PER_CLAIM * len(claims)
 
-    def ask_source(self, claims, page, timeout=None):
+    def ask_source(self, claims, page, timeout=None, sentences=None):
         """The model call (retried by audit()): (raw reply, tokens). timeout: seconds left
         before the audit's deadline; the request is abandoned (connection closed) after it."""
         from google.genai import types
         text = page_for_model(page, claims)
         ms = GEMINI_TIMEOUT_MS if timeout is None else max(1000, min(GEMINI_TIMEOUT_MS, int(timeout * 1000)))
         resp = self.client.models.generate_content(
-            model=self.model, contents=gemini_prompt(claims, text),
+            model=self.model, contents=gemini_prompt(claims, text, sentences),
             config=types.GenerateContentConfig(
                 system_instruction=SYSTEM_MULTI, temperature=0, seed=0, max_output_tokens=MAX_OUTPUT_TOKENS,
                 response_mime_type="application/json", response_schema=Results,

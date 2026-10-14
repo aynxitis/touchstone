@@ -342,4 +342,31 @@ for grp in ("- Facebook\n\n# 24.5 million\n\n- YouTube\n\n# 20.1 million\n\n- Ti
     got = [(t, u) for t, u in blocks(copy_cleanup(grp + "\n\n" + fav + "\n\nDataReportal" + refs)) if u]
     assert got == [("Facebook: 24.5 million", D1), ("YouTube: 20.1 million", D1), ("TikTok: 15.2 million", D1)], got
 
+# Fragment claims (2026-10-14): leading ". " / ", " stripped; the model also gets the full sentence.
+frag = ("Algeria has 50.1 million mobile lines [A](https://a.dz/x). Combined 3G and 4G networks cover "
+        "98% of the population [B](https://b.dz/y), which operates alongside two rival operators [C](https://c.dz/z).")
+fb = blocks_meta(frag)
+assert [t for t, *_ in fb] == ["Algeria has 50.1 million mobile lines",
+                               "Combined 3G and 4G networks cover 98% of the population",
+                               "which operates alongside two rival operators"], fb
+whole = "Combined 3G and 4G networks cover 98% of the population, which operates alongside two rival operators."
+assert fb[2][3] == {"sentence": whole} and fb[0][3] == {}, fb
+import quote_check as QCf
+class _Resp:
+    def __init__(self): self.choices = [type("C", (), {"message": type("M", (), {"content": '{"opinion": false, "parts": []}'})()})()]; self.usage = None
+class _Client:
+    sent = []
+    class chat:
+        class completions:
+            @staticmethod
+            def create(**kw):
+                _Client.sent.append(kw["messages"][1]["content"]); return _Resp()
+from touchstone import audit as _audit
+fpage = {u: {"status": "OK", "text": "Two rival operators run networks alongside Mobilis in Algeria, covering 98% of the population."}
+         for u in ("https://a.dz/x", "https://b.dz/y", "https://c.dz/z")}
+list(_audit(frag, _Client, pages=fpage, only={3}))
+assert _Client.sent and "CLAIM:\nwhich operates alongside two rival operators" in _Client.sent[0] and whole in _Client.sent[0], _Client.sent
+import providers as _PV
+assert whole in _PV.gemini_prompt(["which operates alongside two rival operators"], "page", [whole])
+
 print("parsing checks passed")

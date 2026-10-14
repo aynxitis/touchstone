@@ -20,7 +20,7 @@ import os
 from fetch_links import fetch_many
 from quote_check import best_excerpts, judge
 from check_numbers import blocks_ctx
-from touchstone import combine, hidden_cap, thin_result
+from touchstone import HOMEPAGE, combine, hidden_cap, homepage_result, thin_result, vague_note
 
 SKIP = {"SOURCE UNREACHABLE", "NOT CHECKED", "NO SOURCE GIVEN"}
 META_NOTE = " Judged from the page's meta description only (the page body loads with JavaScript)."
@@ -101,6 +101,8 @@ def rescore(c, page, context=""):
     if page.get("meta_only"):
         r["reason"] = (r.get("reason", "") + META_NOTE).strip()
         r = thin_result(r)
+    if vague_note(c["url"]) == HOMEPAGE:
+        r = homepage_result(r)
     if c.get("hidden"):
         r = hidden_cap(r, c["hidden"])
     return r["label"], r["reason"]

@@ -597,13 +597,13 @@ def blocks_meta(report):
     {"site": domain} for text cited only by a chip whose link was lost (urls empty, never
     fetched). Cited claims with nothing checkable (checkable()) are dropped."""
     out = []
-    for text, urls, ctx in _blocks(report):
+    for text, urls, ctx, sentence in _blocks(report):
         real = tuple(u for u in urls if not u.startswith(CHIP_TAG))
         hidden = sum(int(u.rsplit("/", 1)[1]) for u in urls if u.startswith(CHIP_TAG + "more/"))
         sites = [u[len(CHIP_TAG) + 5:] for u in urls if u.startswith(CHIP_TAG + "site/")]
         if urls and not checkable(text):
             continue                                   # a source name, not a claim
-        meta = {}
+        meta = {"sentence": sentence} if sentence and real else {}
         if real:
             hidden += len(sites)                       # a chip site we couldn't link
         elif sites:
@@ -618,6 +618,30 @@ def blocks_ctx(report):
     """(text, urls, context) per claim: blocks_meta() without the meta (a claim cited only
     by a link-less chip comes with no urls)."""
     return [(t, us, c) for t, us, c, _ in blocks_meta(report)]
+
+
+LEAD_PUNCT = re.compile(r"^[\s.,;:!?]{1,20}")
+SENTENCE_STOP = re.compile(r"[.!?](?=\s|$)")
+
+
+def sentence_of(pieces, i):
+    """The full sentence around a line's i-th cited piece (the line's text with its links
+    removed): a sentence with several inline citations is split into fragments (", which
+    operates alongside..."), and the model needs the whole of it to read one. "" if the
+    piece is the whole line."""
+    flat, spans = "", []
+    for p in pieces:
+        if p:
+            flat += ("" if not flat or p[0] in ".,;:!?" else " ")
+            spans.append((len(flat), len(flat) + len(p)))
+            flat += p
+        else:
+            spans.append((len(flat), len(flat)))
+    a, b = spans[i]
+    lead = len(pieces[i]) - len(LEAD_PUNCT.sub("", pieces[i]))
+    start = max((m.end() for m in SENTENCE_STOP.finditer(flat, 0, a + lead)), default=0)
+    end = next((m.end() for m in SENTENCE_STOP.finditer(flat, max(a + lead, b - 1))), len(flat))
+    return flat[start:end].strip()
 
 
 def _blocks(report):
@@ -637,7 +661,7 @@ def _blocks(report):
     head, last_row = None, None  # current table's header cells; the previous uncited row
 
     def flush():                 # block ended without a link: each line is uncited
-        out.extend((t, (), "") for t in block if not connector(t))
+        out.extend((t, (), "", "") for t in block if not connector(t))
         block.clear()
 
     for line in report.split("\n"):
@@ -664,7 +688,7 @@ def _blocks(report):
             text = row_text(head, cells)
             if HAS_WORD.search(text):
                 out.append((text, tuple(dict.fromkeys(m.group().rstrip(".,;:!?") for m in links)),
-                            row_labels(head, cells) if head else ""))
+                            row_labels(head, cells) if head else "", ""))
             last_row = None
             continue
         head = last_row = None
@@ -678,8 +702,9 @@ def _blocks(report):
             else:
                 groups.append((between, [m]))
             last = m.end()
-        for between, ms in groups:
-            text = clean(between)
+        pieces = [clean(b) for b, _ in groups] + [clean(line[last:])]
+        for i, (between, ms) in enumerate(groups):
+            text = LEAD_PUNCT.sub("", clean(between))   # ". Combined 3G...", ", which..."
             if SOURCE_LABEL.search(text):                  # "... strengthened. Sources: [A] and [B]"
                 text = clean(SOURCE_LABEL.sub("", text)).rstrip(" ,;(")
             context = ""
@@ -689,12 +714,14 @@ def _blocks(report):
                 block.clear()
             if HAS_WORD.search(text) and not connector(text):
                 context = context if text.startswith(context + " ") else ""
-                out.append((text, tuple(dict.fromkeys(m.group().rstrip(".,;:!?") for m in ms)), context))
-        tail = clean(line[last:])
+                whole = "" if context else sentence_of(pieces, i)
+                out.append((text, tuple(dict.fromkeys(m.group().rstrip(".,;:!?") for m in ms)), context,
+                            whole if whole.rstrip(".!?;:, ") != text.rstrip(".!?;:, ") else ""))
+        tail = LEAD_PUNCT.sub("", pieces[-1])
         if not HAS_WORD.search(tail) or connector(tail):
             continue                                   # "." left after "([Name](url))."
         if links or not (block or tail.endswith(":")):
-            out.append((tail, (), ""))
+            out.append((tail, (), "", ""))
         else:
             block.append(tail)                         # start or extend a list block
     flush()

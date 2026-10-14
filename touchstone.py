@@ -153,6 +153,21 @@ def site(url):
     return (host or url).removeprefix("www.")
 
 
+LANG_PATH = re.compile(r"/[a-z]{2}(?:[-_][a-zA-Z]{2})?/?")    # /en, /fr/, /en-us: still the front page
+HOMEPAGE_REASON = ("This cites a homepage, not the page with this figure. Homepages change constantly "
+                   "\u2014 find the exact page.")
+
+
+def homepage_result(r):
+    """A homepage (vague_note HOMEPAGE) that doesn't state the claim proves nothing either way:
+    its content changes daily. UNSUPPORTED / CONTRADICTED / UNVERIFIED -> COULDN'T CONFIRM with
+    HOMEPAGE_REASON; a homepage that does state it keeps the usual label. The facts are kept
+    for the card, but their statuses no longer count (multi-source: merge() never sees them)."""
+    if r["label"] not in ("UNSUPPORTED", "CONTRADICTED", "UNVERIFIED"):
+        return r
+    return {**r, "label": "COULDN'T CONFIRM", "reason": HOMEPAGE_REASON, "homepage": True}
+
+
 def vague_note(url):
     """HOMEPAGE for a site's front page, LISTING for a search/library page with filter
     parameters; None for a specific page. The source is still checked, the card says so."""
@@ -161,7 +176,7 @@ def vague_note(url):
         keys = {k.lower() for k, _ in parse_qsl(parts.query, keep_blank_values=True)}
     except ValueError:
         return None
-    if parts.path in ("", "/"):
+    if parts.path in ("", "/") or LANG_PATH.fullmatch(parts.path):
         return LISTING if keys & LISTING_KEYS else HOMEPAGE
     words = set(re.findall(r"[a-z]+", parts.path.lower()))
     return LISTING if parts.query and (words & LISTING_WORDS or keys & LISTING_KEYS) else None
@@ -269,6 +284,7 @@ def combine(claim, per, pages, context=""):
             if page.get("meta_only"):
                 r["reason"] = (r.get("reason", "") + META_NOTE).strip()
     per = [(u, thin_result(r) if (pages.get(u) or {}).get("meta_only") else r) for u, r in per]
+    per = [(u, homepage_result(r) if vague_note(u) == HOMEPAGE else r) for u, r in per]
     multi = len(per) > 1
     sources = [{"url": u, "label": r["label"], "reason": r.get("reason", ""),
                 **({"detail": r["detail"]} if r.get("detail") else {}),
@@ -293,7 +309,9 @@ def combine(claim, per, pages, context=""):
         for f in out.get("facts") or []:
             f["source"] = usable[0][0]
     else:
-        out = merge(claim, usable, [pages[u]["text"] for u, _ in usable], context)
+        # a homepage that doesn't state the claim adds nothing: its facts never vote
+        judged = [(u, {**r, "facts": []} if r.get("homepage") else r) for u, r in usable]
+        out = merge(claim, judged, [pages[u]["text"] for u, _ in usable], context)
     if multi and usable:
         lost = sum(r["label"] == "SOURCE UNREACHABLE" for _, r in per)
         late = sum(r["label"] == "NOT CHECKED" and not r.get("over_limit") for _, r in per)
@@ -306,6 +324,7 @@ def combine(claim, per, pages, context=""):
     if out.get("disagree"):
         notes = ["Sources disagree"] + notes   # one source states a fact another contradicts
     out.pop("disagree", None)
+    out.pop("homepage", None)
     if multi:
         out.pop("detail", None)              # per-source details live in "sources"
     out.update(tokens=tokens, sources=sources, notes=notes)
@@ -353,6 +372,7 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
     segs = blocks_meta(report)
     cited = [(t, us) for t, us, _, _ in segs if us]
     contexts = [c for _, us, c, _ in segs if us]
+    sentences = [m.get("sentence", "") for _, us, _, m in segs if us]   # fragments: the whole sentence
     site_only = sum(1 for _, us, _, m in segs if not us and m.get("site"))
     if only is not None:
         chosen = {i - 1 for i in only if 0 < i <= len(cited)}
@@ -431,8 +451,9 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
                         batch.update({(m + 1, url): res_ for m, res_ in zip(part, results)})
                         continue
                     claims = [cited[m][0] for m in part]
+                    whole = [sentences[m] for m in part]
                     outcome, got = yield from attempt(
-                        lambda t, claims=claims: provider.ask_source(claims, page["text"], t), pacer,
+                        lambda t, claims=claims, whole=whole: provider.ask_source(claims, page["text"], t, whole), pacer,
                         provider.estimate(claims, page["text"]), deadline, clock, sleep, n)
                     if outcome == "quota":
                         yield {"type": "quota", "scope": got, "checked": index - 1}
@@ -452,7 +473,7 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
                 r = batch.pop((n, url))
             else:
                 outcome, got = yield from attempt(
-                    lambda t: provider.ask(text, page["text"], t), pacer, None,
+                    lambda t: provider.ask(text, page["text"], t, chip.get("sentence", "")), pacer, None,
                     deadline, clock, sleep, n)
                 if outcome == "quota":
                     # Out of capacity: every later claim would fail the same way. Stop cleanly

@@ -395,7 +395,7 @@ import providers as PV, quote_check as QC
 from quote_check import SYSTEM, SYSTEM_MULTI, PREAMBLE, TASK_ONE, RULES
 assert SYSTEM == PREAMBLE + TASK_ONE + RULES and SYSTEM_MULTI.endswith(RULES)      # rules shared verbatim
 import hashlib
-assert hashlib.sha256(SYSTEM.encode()).hexdigest()[:16] == "52b8ea62e11901cf"       # Groq prompt pinned (2026-10-14: author caveats = framing)
+assert hashlib.sha256(SYSTEM.encode()).hexdigest()[:16] == "34d5c41d76a1cded"       # Groq prompt pinned (2026-10-14: one assertion per fact, qualifiers, full sentence)
 # Parts in the claim's language (cross-language coverage, L2): both providers' prompts say so.
 assert "SAME language as the claim" in SYSTEM and "SAME language as the claim" in SYSTEM_MULTI
 assert "author's own caveats" in SYSTEM and "author's own caveats" in SYSTEM_MULTI

@@ -822,4 +822,38 @@ for org, url in (("Djezzy Zone", "https://blog.example.dz/x"), ("Grand Opera Ven
 claim_t = "According to ARPCE, mobile subscriptions reached 50.1 million."
 assert check_fact(claim_t.rstrip("."), lines_q, claim_t, lines_page, quote_on_page, "https://n.example/a") is not None
 
+# Comparison qualifiers (2026-10-14): "over 65%" is supported by 68.1%, never contradicted by it.
+from quote_check import judge as judge_q, numbers_not_in as nni, column_check as colc
+def one(claim, fact, quote, status="contradicted", page=None):
+    out = {"opinion": False, "parts": [{"text": fact, "kind": "fact", "status": status, "quote": quote}]}
+    return judge_q(out, claim, page or quote)
+yt = "YouTube ads reached 68.1 percent of internet users in Algeria."
+c65 = "YouTube ad reach covers over 65% of internet users in Algeria"
+assert one(c65, c65, yt)["label"] not in ("CONTRADICTED", "UNSUPPORTED")
+assert one(c65, c65, yt, "stated")["label"] == "SOURCED"
+assert one(c65, "YouTube ad reach covers 65% of internet users in Algeria", yt, "stated")["label"] == "SOURCED"  # the claim's "over"
+assert not nni("over 72% of users", "74.2% of users") and nni("over 72% of users", "70.1% of users")
+c72 = "YouTube ad reach covers over 72% of internet users in Algeria"
+assert one(c72, c72, "YouTube ads reached 70.1 percent of internet users in Algeria.")["label"] == "CONTRADICTED"
+assert not nni("less than 1% of sales", "only 0.8% of sales", 1) and nni("less than 1% of sales", "1.2% of sales", 1)
+assert not nni("nearly 20 million users", "19.6 million users") and nni("nearly 20 million users", "15 million users")
+assert not nni("nearly 20 million users", "19 600 000 users") and nni("over 65% of users", "68 users")  # % needs %
+assert nni("over 65% of users in 2025", "70% of users in 2024")  # the year is no bound
+assert not nni("au moins 30 %", "Le taux atteint 30 %.") and not nni("plus de 5 millions", "5,4 millions")
+# Columns: "over 15%" under Q2 2025 is any figure above 15% in that column.
+qtab = "| Brand | Q2 2025 share | Q2 2024 share |\n|---|---|---|\n| Samsung | 18% | 15% |"
+assert colc("Samsung held over 15% in Q2 2025", "| Samsung | 18% | 15% |", qtab) is None
+
+# Different-date conflict (2026-10-14): the label stays, the reason says the source may be older.
+users = "Algeria had 33.49 million social media users in January 2024."
+r = one("Algeria has 37.8 million social media users", "Algeria has 37.8 million social media users", users)
+assert r["label"] == "CONTRADICTED" and "33.49 million for January 2024" in r["reason"], r["reason"]
+same = "Algeria had 37.8 million social media users in January 2024"
+r = one(same, same, users)
+assert r["label"] == "CONTRADICTED" and r["reason"].startswith("Contradicted by the page:"), r["reason"]
+
+# One assertion per fact, with its own quote (prompt, both providers).
+from quote_check import SYSTEM as SYS1, SYSTEM_MULTI as SYS2
+assert all("One assertion per fact" in x and "only if it actually states each of them" in x for x in (SYS1, SYS2))
+
 print("check tests passed")
