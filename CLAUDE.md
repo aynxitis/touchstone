@@ -359,8 +359,10 @@ stat block cites every stat block of its group (stat_group; short uncited lines 
 (4) entities.ACRONYM_PAIRS: POS=TPE, GDP=PIB, SME=PME, VAT=TVA, FDI=IDE, UN=ONU, EU=UE,
 IMF=FMI, WHO=OMS, WTO=OMC, NGO=ONG, ICT=TIC, AI=IA (exact case, whole word, plural s).
 (5) entities.attributions(): "According to X", "selon/d'après X", "X says/reports/...":
-a name inside X is satisfied when the page is X's own (site_of: X or its initials in the
-host, "mpt.gov.dz"; or X/initials in the page title); no other name is.
+a name inside X is satisfied when the page is X's own (site_of: the site's name label
+(registrable domain minus TLD/gov/com..., "mpt" of www.mpt.gov.dz) EQUALS X or its 3+ letter
+initials, or a whole page-title segment ("Indicators | ARPCE") does; never a host substring,
+a hosting subdomain, or a title that merely mentions X); no other name is.
 Labels: SOURCED / PARTIAL / COULDN'T CONFIRM / UNSUPPORTED / CONTRADICTED / UNVERIFIED / OPINION / SOURCE UNREACHABLE /
 NO SOURCE GIVEN / NOT CHECKED / ERROR. Verdicts judge factual parts only; editorial framing is noted, not penalized.
 

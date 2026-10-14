@@ -421,20 +421,37 @@ def initials(org):
     return org.lower() if len(ws) == 1 else "".join(w[0].lower() for w in ws)
 
 
+GENERIC_LABELS = {"co", "com", "net", "org", "gov", "gouv", "edu", "ac", "or", "ne", "go", "gob",
+                  "nic", "mil", "int", "info", "biz"}
+TITLE_SEPARATORS = re.compile(r"\s[|\u2013\u2014\u00b7:-]\s|\s?\|\s?")
+
+
+def site_name(host):
+    """The registrable domain's name label: "stats.arpce.dz" -> "arpce", "www.mpt.gov.dz" ->
+    "mpt", "news.bbc.co.uk" -> "bbc". Hosting platforms' subdomains are not the org's site."""
+    labels = [l for l in host.lower().removeprefix("www.").split(".") if l]
+    if len(labels) < 2:
+        return ""
+    labels = labels[:-1]                                   # the TLD
+    while len(labels) > 1 and labels[-1] in GENERIC_LABELS:
+        labels = labels[:-1]
+    return labels[-1].replace("-", "")
+
+
 def site_of(org, url, title=""):
-    """True if the page is published by this organisation: its registrable name or acronym in
-    the URL's host ("arpce.dz", "mpt.gov.dz" for the Ministry of Post and Telecommunications),
-    or its name / acronym in the page title."""
-    host = (urlparse(url).hostname or "").lower().removeprefix("www.")
-    labels = host.split(".")
+    """True if the page is published by this organisation: the site's name label IS its name
+    or its initials (arpce.dz for ARPCE, mpt.gov.dz for the Ministry of Post and
+    Telecommunications), or a segment of the page title ("Indicators | ARPCE") is exactly its
+    name or initials. Never a substring of the host (arpce-leaks.blogspot.com) or a title that
+    merely mentions it ("Why ARPCE figures are wrong"); initials need 3+ letters."""
     key = re.sub(r"[^a-z0-9]", "", fold(org))
     acr = initials(org)
-    if host and (key in host.replace("-", "").replace(".", "") or (len(acr) >= 2 and acr in labels)):
+    acr = acr if len(acr) >= 3 else ""
+    name = site_name(urlparse(url).hostname or "")
+    if name and name in (key, acr):
         return True
-    if title and (named_in(org, title) or (len(acr) >= 2 and (
-            re.search(r"(?<!\w)" + re.escape(acr) + r"(?!\w)", title, re.I) or spelled_out(acr, title)))):
-        return True
-    return False
+    segments = {re.sub(r"[^a-z0-9]", "", fold(t)) for t in TITLE_SEPARATORS.split(title or "")}
+    return bool(key and key in segments) or bool(acr and acr in segments)
 
 
 def attributed_to_site(entity, claim, url, title=""):

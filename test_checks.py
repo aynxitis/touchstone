@@ -813,4 +813,13 @@ both = "According to ARPCE, Djezzy's mobile subscriptions reached 50.1 million."
 hit = check_fact(both.rstrip("."), lines_q, both, lines_page, quote_on_page, "https://www.arpce.dz/en/obs")
 assert hit and hit[1] == ["Djezzy"], hit
 
+# Publisher match is exact (security review 2026-10-14): the site's name label or a whole
+# title segment, never a host substring, a TLD/"gov" equal to some initials, or a mention.
+from entities import site_of
+assert site_of("ARPCE", "https://stats.arpce.dz/x") and site_of("World Bank", "https://www.worldbank.org/en")
+for org, url, title in (("Djezzy Zone", "https://blog.example.dz/x", ""), ("Grand Opera Venue", "https://x.gov.dz/x", ""),
+                        ("ARPCE", "https://arpce-leaks.blogspot.com/x", ""), ("ARPCE", "https://arpce.blogspot.com/x", ""),
+                        ("ARPCE", "https://news.example.com/x", "Why ARPCE figures are wrong")):
+    assert not site_of(org, url, title), (org, url, title)
+
 print("check tests passed")
