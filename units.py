@@ -9,15 +9,15 @@ import locnum
 PREFIX = {"": 1, "k": 10**3, "kilo": 10**3, "M": 10**6, "mega": 10**6, "G": 10**9,
           "giga": 10**9, "T": 10**12, "tera": 10**12}
 MAGNITUDE = {"thousand": 10**3, "k": 10**3, "K": 10**3, "million": 10**6, "mn": 10**6,
-             "mln": 10**6, "M": 10**6, "billion": 10**9, "bn": 10**9, "B": 10**9,
-             "trillion": 10**12, "tn": 10**12}
+             "mln": 10**6, "M": 10**6, "m": 10**6, "billion": 10**9, "bn": 10**9, "B": 10**9,
+             "milliard": 10**9, "trillion": 10**12, "tn": 10**12}
 
 # Longest forms first (MWh before MW, megawatt-hours before megawatts). Symbols are
 # case-sensitive (M = mega/million, m = metre); written-out words are not.
 UNIT = (r"(?P<wh>[kMGT]?Wh)|(?P<w>[kMGT]?W)"
         r"|(?P<whw>(?i:(?:kilo|mega|giga|tera)?watt[- ]?hours?))"
         r"|(?P<ww>(?i:(?:kilo|mega|giga|tera)?watts?))"
-        r"|(?P<mw>(?i:thousand|million|billion|trillion)|mn|mln|bn|tn|[kKMB])")
+        r"|(?P<mw>(?i:thousands?|millions?|milliards?|billions?|trillions?)|mn|mln|bn|tn|[kKMBm])")
 # A unit right after a number: at most one space/hyphen, then the unit, and no letter
 # after it ("5 Morocco" is not 5 M). Tried with .match() at the end of each NUMBER_RE token:
 # one regex "number then unit" backtracked through every digit group and restarted at each
@@ -44,7 +44,8 @@ def _unit(m):
     if m.group("ww"):
         return "W", _prefix(m.group("ww"))
     word = m.group("mw")
-    return "x", MAGNITUDE.get(word) or MAGNITUDE[word.lower()]
+    word = word if word in MAGNITUDE else word.lower().removesuffix("s")
+    return "x", MAGNITUDE[word]
 
 
 def quantities(text, page=False, euro=None):
@@ -57,7 +58,8 @@ def quantities(text, page=False, euro=None):
     euro = locnum.european(text) if euro is None else euro
     for line in lines:
         for m, rs in locnum.tokens(line, page=page, euro=euro):
-            if u := UNIT_AFTER.match(line, m.end()):
+            # "m" is million only glued to the number ("53.6m"); "5 m" is five metres.
+            if (u := UNIT_AFTER.match(line, m.end())) and not (u.group("mw") == "m" and u.start("mw") > m.end()):
                 out.append((rs, *_unit(u), m.start()))
     return out
 
@@ -82,8 +84,44 @@ def scaled_match(claim_quantity, passage_quantities):
     return False
 
 
+def rounded_match(claim_quantity, passage_values):
+    """True if a claim number with a scale word ("53.64 million", "2.6 million", "15.43
+    milliards") is a passage number written out in full, rounded to the claim's unit and
+    decimals: 53 636 104 -> 53.64 million, 2 565 347 -> 2.6 or 2.57 million (not 2.58). Only the
+    passage value is rounded, half up, never cut off and never the claim."""
+    wants, family, scale, _ = claim_quantity
+    if family != "x":
+        return False
+    for want in wants:
+        places = Decimal(1).scaleb(want.as_tuple().exponent)
+        for n in passage_values:
+            if n < scale / 2:                      # can't round to a non-zero count of units
+                continue
+            try:
+                if (n / scale).quantize(places, ROUND_HALF_UP) == want:
+                    return True
+            except InvalidOperation:
+                continue
+    return False
+
+
 def unit_supported(claim, passage, euro=None):
-    """Start offsets (in the claim) of numbers that a unit-scaled passage number supports.
+    """Start offsets (in the claim) of numbers that a unit-scaled passage number supports:
+    one written with a unit of the same family (15.9 GW = 15,925 MW), or, for a scale word
+    (million, k, milliard...), any passage number that rounds to it (53.64 million = 53 636 104).
     Only numbers written with a unit in the claim can be here. euro: as locnum.missing()."""
+    want = quantities(claim)
+    if not want:
+        return set()
     have = quantities(passage, page=True, euro=euro)
-    return {q[3] for q in quantities(claim) if scaled_match(q, have)}
+    plain = None
+    out = set()
+    for q in want:
+        if scaled_match(q, have):
+            out.add(q[3])
+        elif q[1] == "x":
+            if plain is None:
+                plain = {v for _, rs in locnum.tokens(passage, page=True, euro=euro) for v in rs}
+            if rounded_match(q, plain):
+                out.add(q[3])
+    return out

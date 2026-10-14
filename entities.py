@@ -34,6 +34,17 @@ ACRONYMS = {"pv": ["photovoltaic"], "csp": ["concentrated solar power", "concent
             "kwh": ["kilowatt-hour", "kilowatt hour"], "mwh": ["megawatt-hour", "megawatt hour"],
             "gwh": ["gigawatt-hour", "gigawatt hour"], "twh": ["terawatt-hour", "terawatt hour"]}
 GENERIC |= set(ACRONYMS)
+
+# The same acronym in English and French: "POS terminals" on a French page are "TPE". Matched
+# as whole words with their exact case ("UE", "IA", "TIC" are ordinary words in lowercase).
+ACRONYM_PAIRS = [("POS", "TPE"), ("GDP", "PIB"), ("SME", "PME"), ("VAT", "TVA"), ("FDI", "IDE"),
+                 ("UN", "ONU"), ("EU", "UE"), ("IMF", "FMI"), ("WHO", "OMS"), ("WTO", "OMC"),
+                 ("NGO", "ONG"), ("ICT", "TIC"), ("AI", "IA")]
+ACRONYM_EQUIV = {}
+for _en, _fr in ACRONYM_PAIRS:
+    ACRONYM_EQUIV.setdefault(_en, set()).update({_fr, _fr + "s"})
+    ACRONYM_EQUIV.setdefault(_fr, set()).update({_en, _en + "s"})
+    ACRONYM_EQUIV[_en + "s"], ACRONYM_EQUIV[_fr + "s"] = ACRONYM_EQUIV[_en], ACRONYM_EQUIV[_fr]
 # Quarter / half codes (Q2, T2 = French trimestre, H1) are periods, checked by
 # quote_check.period_caps(), never names.
 GENERIC |= {f"{p}{n}" for p in "qt" for n in "1234"} | {"h1", "h2"}
@@ -265,6 +276,11 @@ def country_named(countries, passage):
     return any(meant <= countries for meant in seen)
 
 
+def names_country(text):
+    """True if the text names a country, by name or adjective, English or French."""
+    return bool(FOLDED_RE.search(_country_key(text)) or EXACT_RE.search(text))
+
+
 # Small words skipped when reading an acronym off a name ("Office National des Statistiques").
 CONNECTORS = {"of", "for", "and", "the", "de", "des", "du", "la", "le", "et", "d", "l", "&"}
 
@@ -290,10 +306,14 @@ def named_in(entity, passage):
     in "South Sudan", "DR Congo" not in "Congolese"; see country_named)."""
     if (countries := countries_of(entity)) is not None:
         return country_named(countries, passage)
+    if any(re.search(r"(?<![\w.])" + re.escape(x) + r"(?!\w)", passage)
+           for x in ACRONYM_EQUIV.get(entity, ())):
+        return True
     if entity.isupper() and " " not in entity and len(entity) >= 2:
         expansions = ACRONYMS.get(entity.lower(), [])
         if any(fold(x) in fold(passage) for x in expansions) or spelled_out(entity, passage):
             return True
+
     entity, p = fold(entity), fold(passage)
     words = [w for w in entity.split() if len(w) >= 3] or entity.split()
     return all(any(re.search(r"(?<![a-z0-9])" + re.escape(f), p) for f in _stems(w)) for w in words)
@@ -339,6 +359,94 @@ def publisher(entity, url):
                            or (len(first) >= 4 and first in host))
 
 
+# Attribution: "According to ARPCE, ...", "The Ministry of Post and Telecommunications says
+# ...", "selon l'ONS". A page published by that organisation rarely names itself, so on its
+# own site (domain, or page title) the attribution's name counts as named; no other name does.
+ATTRIBUTION_LEAD = [("according", "to"), ("selon",), ("d'après",), ("d’après",)]
+ATTRIBUTION_VERBS = set("""says said reports reported estimates estimated states stated notes noted
+indicates indicated shows showed counts counted announced announces puts put finds found
+recorded records indique indiquait affirme annonce estime rapporte recense compte publie
+précise""".split())
+ARTICLES = {"the", "la", "le", "les", "l'", "l’"}
+WORD = re.compile(r"[\w'’\-&]+|[^\w\s]")      # words; punctuation ends a name
+NOT_NAMES = ARTICLES | {"this", "these", "that", "those", "it", "its", "they", "their", "he", "she"}
+
+
+def _capital(w):
+    return w[:1].isupper() and w.lower() not in NOT_NAMES
+
+
+def attributions(claim):
+    """The organisations a claim attributes its statement to, as written: "ARPCE",
+    "Ministry of Post and Telecommunications" (connectors kept between capitalized words)."""
+    # "l'ONS" -> "ONS" (an elided article before a name; "d'après" stays), "IMF's" -> "IMF"
+    words = [POSSESSIVE.sub("", re.sub(r"^[lLdD]['’](?=[A-ZÀ-Þ])", "", w)) for w in WORD.findall(claim)]
+    low = [w.lower() for w in words]
+    out = []
+
+    def name(run):
+        while run and run[0].lower() in CONNECTORS | ARTICLES:
+            run = run[1:]
+        while run and run[-1].lower() in CONNECTORS:
+            run = run[:-1]
+        if run and any(_capital(w) for w in run):
+            out.append(" ".join(run))
+
+    for i in range(len(words)):
+        for lead in ATTRIBUTION_LEAD:
+            if tuple(low[i:i + len(lead)]) != lead:
+                continue
+            j = i + len(lead)
+            if j < len(words) and low[j] in ARTICLES:
+                j += 1
+            run = []
+            while j < len(words) and (_capital(words[j]) or (
+                    low[j] in CONNECTORS and j + 1 < len(words) and _capital(words[j + 1]))):
+                run.append(words[j])
+                j += 1
+            name(run)
+        if low[i] in ATTRIBUTION_VERBS:
+            j, run = i - 1, []
+            while j >= 0 and (_capital(words[j]) or (
+                    low[j] in CONNECTORS and j > 0 and _capital(words[j - 1]))):
+                run.insert(0, words[j])
+                j -= 1
+            name(run)
+    return list(dict.fromkeys(out))
+
+
+def initials(org):
+    """'Ministry of Post and Telecommunications' -> 'mpt'; an acronym is itself."""
+    ws = [w for w in org.split() if w.lower() not in CONNECTORS]
+    return org.lower() if len(ws) == 1 else "".join(w[0].lower() for w in ws)
+
+
+def site_of(org, url, title=""):
+    """True if the page is published by this organisation: its registrable name or acronym in
+    the URL's host ("arpce.dz", "mpt.gov.dz" for the Ministry of Post and Telecommunications),
+    or its name / acronym in the page title."""
+    host = (urlparse(url).hostname or "").lower().removeprefix("www.")
+    labels = host.split(".")
+    key = re.sub(r"[^a-z0-9]", "", fold(org))
+    acr = initials(org)
+    if host and (key in host.replace("-", "").replace(".", "") or (len(acr) >= 2 and acr in labels)):
+        return True
+    if title and (named_in(org, title) or (len(acr) >= 2 and (
+            re.search(r"(?<!\w)" + re.escape(acr) + r"(?!\w)", title, re.I) or spelled_out(acr, title)))):
+        return True
+    return False
+
+
+def attributed_to_site(entity, claim, url, title=""):
+    """True if the entity is (part of) a name the claim attributes its statement to and the
+    cited page is that organisation's own: "Ministry" in "The Ministry of Post and
+    Telecommunications says ..." cited to mpt.gov.dz. Any other name in the claim still needs
+    to be in the passage."""
+    e = fold(entity)
+    return any(re.search(r"(?<![a-z0-9])" + re.escape(e) + r"(?![a-z0-9])", fold(org))
+               and site_of(org, url, title) for org in attributions(claim))
+
+
 def opening_name(text, page):
     """The name a sentence or paragraph opens with (its subject), if it opens with one."""
     if _is_heading(text):
@@ -356,13 +464,16 @@ def sentence_before(quote, para):
     return parts[-1] if parts and parts[-1] else ""
 
 
-def check_fact(fact, quote, claim, page, on_page, url=""):
+def check_fact(fact, quote, claim, page, on_page, url="", title=""):
     """None if every name the fact is about is in its quote, the quote's paragraph, or is
-    the page's own subject (named in 2+ paragraphs). Otherwise ("missing", names, None), or
+    the page's own subject (named in 2+ paragraphs), or the organisation the claim attributes
+    it to when the page is that organisation's (attributed_to_site; title: the page title).
+    Otherwise ("missing", names, None), or
     ("contradicted", names, other) when the paragraph, the quote or the sentence before the
     quote opens with a different name the claim never mentions: it is about someone else."""
     claim_ents = entities(claim, page)
-    need = [e for e in fact_entities(fact, claim_ents) if not publisher(e, url)]
+    need = [e for e in fact_entities(fact, claim_ents)
+            if not publisher(e, url) and not attributed_to_site(e, claim, url, title)]
     para = paragraph_of(quote, page, on_page)
     if para is None:             # unverified quote: nothing here supports any name
         return ("missing", need, None) if need else None

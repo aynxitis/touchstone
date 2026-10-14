@@ -257,7 +257,8 @@ sent = "BYD was the best-performing brand with sales up almost ten times more \u
 r = judge({"parts": [P("Tesla's total European sales fell 26.9% to 238,656 units in 2025", "stated", row_t),
                      P("Tesla had the most popular individual car", "missing"),
                      P("Tesla struggled as a brand", "", kind="framing")]}, tesla, brands, brands_url)
-assert r["label"] == "PARTIAL" and [f["status"] for f in r["facts"]] == ["stated", "missing"], r
+# (2026-10-14: a part naming Tesla is a fact even if the model calls it framing.)
+assert r["label"] == "PARTIAL" and [f["status"] for f in r["facts"]] == ["stated", "missing", "missing"], r
 assert numbers_not_in_passage("Tesla sold 238,656 units in 2025", row_t, brands) == []
 assert numbers_not_in_passage("Tesla sold 238,656 units in 2019", row_t, brands) == ["2019"]   # year not on page
 
@@ -743,5 +744,73 @@ r = judge({"parts": [P("Xiaomi held 19% in Q2 2025", "contradicted", row_s)]},
 assert r["label"] != "CONTRADICTED", r
 r = judge(hp_parts("Samsung", "18%", "stated"), hp("Samsung", "18%"), cols_page, U, context=hp_ctx)
 assert r["label"] == "SOURCED", r
+
+# Rounded scale words (2026-10-14): a claim's "53.64 million" is the page's full figure rounded
+# to the claim's unit and decimals; only the page value is rounded (half up, never cut off).
+from quote_check import numbers_not_in, value_conflict as _vc
+for page_n, claim_n, ok in (("53 636 104", "53.64 million", True), ("2 565 347", "2.6 million", True),
+                            ("2 565 347", "2.57 million", True), ("2 565 347", "2.58 million", False),
+                            ("2 565 347", "2.56 million", False), ("15.431.994", "15.43 million", True),
+                            ("6 819 233", "6.8 million", True), ("6 819 233", "6.9 million", False),
+                            ("1 960 000 000", "près de 2 milliards", True), ("53 636 104", "approximately 53.6m", True),
+                            ("15.431.994", "15,43 millions", True), ("4 400 000", "5 million", False)):
+    got = not numbers_not_in(f"Users: {claim_n}.", f"On compte {page_n} abonnés.", min_digits=1)
+    assert got == ok, (page_n, claim_n, got)
+assert numbers_not_in("5 m", "5 000 000", min_digits=1) == ["5"]          # "5 m" is metres
+assert not _vc("Algeria had 53.64 million people", "Algeria had 53 636 104 people.")
+rp = "Population totale : 53 636 104 habitants au 1er janvier 2025."
+r = judge({"parts": [P("Algeria's population was 53.64 million in 2025", "contradicted", rp)]},
+          "Algeria's population was 53.64 million in 2025.", rp, U)
+assert r["label"] != "CONTRADICTED", r
+r = judge({"parts": [P("Algeria's population was 53.64 million in 2025", "stated", rp)]},
+          "Algeria's population was 53.64 million in 2025.", rp, U)
+assert r["label"] == "SOURCED", r
+# Column check: a rounded figure in its own period's column is never a conflict.
+rnd_page = "| Operator | Q2 2024 lines | Q2 2025 lines |\n|---|---|---|\n| Mobilis | 2 412 000 | 2 565 347 |"
+rnd_row = "| Mobilis | 2 412 000 | 2 565 347 |"
+assert column_check("Mobilis had 2.57 million lines in Q2 2025", rnd_row, rnd_page) is None
+assert column_check("Mobilis had 2.4 million lines in Q2 2025", rnd_row, rnd_page)[0] == "conflict"
+
+# Author caveats are framing; a part with a figure or a name never is, whatever the model says.
+cav_page = "Online payments reached 12 million transactions in 2025, the central bank said."
+cav = [("It is not a measure of e-commerce sales alone", "framing"),
+       ("These are official figures, not independent measurements", "framing"),
+       ("The expansion continued in 2026", "framing"), ("Revenue grew 40% in 2025", "framing"),
+       ("Algeria leads the region in online payments", "framing")]
+r = judge({"parts": [{"text": t, "kind": k, "status": "", "quote": ""} for t, k in cav]},
+          "Online payments grew. It is not a measure of e-commerce sales alone.", cav_page, U)
+assert r["framing"] == [t for t, _ in cav[:3]], r["framing"]
+assert [f["fact"] for f in r["facts"]] == [t for t, _ in cav[3:]], r["facts"]
+
+# EN/FR acronyms: "POS terminals" are "TPE" on a French page.
+assert named_in("POS", "Le parc de TPE a atteint 45 000 terminaux.")
+assert not named_in("POS", "Le parc de terminaux a atteint 45 000 unités.")
+assert named_in("SMEs", "Les PME représentent 90 % des entreprises.") and named_in("PIB", "GDP grew 3%.")
+assert not named_in("EU", "Une rue de la ville.") and not named_in("AI", "Il y a 5 ans.")
+tpe = "Le parc de TPE a atteint 45 000 terminaux fin 2025."
+assert check_fact("Algeria had 45,000 POS terminals", tpe, "Algeria had 45,000 POS terminals.", tpe, quote_on_page) is None
+
+# Attribution to the page's publisher: "According to ARPCE" on arpce's own site needs no
+# "ARPCE" in the passage; no other name is excused.
+from entities import attributions
+assert attributions("According to ARPCE, x.") == ["ARPCE"]
+assert attributions("The Ministry of Post and Telecommunications says x.") == ["Ministry of Post and Telecommunications"]
+assert attributions("Selon l'Office National des Statistiques, x.") == ["Office National des Statistiques"]
+lines_q = "Mobile subscriptions reached 50.1 million at the end of 2025."
+lines_page = lines_q + "\nOther news of the sector."
+for claim, url, ok in (("According to ARPCE, mobile subscriptions reached 50.1 million.", "https://www.arpce.dz/en/obs", True),
+                       ("According to the World Bank, mobile subscriptions reached 50.1 million.", "https://www.arpce.dz/en/obs", False),
+                       ("According to ARPCE, mobile subscriptions reached 50.1 million.", "https://news.example.com/a", False),
+                       ("The Ministry of Post and Telecommunications says mobile subscriptions reached 50.1 million.",
+                        "https://www.mpt.gov.dz/fr/x", True)):
+    hit = check_fact(claim.rstrip("."), lines_q, claim, lines_page, quote_on_page, url)
+    assert (hit is None) == ok, (claim, url, hit)
+# The page title can name the publisher; another name in the claim still needs its passage.
+mpt = "The Ministry of Post and Telecommunications says mobile subscriptions reached 50.1 million."
+assert check_fact(mpt.rstrip("."), lines_q, mpt, lines_page, quote_on_page, "https://n.example/a",
+                  "Indicators | Ministry of Post and Telecommunications") is None
+both = "According to ARPCE, Djezzy's mobile subscriptions reached 50.1 million."
+hit = check_fact(both.rstrip("."), lines_q, both, lines_page, quote_on_page, "https://www.arpce.dz/en/obs")
+assert hit and hit[1] == ["Djezzy"], hit
 
 print("check tests passed")

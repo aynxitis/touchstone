@@ -9,8 +9,8 @@ from dotenv import load_dotenv
 from rapidfuzz import fuzz
 
 from check_numbers import NUM_RE, blocks
-from entities import check_fact, entities, fold, named_in, paragraph_of
-from units import unit_supported
+from entities import check_fact, entities, fold, named_in, names_country, paragraph_of
+from units import UNIT_AFTER, unit_supported
 import locnum
 from locnum import NUMBER_RE
 
@@ -48,8 +48,12 @@ RULES = """- kind "fact": anything that describes what is the case: who, what, w
   French claim gets French parts), even when the excerpts are in another language. Quotes
   stay exactly as written in the excerpts.
 - kind "framing": only evaluative wording: superlatives and judgments of importance or quality
-  ("the most significant", "the outlier", "well-known", "an important signal"). Each piece of
-  the claim appears in exactly one part; never list the same idea as both fact and framing.
+  ("the most significant", "the outlier", "well-known", "an important signal"), and the
+  author's own caveats or interpretation of the data ("It is not a measure of sales alone.",
+  "These are official figures, not independent measurements.", "This suggests demand is
+  growing."). A part with a figure or a name (organisation, country, brand, person) is always
+  a fact. Each piece of the claim appears in exactly one part; never list the same idea as
+  both fact and framing.
 - status (facts only): "stated" = the excerpts say this; "contradicted" = the excerpts say
   something incompatible (e.g. a different number or company); "missing" = they don't say it.
   Framing parts get status "".
@@ -616,7 +620,9 @@ def column_check(fact, row, page, fallback=(frozenset(), "")):
         if is_year(m.group()):
             continue
         pct = bool(PERCENT_AFTER.match(clean, m.end()))
-        where = [j for j, c in enumerate(cells) if not numbers_not_in(m.group(), c, min_digits=1, euro=euro)]
+        # with its unit: "2.6 million" is the cell "2 565 347" (rounded), never a conflict
+        num = m.group() + (u.group() if (u := UNIT_AFTER.match(clean, m.end())) else "")
+        where = [j for j, c in enumerate(cells) if not numbers_not_in(num, c, min_digits=1, euro=euro)]
         if not where or any(not heads[j] or sig <= heads[j] for j in where):
             continue
         cand = [j for j, h in enumerate(heads) if sig <= h]
@@ -812,8 +818,14 @@ def judge(out, claim, page, url="", raw="", meta=None, context=""):
     # The lexicon may overrule the model's "fact", except a fact the model found stated with
     # a verified quote: a code heuristic alone never takes support away (A1).
     backed = lambda x: x.get("status") == "stated" and x.get("quote") and quote_on_page(x["quote"], page)
-    framing = [x["text"] for x in parts_in if not NUM_RE.search(x["text"])
-               and (x.get("kind") == "framing" or (is_evaluative(x["text"], names) and not backed(x)))]
+    # The model's framing may hold no figure and no name (organisation, country, brand,
+    # person): it can't hide "Revenue grew 40%" or "ARPCE counts more lines" as an author's
+    # caveat. A year is allowed ("The expansion continued in 2026."). The lexicon (code) keeps
+    # its own rule: no number at all, and a ranking tied to a name is a fact (is_evaluative).
+    unnamed = lambda t: not (entities(t, page) or any(named_in(n, t) for n in names) or names_country(t))
+    framing = [x["text"] for x in parts_in
+               if (x.get("kind") == "framing" and not figures(x["text"]) and unnamed(x["text"]))
+               or (not NUM_RE.search(x["text"]) and is_evaluative(x["text"], names) and not backed(x))]
     raw_facts = [{"fact": x["text"], "status": x.get("status"), "quote": x.get("quote")}
                  for x in parts_in if x["text"] not in framing]
 
@@ -864,7 +876,8 @@ def judge(out, claim, page, url="", raw="", meta=None, context=""):
         elif status == "stated":
             # Name check: a verified quote about someone else is not support (claim 26). Code
             # only, so "couldn't confirm" with the reason, never an accusation by itself.
-            hit = check_fact(fact["fact"], quote, claim, page, quote_on_page, url)
+            hit = check_fact(fact["fact"], quote, claim, page, quote_on_page, url,
+                             (meta or {}).get("title") or "")
             if hit and hit[0] == "contradicted":
                 fact.update(status="unconfirmed",
                             note=f"The quoted passage is about {hit[2]}, not {', '.join(hit[1])}.")

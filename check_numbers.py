@@ -371,25 +371,52 @@ def units_of(lines):
 
 
 def stat_ish(kind, lines, idx):
+    """A stat value, or a short line that can be a stat's label / detail: one line (a single
+    list item "- Facebook" too), no link, no sentence end."""
     s = lines[idx[0]].strip()
-    return kind == "value" or (kind == "para" and len(idx) == 1 and len(s) <= STAT_LINE_CHARS
+    return kind == "value" or (kind in ("para", "list") and len(idx) == 1 and len(s) <= STAT_LINE_CHARS
                                and not URL_RE.search(s) and s[-1] not in ".!?:;,")
 
 
 def stat_texts(lines, run):
-    """One claim text per value in a stat block: "label: value — sub-line — ...". The line
-    just before a value is its label; lines after it (up to the next label) are its details."""
-    items = [(k, lines[idx[0]].strip()) for k, idx in run]
+    """One claim text per value in a stat block: "label: value — sub-line — ...", and the
+    title lines before it (left as they are). ChatGPT writes labels on either side:
+      - the group opens with a short label line: labels ABOVE their values ("Internet users"
+        / "# 37.8 million" / "79.5% of the population"): the line just before a value is its
+        label, the lines after it (up to the next label) its details;
+      - the group opens with a value: labels BELOW ("# 41.21 Mbps" / "Mobile internet"): the
+        line just after a value is its label, the next ones its details.
+    Ambiguous (two values in a row, a value with no label line, a below-label holding a
+    figure, or labels above with only the last value followed by a line): no pairing at all, the whole group is one claim, its lines joined as written."""
+    items = [(k, LIST_ITEM.sub("", lines[idx[0]]).strip() if k == "list" else lines[idx[0]].strip())
+             for k, idx in run]
     vals = [j for j, (k, _) in enumerate(items) if k == "value"]
-    out, label = [], items[vals[0] - 1][1] if vals[0] > 0 else None
-    for n, j in enumerate(vals):
+    show = lambda k, t: stat_value(t) if k == "value" else t
+    whole = [" \u2014 ".join(show(k, t) for k, t in items)], []
+    if any(b == a + 1 for a, b in zip(vals, vals[1:])):
+        return whole
+    out = []
+    # Labels above, but only the last value has lines after it: maybe a title, then labels
+    # below ("Social media" / "# 24.5M" / "Facebook" / "# 20.1M" / "YouTube"). Unsure: no pairing.
+    if vals[0] > 0 and vals[-1] < len(items) - 1 and len(vals) > 1 and all(
+            b == a + 2 for a, b in zip(vals, vals[1:])):
+        return whole
+    if vals[0] > 0:                                          # labels above
+        label = items[vals[0] - 1][1]
+        for n, j in enumerate(vals):
+            stop = vals[n + 1] if n + 1 < len(vals) else len(items)
+            between = [t for _, t in items[j + 1:stop]]
+            subs, nxt = (between[:-1], between[-1]) if n + 1 < len(vals) else (between, None)
+            out.append(" \u2014 ".join([f"{label}: {stat_value(items[j][1])}"] + subs))
+            label = nxt
+        return out, items[:vals[0] - 1]
+    for n, j in enumerate(vals):                             # labels below
         stop = vals[n + 1] if n + 1 < len(vals) else len(items)
-        between = [t for _, t in items[j + 1:stop]]
-        subs, nxt = (between[:-1], between[-1] if between else None) if n + 1 < len(vals) else (between, None)
-        value = stat_value(items[j][1])
-        out.append(" \u2014 ".join([f"{label}: {value}" if label else value] + subs))
-        label = nxt
-    return out, items[:max(vals[0] - 1, 0)]
+        after = [t for _, t in items[j + 1:stop]]
+        if not after or re.search(r"\d", re.sub(r"\b(?:19|20)\d\d\b", "", after[0])):
+            return whole
+        out.append(" \u2014 ".join([f"{after[0]}: {stat_value(items[j][1])}"] + after[1:]))
+    return out, []
 
 
 def row_cells(line):
@@ -497,8 +524,9 @@ def attach_sources(report):
             continue
         pkind, pidx = units[p]
         suffix = " " + " ".join(urls)
-        if p in stat_of:                     # a stat block
-            out[stat_of[p]] = "\n".join(t + suffix for t in targets[stat_of[p]])
+        if p in stat_of:                     # a stat block, and the stat blocks of its group
+            for first in stat_group(p, units, lines, stat_of, done):
+                out[first] = "\n".join(t + suffix for t in targets[first])
         elif any(URL_RE.search(lines[i]) for i in pidx) or pkind in ("heading", "source", "value"):
             continue                         # already cited, or nothing to attach to
         elif pkind == "table":
@@ -513,6 +541,23 @@ def attach_sources(report):
                 out[i] = lines[i].rstrip() + suffix
     return "\n".join(x for i, line in enumerate(lines)
                      for x in ([line] if i not in out else [] if out[i] is None else [out[i]]))
+
+
+def stat_group(p, units, lines, stat_of, done):
+    """First lines of the stat blocks a source under unit p cites: p's block and the earlier
+    ones of the same group (a chip under "Facebook / YouTube / TikTok" cites all three).
+    Between two blocks only short uncited lines may sit (a detail ending in "."), never a
+    heading, table, source line or cited text."""
+    out = []
+    while p >= 0 and p in stat_of:
+        out.append(stat_of[p])
+        q = min(u for u, f in stat_of.items() if f == stat_of[p]) - 1
+        while q >= 0 and q not in stat_of and q not in done and units[q][0] in ("para", "list") \
+                and len(units[q][1]) == 1 and len(lines[units[q][1][0]].strip()) <= 2 * STAT_LINE_CHARS \
+                and not URL_RE.search(lines[units[q][1][0]]):
+            q -= 1
+        p = q
+    return out
 
 
 # ---- Splitting into claims ----

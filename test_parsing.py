@@ -318,4 +318,28 @@ for html in (SHORT, SHELL):
     assert ev["label"] == "SOURCE UNREACHABLE" and ev["reason"] == (
         "The page loaded but its content couldn't be read (it may need JavaScript)."), ev
 
+# Stat-block label side (2026-10-14): labels ABOVE when the group opens with a label line,
+# BELOW when it opens with a value; ambiguous groups are one verbatim claim, never paired.
+src = "\n\nSource: [S](https://s.example/1)"
+S1 = ("https://s.example/1",)
+assert blocks("Internet users\n\n# 37.8 million\n\n79.5% of the population, late 2025" + src) == [
+    ("Internet users: 37.8 million \u2014 79.5% of the population, late 2025", S1)]
+assert blocks("# 41.21 Mbps\n\nMobile internet\n\n# 37.86 Mbps\n\nFixed internet" + src) == [
+    ("Mobile internet: 41.21 Mbps", S1), ("Fixed internet: 37.86 Mbps", S1)]
+assert blocks("Speeds\n\n# 41.21 Mbps\n\n# 37.86 Mbps\n\nFixed internet" + src) == [
+    ("Speeds \u2014 41.21 Mbps \u2014 37.86 Mbps \u2014 Fixed internet", S1)]          # two values in a row
+assert blocks("Social media\n\n# 24.5 million\n\nFacebook\n\n# 20.1 million\n\nYouTube" + src) == [
+    ("Social media \u2014 24.5 million \u2014 Facebook \u2014 20.1 million \u2014 YouTube", S1)]  # title + below?
+assert blocks("# 37.8 million\n\n79.5% of the population" + src) == [
+    ("37.8 million \u2014 79.5% of the population", S1)]                              # a figure is no label
+# A chip after a stat group cites every stat of the group (labels as list items, details ending in ".").
+fav = "[image](https://www.google.com/s2/favicons?domain=https://datareportal.example\\&sz=32)"
+refs = "\n\n## Sources\n\n- DataReportal \u2014 [Digital 2026](https://datareportal.example/r)\n"
+D1 = ("https://datareportal.example/r",)
+for grp in ("- Facebook\n\n# 24.5 million\n\n- YouTube\n\n# 20.1 million\n\n- TikTok\n\n# 15.2 million",
+            "Facebook\n\n# 24.5 million\n\nReach.\n\nYouTube\n\n# 20.1 million\n\nReach.\n\nTikTok\n\n# 15.2 million",
+            "# 24.5 million\n\nFacebook\n\n# 20.1 million\n\nYouTube\n\n# 15.2 million\n\nTikTok"):
+    got = [(t, u) for t, u in blocks(copy_cleanup(grp + "\n\n" + fav + "\n\nDataReportal" + refs)) if u]
+    assert got == [("Facebook: 24.5 million", D1), ("YouTube: 20.1 million", D1), ("TikTok: 15.2 million", D1)], got
+
 print("parsing checks passed")

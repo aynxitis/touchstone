@@ -343,6 +343,24 @@ test_security.py (network: rebinding, TLS, SSRF blocks; client IP + proxy secret
 pruning, heartbeat with a fake slow model, examples/ui_check.txt makes no model call,
 cache-busting headers, fetch timeout retry, provider line). examples/ui_check.txt = DEPLOY.md's zero-token UI check on production.
 (samples/ holds hand-made reports: footnotes, names-only sources, no links).
+2026-10-14 (live ChatGPT report, correct claims amber): (1) a claim number with a scale word
+(thousand/k/million/m glued/milliard(s)/billion/bn, plurals) matches ANY page number that,
+rounded half up to the claim's unit and decimals, equals it (53 636 104 = 53.64 million;
+2 565 347 = 2.6/2.57, not 2.58; never cut off, never the claim rounded): units.rounded_match
+inside unit_supported, so every comparison (facts, page-wide, anchors, value_conflict,
+column_check, which now passes the figure with its unit) gets it. (2) Prompt (RULES, both
+providers): the author's caveats/interpretation are framing; judge(): the MODEL's framing
+needs no non-year figure and no name (entities, claim names, entities.names_country), else
+it is a fact; the code lexicon (is_evaluative) is unchanged. (3) Stat groups: opening with a
+label line -> labels above; opening with a value -> labels below; two values in a row, a
+below-label with a figure, or labels-above with only the last value followed by a line ->
+one verbatim claim, no pairing; a one-line list item can be a label; a Source/chip under a
+stat block cites every stat block of its group (stat_group; short uncited lines between).
+(4) entities.ACRONYM_PAIRS: POS=TPE, GDP=PIB, SME=PME, VAT=TVA, FDI=IDE, UN=ONU, EU=UE,
+IMF=FMI, WHO=OMS, WTO=OMC, NGO=ONG, ICT=TIC, AI=IA (exact case, whole word, plural s).
+(5) entities.attributions(): "According to X", "selon/d'après X", "X says/reports/...":
+a name inside X is satisfied when the page is X's own (site_of: X or its initials in the
+host, "mpt.gov.dz"; or X/initials in the page title); no other name is.
 Labels: SOURCED / PARTIAL / COULDN'T CONFIRM / UNSUPPORTED / CONTRADICTED / UNVERIFIED / OPINION / SOURCE UNREACHABLE /
 NO SOURCE GIVEN / NOT CHECKED / ERROR. Verdicts judge factual parts only; editorial framing is noted, not penalized.
 
