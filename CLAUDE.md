@@ -361,8 +361,8 @@ IMF=FMI, WHO=OMS, WTO=OMC, NGO=ONG, ICT=TIC, AI=IA (exact case, whole word, plur
 (5) entities.attributions(): "According to X", "selon/d'après X", "X says/reports/...":
 a name inside X is satisfied when the page is X's own (site_of: the site's name label
 (registrable domain minus TLD/gov/com..., "mpt" of www.mpt.gov.dz) EQUALS X or its 3+ letter
-initials, or a whole page-title segment ("Indicators | ARPCE") does; never a host substring,
-a hosting subdomain, or a title that merely mentions X); no other name is.
+initials; never a host substring, a hosting subdomain, or the page title, which any page
+can set to "Indicators | ARPCE" (security review)); no other name is.
 Labels: SOURCED / PARTIAL / COULDN'T CONFIRM / UNSUPPORTED / CONTRADICTED / UNVERIFIED / OPINION / SOURCE UNREACHABLE /
 NO SOURCE GIVEN / NOT CHECKED / ERROR. Verdicts judge factual parts only; editorial framing is noted, not penalized.
 

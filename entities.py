@@ -361,7 +361,7 @@ def publisher(entity, url):
 
 # Attribution: "According to ARPCE, ...", "The Ministry of Post and Telecommunications says
 # ...", "selon l'ONS". A page published by that organisation rarely names itself, so on its
-# own site (domain, or page title) the attribution's name counts as named; no other name does.
+# own site (its domain) the attribution's name counts as named; no other name does.
 ATTRIBUTION_LEAD = [("according", "to"), ("selon",), ("d'après",), ("d’après",)]
 ATTRIBUTION_VERBS = set("""says said reports reported estimates estimated states stated notes noted
 indicates indicated shows showed counts counted announced announces puts put finds found
@@ -423,7 +423,6 @@ def initials(org):
 
 GENERIC_LABELS = {"co", "com", "net", "org", "gov", "gouv", "edu", "ac", "or", "ne", "go", "gob",
                   "nic", "mil", "int", "info", "biz"}
-TITLE_SEPARATORS = re.compile(r"\s[|\u2013\u2014\u00b7:-]\s|\s?\|\s?")
 
 
 def site_name(host):
@@ -438,30 +437,26 @@ def site_name(host):
     return labels[-1].replace("-", "")
 
 
-def site_of(org, url, title=""):
+def site_of(org, url):
     """True if the page is published by this organisation: the site's name label IS its name
-    or its initials (arpce.dz for ARPCE, mpt.gov.dz for the Ministry of Post and
-    Telecommunications), or a segment of the page title ("Indicators | ARPCE") is exactly its
-    name or initials. Never a substring of the host (arpce-leaks.blogspot.com) or a title that
-    merely mentions it ("Why ARPCE figures are wrong"); initials need 3+ letters."""
+    or its 3+ letter initials (arpce.dz for ARPCE, mpt.gov.dz for the Ministry of Post and
+    Telecommunications). Never a substring of the host (arpce-leaks.blogspot.com), and never
+    the page title: any page can title itself "Indicators | ARPCE" (security review)."""
     key = re.sub(r"[^a-z0-9]", "", fold(org))
     acr = initials(org)
     acr = acr if len(acr) >= 3 else ""
     name = site_name(urlparse(url).hostname or "")
-    if name and name in (key, acr):
-        return True
-    segments = {re.sub(r"[^a-z0-9]", "", fold(t)) for t in TITLE_SEPARATORS.split(title or "")}
-    return bool(key and key in segments) or bool(acr and acr in segments)
+    return bool(name) and name in (key, acr)
 
 
-def attributed_to_site(entity, claim, url, title=""):
+def attributed_to_site(entity, claim, url):
     """True if the entity is (part of) a name the claim attributes its statement to and the
     cited page is that organisation's own: "Ministry" in "The Ministry of Post and
     Telecommunications says ..." cited to mpt.gov.dz. Any other name in the claim still needs
     to be in the passage."""
     e = fold(entity)
     return any(re.search(r"(?<![a-z0-9])" + re.escape(e) + r"(?![a-z0-9])", fold(org))
-               and site_of(org, url, title) for org in attributions(claim))
+               and site_of(org, url) for org in attributions(claim))
 
 
 def opening_name(text, page):
@@ -481,16 +476,16 @@ def sentence_before(quote, para):
     return parts[-1] if parts and parts[-1] else ""
 
 
-def check_fact(fact, quote, claim, page, on_page, url="", title=""):
+def check_fact(fact, quote, claim, page, on_page, url=""):
     """None if every name the fact is about is in its quote, the quote's paragraph, or is
     the page's own subject (named in 2+ paragraphs), or the organisation the claim attributes
-    it to when the page is that organisation's (attributed_to_site; title: the page title).
+    it to when the page is on that organisation's own site (attributed_to_site).
     Otherwise ("missing", names, None), or
     ("contradicted", names, other) when the paragraph, the quote or the sentence before the
     quote opens with a different name the claim never mentions: it is about someone else."""
     claim_ents = entities(claim, page)
     need = [e for e in fact_entities(fact, claim_ents)
-            if not publisher(e, url) and not attributed_to_site(e, claim, url, title)]
+            if not publisher(e, url) and not attributed_to_site(e, claim, url)]
     para = paragraph_of(quote, page, on_page)
     if para is None:             # unverified quote: nothing here supports any name
         return ("missing", need, None) if need else None

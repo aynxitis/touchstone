@@ -876,8 +876,7 @@ def judge(out, claim, page, url="", raw="", meta=None, context=""):
         elif status == "stated":
             # Name check: a verified quote about someone else is not support (claim 26). Code
             # only, so "couldn't confirm" with the reason, never an accusation by itself.
-            hit = check_fact(fact["fact"], quote, claim, page, quote_on_page, url,
-                             (meta or {}).get("title") or "")
+            hit = check_fact(fact["fact"], quote, claim, page, quote_on_page, url)
             if hit and hit[0] == "contradicted":
                 fact.update(status="unconfirmed",
                             note=f"The quoted passage is about {hit[2]}, not {', '.join(hit[1])}.")
