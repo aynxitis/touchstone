@@ -145,7 +145,9 @@ add_pages(res, page)
 assert [f.get("page") for f in res["facts"]] == [2, 1, None], res
 
 # 8. The real ICO February 2026 report (downloaded once into testdata/, gitignored).
-if not os.path.exists(ICO_FILE):
+if not os.path.exists(ICO_FILE) and os.environ.get("TOUCHSTONE_OFFLINE") == "1":
+    print("(offline: skipped the real ICO PDF)")
+elif not os.path.exists(ICO_FILE):
     try:
         os.makedirs(os.path.dirname(ICO_FILE), exist_ok=True)
         data = httpx.get(ICO_URL, timeout=30, headers=F.HEADERS).content

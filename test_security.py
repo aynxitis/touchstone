@@ -5,52 +5,59 @@ import time
 
 import fetch_links as F
 
-# 1. DNS rebinding: a host that resolves public on the check and to 127.0.0.1 afterwards
-#    must be fetched from the checked IP, with exactly one DNS lookup.
-public_ip = socket.getaddrinfo("example.com", 80, type=socket.SOCK_STREAM)[0][4][0]
-real_getaddrinfo, lookups, peers = socket.getaddrinfo, [], []
+# TOUCHSTONE_OFFLINE=1 (CI) skips 1-3 and 10: they need DNS and live sites.
+import os
+NETWORK = os.environ.get("TOUCHSTONE_OFFLINE") != "1"
+
+if NETWORK:
+    # 1. DNS rebinding: a host that resolves public on the check and to 127.0.0.1 afterwards
+    #    must be fetched from the checked IP, with exactly one DNS lookup.
+    public_ip = socket.getaddrinfo("example.com", 80, type=socket.SOCK_STREAM)[0][4][0]
+    real_getaddrinfo, lookups, peers = socket.getaddrinfo, [], []
 
 
-def rebinding(host, *a, **k):
-    if host == "rebind.example":
-        lookups.append(host)
-        ip = public_ip if len(lookups) == 1 else "127.0.0.1"
-        family = socket.AF_INET6 if ":" in ip else socket.AF_INET
-        return [(family, socket.SOCK_STREAM, 6, "", (ip, 80))]
-    return real_getaddrinfo(host, *a, **k)
+    def rebinding(host, *a, **k):
+        if host == "rebind.example":
+            lookups.append(host)
+            ip = public_ip if len(lookups) == 1 else "127.0.0.1"
+            family = socket.AF_INET6 if ":" in ip else socket.AF_INET
+            return [(family, socket.SOCK_STREAM, 6, "", (ip, 80))]
+        return real_getaddrinfo(host, *a, **k)
 
 
-real_peer_ok = F.peer_ok
+    real_peer_ok = F.peer_ok
 
 
-def spy(r):
-    stream = r.extensions.get("network_stream")
-    peers.append(stream.get_extra_info("server_addr")[0] if stream else None)
-    return real_peer_ok(r)
+    def spy(r):
+        stream = r.extensions.get("network_stream")
+        peers.append(stream.get_extra_info("server_addr")[0] if stream else None)
+        return real_peer_ok(r)
 
 
-socket.getaddrinfo, F.peer_ok = rebinding, spy
-F.fetch("http://rebind.example/path?q=1")
-socket.getaddrinfo, F.peer_ok = real_getaddrinfo, real_peer_ok
-assert lookups == ["rebind.example"] and peers == [public_ip], (lookups, peers)
+    socket.getaddrinfo, F.peer_ok = rebinding, spy
+    F.fetch("http://rebind.example/path?q=1")
+    socket.getaddrinfo, F.peer_ok = real_getaddrinfo, real_peer_ok
+    assert lookups == ["rebind.example"] and peers == [public_ip], (lookups, peers)
 
-# 2. TLS is still verified against the hostname, not the pinned IP: 8.8.8.8's certificate
-#    covers the IP 8.8.8.8 but not example.com, so this must fail.
-real_check = F.check_url
-
-
-async def wrong_ip(url):
-    return True, "", ipaddress.ip_address("8.8.8.8")
+    # 2. TLS is still verified against the hostname, not the pinned IP: 8.8.8.8's certificate
+    #    covers the IP 8.8.8.8 but not example.com, so this must fail.
+    real_check = F.check_url
 
 
-F.check_url = wrong_ip
-assert F.fetch("https://example.com/")["status"] == "ERROR"
-F.check_url = real_check
+    async def wrong_ip(url):
+        return True, "", ipaddress.ip_address("8.8.8.8")
 
-# 3. Private targets stay blocked, directly and through redirects or IPv6 forms.
-for url in ("http://127.0.0.1/", "http://[::ffff:127.0.0.1]/", "http://10.0.0.1/",
-            "http://httpbin.org/redirect-to?url=http://169.254.169.254/"):
-    assert F.fetch(url)["status"] == "BLOCKED", url
+
+    F.check_url = wrong_ip
+    assert F.fetch("https://example.com/")["status"] == "ERROR"
+    F.check_url = real_check
+
+    # 3. Private targets stay blocked, directly and through redirects or IPv6 forms.
+    for url in ("http://127.0.0.1/", "http://[::ffff:127.0.0.1]/", "http://10.0.0.1/",
+                "http://httpbin.org/redirect-to?url=http://169.254.169.254/"):
+        assert F.fetch(url)["status"] == "BLOCKED", url
+else:
+    print("(offline: skipped DNS rebinding, TLS and private-redirect checks)")
 
 # 4. Client IP: only the configured header counts, junk falls back, tables get pruned.
 import app as A
@@ -254,18 +261,21 @@ A.hits.clear()
 # 10. examples/ui_check.txt (DEPLOY.md's zero-token UI check on production): 11 nonsense
 #     claims on the live IANA page. None may reach the model (no shared keyword or anchor ->
 #     UNVERIFIED before any call), so it never counts toward the daily cap; claim 11 is skipped.
-import fetch_links
-url = "https://www.iana.org/help/example-domains"
-iana = fetch_links.fetch(url)
-assert iana["status"] == "OK", iana
-def no_model(**k): raise AssertionError("ui_check.txt reached the model")
-boom = A.CountingClient(T.SimpleNamespace(chat=T.SimpleNamespace(completions=T.SimpleNamespace(create=no_model))))
-A.daily.update(day=A.utc_today(), count=0)
-ev = list(real_audit(open("examples/ui_check.txt").read(), boom, pages={url: iana}, max_claims=A.MAX_CLAIMS))
-assert ev[0]["cited"] == 11 and ev[0]["checked"] == 10, ev[0]
-assert [e["label"] for e in ev if e["type"] == "claim"] == ["UNVERIFIED"] * 10
-assert [e["claim"] for e in ev if e["type"] == "skipped"] == [11] and ev[-1] == {"type": "done", "tokens": 0}
-assert A.daily["count"] == 0
+if NETWORK:
+    import fetch_links
+    url = "https://www.iana.org/help/example-domains"
+    iana = fetch_links.fetch(url)
+    assert iana["status"] == "OK", iana
+    def no_model(**k): raise AssertionError("ui_check.txt reached the model")
+    boom = A.CountingClient(T.SimpleNamespace(chat=T.SimpleNamespace(completions=T.SimpleNamespace(create=no_model))))
+    A.daily.update(day=A.utc_today(), count=0)
+    ev = list(real_audit(open("examples/ui_check.txt").read(), boom, pages={url: iana}, max_claims=A.MAX_CLAIMS))
+    assert ev[0]["cited"] == 11 and ev[0]["checked"] == 10, ev[0]
+    assert [e["label"] for e in ev if e["type"] == "claim"] == ["UNVERIFIED"] * 10
+    assert [e["claim"] for e in ev if e["type"] == "skipped"] == [11] and ev[-1] == {"type": "done", "tokens": 0}
+    assert A.daily["count"] == 0
+else:
+    print("(offline: skipped the live IANA ui_check)")
 
 # 11. Cache-busting: index.html links each asset as /static/<name>?v=<hash of its content>;
 #     the hash changes with the file. Versioned URL -> immutable for a year; plain URL and the
