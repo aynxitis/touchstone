@@ -147,7 +147,7 @@ cases = {("BLOCKED", "blocked the checker (bot protection)"): "reuters.com block
          ("HTTP_ERR", "500"): "The site had a server error.",
          ("BLOCKED", "DNS failed"): "The site's address could not be found.",
          ("BLOCKED", "private address"): "The link points to a private or invalid address, so it was not fetched.",
-         ("NO_TEXT", "JS page or blocked?"): "The page has no readable text (it may need JavaScript).",
+         ("NO_TEXT", "JS page or blocked?"): "The page loaded but its content couldn't be read (it may need JavaScript).",
          ("ERROR", "ConnectError"): "The site could not be reached."}
 for (status, detail), want in cases.items():
     u = unreachable({"status": status, "detail": detail}, "https://www.reuters.com/markets/x")
@@ -289,5 +289,49 @@ both_lack = merge(qc, [(A, judge(qr, qc, pq1, A)), (B, judge(qr, qc, pq1, B))], 
 assert both_lack["label"] == "COULDN'T CONFIRM" and "the period Q2" in both_lack["reason"], both_lack
 one_has = merge(qc, [(A, judge(qr, qc, pq1, A)), (B, judge(qr, qc, pq2, B, meta=meta2))], [pq1, pq2])
 assert one_has["label"] == "SOURCED", one_has
+
+# ChatGPT chips through audit(): "+1" (a source hidden from the copied text) never lets the
+# visible source make a claim red; a chip whose link was lost is NO SOURCE GIVEN with the fix,
+# never fetched; a meta-description-only page can confirm but never refute.
+from touchstone import UNREADABLE
+M = "https://m.example/digital-2026"
+PAGE_M = "Morocco counted 31.0 million internet users in early 2026, 85% of the population.\nMore lines here."
+MC = "Morocco had 34.2 million internet users in early 2026"
+chip_report = (f"{MC}.&#x20;\n\n[image](https://www.google.com/s2/favicons?domain=https://m.example\\&sz=32)\n\n"
+               f"M Stats\n\n+1\n\n### Sources\n\n- M Stats — [Digital 2026]({M}).\n\n"
+               "Coverage reached 99% by 2025.\n\n[image](https://www.google.com/s2/favicons?domain=https://lost.example\\&sz=32)\n\nLost\n")
+for status, quote, want in (("missing", "", "COULDN'T CONFIRM"),
+                            ("contradicted", "Morocco counted 31.0 million internet users in early 2026, 85% of the population.", "COULDN'T CONFIRM"),
+                            ("stated", "Morocco counted 31.0 million internet users in early 2026", None)):
+    client, calls = fake_groq(lambda u, s=status, q=quote: {"opinion": False, "parts": [P(MC, s, q)]})
+    ev = list(audit(chip_report, client, pages={M: {"status": "OK", "text": PAGE_M}}))
+    cl = [e for e in ev if e["type"] == "claim"]
+    assert ev[0]["cited"] == 1 and ev[0]["site_only"] == 1 and ev[0]["uncited"] == 0, ev[0]
+    assert len(calls) == 1 and cl[0]["urls"] == [M] and cl[0]["hidden"] == 1, cl[0]
+    if want:
+        assert cl[0]["label"] == want, (status, cl[0])
+        assert cl[0]["reason"].endswith("Also cites 1 more source that wasn't included in the copied text."), cl[0]["reason"]
+    assert cl[0]["label"] not in ("UNSUPPORTED", "CONTRADICTED"), cl[0]
+    lost = cl[1]
+    assert (lost["claim"], lost["label"], lost["site"], lost["urls"]) == (None, "NO SOURCE GIVEN", "lost.example", []), lost
+    assert lost["reason"].startswith("The copied text only kept the site name (lost.example), not the page link."), lost
+# The visible source confirms it: SOURCED as normal.
+PAGE_OK = "Morocco had 34.2 million internet users in early 2026, according to the survey.\nOther text."
+client, _ = fake_groq(lambda u: {"opinion": False, "parts": [P(MC, "stated", "Morocco had 34.2 million internet users in early 2026")]})
+cl = [e for e in audit(chip_report, client, pages={M: {"status": "OK", "text": PAGE_OK}}) if e["type"] == "claim"]
+assert cl[0]["label"] == "SOURCED" and "copied text" not in cl[0]["reason"], cl[0]
+# Rescore replays the cap.
+assert rescore.rescore({**cl[0], "label": "PARTIAL", "model": {"opinion": False, "parts": [P(MC, "missing")]}},
+                       {"status": "OK", "text": PAGE_M})[0] == "COULDN'T CONFIRM"
+# A name-only "claim" is never sent, never SOURCED.
+client, calls = fake_groq(lambda u: {"opinion": False, "parts": [P("DataReportal", "stated", "DataReportal")]})
+ev = list(audit("- DataReportal — [Digital 2026](https://d.example/r)\n\nDataReportal — https://d.example/r", client,
+                pages={"https://d.example/r": {"status": "OK", "text": "DataReportal\nDigital 2026 report."}}))
+assert calls == [] and not any(e.get("label") == "SOURCED" for e in ev), ev
+# Meta-description-only page: nothing found there -> SOURCE UNREACHABLE, not UNSUPPORTED.
+client, _ = fake_groq(lambda u: {"opinion": False, "parts": [P(MC, "missing")]})
+cl = [e for e in audit(f"{MC} {M}", client, pages={M: {"status": "OK", "text": PAGE_M, "meta_only": True}})
+      if e["type"] == "claim"]
+assert cl[0]["label"] == "SOURCE UNREACHABLE" and cl[0]["reason"] == UNREADABLE, cl[0]
 
 print("source checks passed")

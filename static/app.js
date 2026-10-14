@@ -335,12 +335,21 @@ function resultsView(report) {
       run.cited = cited;
       run.checked = total;
       limit = int(ev.limit);
-      if (cited === 0) { noLinks = true; return; }   // screen shown at "done"
+      // screen shown at "done"; claims cited by a chip whose link was lost get cards instead
+      if (cited === 0 && !int(ev.site_only)) { noLinks = true; return; }
       $("scope").textContent = cited > total
         ? `Checked ${total} of ${cited} cited claims, in report order. The rest are listed below as not checked.`
         : `Checked ${total} of ${cited} cited claims.`;
       setStatus(`Fetching ${total} source${total === 1 ? "" : "s"}…`);
     } else if (ev.type === "claim") {
+      if (ev.claim === null && str(ev.site)) {
+        // Cited only by a ChatGPT chip whose page link didn't survive the copy: a card that
+        // says how to fix it, not one of the uncited passages.
+        const { type, index, ...claim } = ev;
+        run.claims.push(claim);
+        $("cards").append(renderCard(ev));
+        return;
+      }
       if (ev.claim === null) {
         if (noLinks) sentences += countSentences(str(ev.text));
         else addUncited(str(ev.text));
@@ -532,9 +541,10 @@ function validRun(run, report) {
 function runEvents(run) {
   const obj = (x) => (x && typeof x === "object" && !Array.isArray(x) ? x : null);
   return [
-    { type: "start", cited: run.cited, checked: run.checked, limit: null },
+    { type: "start", cited: run.cited, checked: run.checked, limit: null,
+      site_only: run.claims.filter((c) => obj(c) && str(c.site)).length },
     ...arr(run.uncited).map((text) => ({ type: "claim", claim: null, text })),
-    ...run.claims.map((c) => (obj(c) && c.claim !== null ? { ...c, type: "claim" } : null)),
+    ...run.claims.map((c) => (obj(c) && (c.claim !== null || str(c.site)) ? { ...c, type: "claim" } : null)),
     ...arr(run.not_checked).map((c) => (obj(c) ? { ...c, type: "skipped" } : null)),
     ...(str(run.stopped) ? [{ type: "quota", message: run.stopped }] : []),
     { type: "done", tokens: run.tokens },

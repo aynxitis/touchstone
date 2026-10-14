@@ -22,7 +22,22 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
 2. check_numbers.py: copy_cleanup() first (ChatGPT copy button): HTML entities decoded (only
    with ';': "&copy=" in a URL stays), markdown "\&" unescaped, favicon chips
    ([image](...favicon...)) and the caption lines after them (a domain, "Reuters", "+1")
-   dropped, chart-axis residue ("200¢/lb250¢/lb...") dropped. Then resolve_footnotes() turns
+   dropped, chart-axis residue ("200¢/lb250¢/lb...") dropped. CHIPS (2026-10-14, ChatGPT search
+   mode): a favicon chip (s2/favicons?domain=X) + caption + optional "+N" cites the block above
+   it; X is resolved by registrable domain (www./subdomains ignored) to the report's own links
+   (Sources list): 1-3 links -> cited (written as a "Source:" line; a link-less "Source: ANRT."
+   line takes them, so a table above it is cited), 0 or > 3 -> pseudo-link CHIP_TAG+"site/X"
+   -> NO SOURCE GIVEN card "The copied text only kept the site name (X)..." (never fetched, not
+   in the uncited list; start event "site_only"). "+N" -> CHIP_TAG+"more/N" -> claim meta
+   "hidden": hidden_cap() turns UNSUPPORTED/CONTRADICTED/UNVERIFIED into COULDN'T CONFIRM
+   ("Also cites N more sources that weren't included in the copied text."), SOURCED unchanged;
+   also on chips under already-cited lines (report5 claims 1-3, 8-12; claim 9 thus amber in a
+   new audit). blocks_meta() = blocks_ctx() + meta; pseudo-links never leave it. Reference
+   lists: SOURCES_HEADING also matches "Sources and further reading", Références,
+   Bibliographie, "Sources et lectures (complémentaires)"...; reference_line() drops list lines
+   that only name a source (no number, <= 8 words without links, capitalized or "Name —").
+   Safety net checkable(): a cited text with no digit and < 4 words, or only capitalized
+   words (a name), is dropped. Then resolve_footnotes() turns
    footnote citations ([1], [1][2], [^1], 【1】 + a numbered/bracketed source list or
    Sources/References section) into inline URLs and drops the source list; a run of markers
    gives the text ALL its sources; a marker with no source entry is text ("[2023]" stays). attach_sources(): a stat block (short label lines around
@@ -297,6 +312,11 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    PROXY_SECRET. Enable only via DEPLOY.md's procedure.
    fetch_links: httpx trust_env=False (no env proxies); a private IP shows only as "private
    address", never the address.
+   Unreadable pages (2026-10-14): extracted text < 500 chars (was 200), or < 1500 with a
+   JS/cookie-wall phrase (fetch_links.SHELL) -> meta fallback, else NO_TEXT -> SOURCE
+   UNREACHABLE "The page loaded but its content couldn't be read (it may need JavaScript)."
+   (before: 200-500-char pages were judged and could be UNSUPPORTED). A meta_only page's
+   UNSUPPORTED/CONTRADICTED/UNVERIFIED -> that same SOURCE UNREACHABLE (thin_result).
    Bot protection (fetch_links.bot_blocked): cf-mitigated: challenge, Cloudflare challenge
    titles, or a 403/429/503 with Cloudflare/DataDome/Akamai/PerimeterX markers -> BLOCKED
    "blocked the checker (bot protection)" -> SOURCE UNREACHABLE, never sent to the model.

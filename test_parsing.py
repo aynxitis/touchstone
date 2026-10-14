@@ -95,7 +95,7 @@ assert ev["detail"] == "BLOCKED " + F.BOT_BLOCKED and "HTTP" not in ev["reason"]
 report = "\n".join(f"- Claim {i} {'has no figures' if i == 5 else f'says {i * 11}%'} https://example.com/{i}"
                    for i in range(1, 12))
 events = list(audit(report, None, pages={}, max_claims=10))
-assert events[0] == {"type": "start", "cited": 11, "checked": 10, "uncited": 0, "limit": 10, "url_limit": None}, events[0]
+assert events[0] == {"type": "start", "cited": 11, "checked": 10, "uncited": 0, "site_only": 0, "limit": 10, "url_limit": None}, events[0]
 assert [e["claim"] for e in events if e["type"] == "claim"] == list(range(1, 11))
 assert [(e["claim"], e["label"], e["reason"]) for e in events if e["type"] == "skipped"] == [
     (11, "NOT CHECKED", "Limit of 10 claims per audit.")]
@@ -125,9 +125,9 @@ seg = lambda line: segments(line)
 for line, want in (("* **Spain:** 20,000 EVs sold (+3.1%) ([Eleport](https://e.com/a)).", "Spain: 20,000 EVs sold (+3.1%)"),
                    ("- Italy: 9,000 EVs (+1.0%) ([Src](https://e.com/b))", "Italy: 9,000 EVs (+1.0%)"),
                    ("- Malta sold 40 EVs (2024) https://e.com/c", "Malta sold 40 EVs (2024)"),
-                   ("Sales rose (see [chart](https://e.com/d)).", "Sales rose (see")):
+                   ("Sales rose sharply last year (see [chart](https://e.com/d)).", "Sales rose sharply last year (see")):
     assert seg(line) == [(want, line[line.index("https"):].split(")")[0])], (line, seg(line))
-assert seg("Intro.\n\n---\n***\n___\n\nEnd. https://e.com/x\n.\n- (\n") == [("Intro.", None), ("End.", "https://e.com/x")]
+assert seg("Intro.\n\n---\n***\n___\n\nSales ended the year flat. https://e.com/x\n.\n- (\n") == [("Intro.", None), ("Sales ended the year flat.", "https://e.com/x")]
 
 # report5 (ChatGPT copy button, coffee prices): favicon chips + captions, HTML entities,
 # "Source:"/"Sources:" lines under stat blocks / tables / paragraphs, inline "Sources: [A] and
@@ -180,8 +180,8 @@ assert not any("google.com" in u for _, us in b5 for u in us)
 # Copy-format rules, one at a time.
 assert copy_cleanup("A&nbsp;B &amp; C&#x20;D &copy x https://e.com/?a=1&copy=2") == "A B & C D &copy x https://e.com/?a=1&copy=2"
 assert blocks("Sales rose 5% [x](https://e.com/a\\&b=1).") == [("Sales rose 5%", ("https://e.com/a&b=1",))]
-chip = "Text one [S](https://e.com/1).\n\n[image](https://www.google.com/s2/favicons?domain=https://e.com\\&sz=32)\n\nReuters\n\n+3\n\nShort tail"
-assert blocks(chip) == [("Text one", ("https://e.com/1",)), ("Short tail", ())], blocks(chip)
+chip = "Revenue rose 5% [S](https://e.com/1).\n\n[image](https://www.google.com/s2/favicons?domain=https://e.com\\&sz=32)\n\nReuters\n\n+3\n\nShort tail"
+assert blocks(chip) == [("Revenue rose 5%", ("https://e.com/1",)), ("Short tail", ())], blocks(chip)
 assert blocks("Up 5%. Sources: [A](https://e.com/1), [B](https://e.com/2), and [C](https://e.com/3).") == [
     ("Up 5%.", ("https://e.com/1", "https://e.com/2", "https://e.com/3"))]
 assert blocks("Tesla sold 9 [a](https://e.com/1) and BYD sold 7 [b](https://e.com/2)") == [
@@ -259,5 +259,55 @@ assert got == ["Renault 5; Units: 67 625; extra"], got
 assert [t for t, _, _ in blocks_ctx("| Tesla | 238,656 https://g.example/7 |")] == ["Tesla \u2014 238,656"]
 got = [t for t, _, _ in blocks_ctx("| Brand | Sales |\n|---|---|\n\n| Kia | 9% https://h.example/8 |")]
 assert got == ["Kia \u2014 9%"], got
+
+# ChatGPT search-mode copy (samples/chatgpt_chips.txt, invented): citation chips resolved to the
+# report's own links by site, "+N" kept as meta, reference lists never claims, entities gone.
+from check_numbers import SITE_ONLY, blocks_meta
+chips = open("samples/chatgpt_chips.txt", encoding="utf-8").read()
+got = blocks_meta(chips)
+assert got == [
+    ("Morocco had 34.2 million internet users in early 2026, 90.7% of the population.",
+     ("https://example-stats.com/reports/digital-2026-morocco",), "", {"hidden": 1}),       # chip -> one URL, "+1"
+    ("Type: Fibre; Subscriptions: 1.2 million", ("https://www.anrt.ma/en/indicators/internet",), "", {}),  # table + "Source: X." + chip
+    ("Radio X reported that mobile data prices fell 12% in 2025.",
+     ("https://news.radiox.ma/fr/node/1", "https://news.radiox.ma/fr/node/2"), "", {}),       # chip -> two URLs (subdomain, www.)
+    ("Mobile coverage reached 99% of the population by 2025.", (), "", {"site": "unlisted-site.org"}),  # no link on that site
+    ("The regulator expects 5G to cover major cities soon.", (), "", {}),                   # no chip, no link: uncited
+], got
+assert not any("&#x20;" in t or "Source" in t or "—" in t or "ANRT" == t for t, *_ in got)
+assert segments(chips)[3] == ("Mobile coverage reached 99% of the population by 2025.", None)   # never fetched
+assert "unlisted-site.org" in SITE_ONLY.format("unlisted-site.org")
+# More than 3 links on the chip's site: ambiguous, treated as a lost link.
+many = "Sales grew 4% in 2025.\n\n[image](https://www.google.com/s2/favicons?domain=https://e.com\\&sz=32)\n\nE\n\n" + \
+       "".join(f"- E — [r{i}](https://e.com/{i})\n" for i in range(4))
+assert blocks_meta(many) == [("Sales grew 4% in 2025.", (), "", {"site": "e.com"})], blocks_meta(many)
+# Reference lists: under any Sources/References/Further reading heading (EN/FR, any level), and
+# name-only list lines anywhere, produce zero claims; a short real bullet still is one.
+for head in ("### Sources and further reading", "## Références", "**Sources et lectures complémentaires**",
+             "Bibliographie", "# Further reading"):
+    ref = f"Up 5% in 2025 [a](https://a.example/1).\n\n{head}\n\n- DataReportal — [Digital 2026](https://d.example/r).\nARPCE — [Observatoire 2025](https://arpce.example/o)\n"
+    assert blocks(ref) == [("Up 5% in 2025", ("https://a.example/1",))], (head, blocks(ref))
+assert blocks("- DataReportal — [Digital 2026: Morocco](https://d.example/r).\n- ARPCE — [Observatoire](https://arpce.example/o)") == []
+assert blocks("- Certified stocks stayed low [A](https://a.example/1)") == [("Certified stocks stayed low", ("https://a.example/1",))]
+# Safety net: a cited "claim" that is only a name, or under 4 words with no number, is dropped.
+assert blocks("DataReportal — https://d.example/r\n\nInternational Coffee Organization https://ico.example/x\n\nPrices rose https://p.example/y") == []
+assert blocks("Prices rose 9% https://p.example/y") == [("Prices rose 9%", ("https://p.example/y",))]
+# A chip right under an already-cited line keeps that link; "+N" rides along as meta (report5).
+b5m = blocks_meta(open("report5.txt", encoding="utf-8").read())
+assert [m for t, us, _, m in b5m if us][:3] == [{"hidden": 1}] * 3, [m for t, us, _, m in b5m if us][:3]
+assert not any("invalid" in u for _, us, _, _ in b5m for u in us)
+
+# Unreadable pages (JS shell, cookie wall, ~200 chars): SOURCE UNREACHABLE, never UNSUPPORTED,
+# no model call.
+SHORT = "<html><head><title>T</title></head><body><p>" + "Morocco telecom news. " * 9 + "</p></body></html>"
+SHELL = ("<html><head><title>T</title></head><body><p>You need to enable JavaScript to run this app. "
+         + "Loading the latest internet indicators for Morocco and its regions. " * 10 + "</p></body></html>")
+for html in (SHORT, SHELL):
+    r = fetch_fixture(200, html)
+    assert r["status"] == "NO_TEXT", r
+    ev = [e for e in audit("- Morocco had 34.2 million internet users in 2026 https://example.com/page", None,
+                           pages={"https://example.com/page": r}) if e["type"] == "claim"][0]
+    assert ev["label"] == "SOURCE UNREACHABLE" and ev["reason"] == (
+        "The page loaded but its content couldn't be read (it may need JavaScript)."), ev
 
 print("parsing checks passed")

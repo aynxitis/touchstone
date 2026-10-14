@@ -23,7 +23,11 @@ TOTAL_SECONDS = 45      # hard wall clock per URL, both attempts: 30 URLs, 8 at 
 RETRY_MIN_SECONDS = 10  # no retry with less than this left of TOTAL_SECONDS
 MAX_BYTES = 3_000_000   # stop reading a page beyond this
 MAX_REDIRECTS = 5
-MIN_TEXT_CHARS = 200    # less than this = no usable text
+MIN_TEXT_CHARS = 500    # less than this = no usable text (2026-10-14: was 200)
+SHELL_CHARS = 1500      # a page this short that asks for JavaScript/cookies is an empty shell
+SHELL = re.compile(r"enable javascript|javascript (?:is )?(?:disabled|required|must be enabled)"
+                   r"|activ\w{0,6} (?:le )?javascript|enable cookies|accept (?:all )?cookies"
+                   r"|checking your browser|you need to enable", re.I)
 MIN_META_CHARS = 50     # a meta description shorter than this is useless
 HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Touchstone/0.1"}
 BOT_BLOCKED = "blocked the checker (bot protection)"
@@ -222,7 +226,7 @@ async def fetch_one(url):
     html = got
     title, headings = outline(html)
     text = trafilatura.extract(html) or ""
-    if len(text) < MIN_TEXT_CHARS:
+    if len(text) < MIN_TEXT_CHARS or (len(text) < SHELL_CHARS and SHELL.search(text)):
         # JS-rendered pages often carry their key facts only in the meta description
         # (StartupBlink). Use it, flagged, so verdicts can say how thin the evidence is.
         meta = trafilatura.extract_metadata(html)

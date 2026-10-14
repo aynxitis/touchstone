@@ -617,7 +617,7 @@ try:
     # 13k. Hard deadline, fetching: a page still downloading at the deadline is cancelled
     #      (LATE), the page that arrived is kept; through audit() the hung download can't hold
     #      the audit past its deadline, and its claims say why.
-    fast_html = "<html><head><title>Y</title></head><body><p>" + "Yassir raised 150 million dollars in its Series B round. " * 6 + "</p></body></html>"
+    fast_html = "<html><head><title>Y</title></head><body><p>" + "Yassir raised 150 million dollars in its Series B round. " * 10 + "</p></body></html>"
     async def get_fake(url, read_timeout=F.READ_TIMEOUT):
         if "slow" in url:
             await asyncio.sleep(30)
@@ -654,7 +654,7 @@ assert "<!--limits-->" in open("static/index.html").read() and "Up to 10" not in
 # S3: a private address never reaches the browser, only "private address".
 r = F.fetch("http://10.0.0.1/x")
 assert r["status"] == "BLOCKED" and r["detail"] == "private address", r
-ev = [e for e in touchstone.audit("- Claim text here http://localhost/x", None) if e["type"] == "claim"]
+ev = [e for e in touchstone.audit("- Algeria has 7,800 startups http://localhost/x", None) if e["type"] == "claim"]
 assert ev[0]["label"] == "SOURCE UNREACHABLE" and "127.0.0.1" not in json.dumps(ev[0]), ev
 assert ev[0]["sources"][0]["detail"] == "BLOCKED private address", ev
 # S4: the fetch client ignores proxy/netrc settings from the environment.

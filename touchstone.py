@@ -6,7 +6,7 @@ import threading
 import time
 from urllib.parse import parse_qsl, urlsplit
 
-from check_numbers import blocks_ctx
+from check_numbers import SITE_ONLY, blocks_meta
 from fetch_links import BOT_BLOCKED, LATE, fetch_many
 from pacing import DAY_FULL, TokenPacer, retry_after
 from quote_check import best_excerpts, merge, quote_on_page
@@ -189,7 +189,7 @@ def unreachable(page, url):
     elif status == "TIMEOUT":
         reason = "The site took too long to respond."
     elif status == "NO_TEXT":
-        reason = "The page has no readable text (it may need JavaScript)."
+        reason = UNREADABLE
     elif status == "BLOCKED" and detail == "DNS failed":
         reason = "The site's address could not be found."
     elif status == "BLOCKED":
@@ -215,6 +215,31 @@ def add_pages(r, page):
 
 
 GONE = ("SOURCE UNREACHABLE", "NOT CHECKED")
+UNREADABLE = "The page loaded but its content couldn't be read (it may need JavaScript)."
+JUDGED = ("PARTIAL", "COULDN'T CONFIRM", "UNSUPPORTED", "CONTRADICTED", "UNVERIFIED")
+
+
+def thin_result(r):
+    """A meta-description-only page (the body needs JavaScript) can confirm a claim, never
+    refute it: nothing found there means the page wasn't read, not that it disagrees."""
+    if r["label"] in ("UNSUPPORTED", "CONTRADICTED", "UNVERIFIED"):
+        return {"label": "SOURCE UNREACHABLE", "quote": "", "reason": UNREADABLE,
+                "detail": "meta description only", "tokens": r.get("tokens", 0),
+                **({"model": r["model"]} if "model" in r else {})}
+    return r
+
+
+def hidden_cap(r, hidden):
+    """ChatGPT's "+N": N more sources the copied text dropped. If the visible ones don't
+    confirm the claim, the hidden ones might: amber at worst (COULDN'T CONFIRM), never red."""
+    if r["label"] not in JUDGED:
+        return r
+    r = dict(r)
+    if r["label"] in ("UNSUPPORTED", "CONTRADICTED", "UNVERIFIED"):
+        r["label"] = "COULDN'T CONFIRM"
+    more = f"{hidden} more sources that weren't" if hidden > 1 else "1 more source that wasn't"
+    r["reason"] = (r.get("reason", "") + f" Also cites {more} included in the copied text.").strip()
+    return r
 
 
 def over_limit(limit):
@@ -243,6 +268,7 @@ def combine(claim, per, pages, context=""):
             add_pages(r, page)
             if page.get("meta_only"):
                 r["reason"] = (r.get("reason", "") + META_NOTE).strip()
+    per = [(u, thin_result(r) if (pages.get(u) or {}).get("meta_only") else r) for u, r in per]
     multi = len(per) > 1
     sources = [{"url": u, "label": r["label"], "reason": r.get("reason", ""),
                 **({"detail": r["detail"]} if r.get("detail") else {}),
@@ -289,12 +315,14 @@ def combine(claim, per, pages, context=""):
 def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
           pacer=None, clock=time.monotonic, sleep=time.sleep, provider=None, max_urls=None):
     """Yield events as dicts:
-      {"type": "start", "cited", "checked", "uncited", "limit", "url_limit"}   limit =
-         max_claims or None; url_limit = max_urls or None
+      {"type": "start", "cited", "checked", "uncited", "site_only", "limit", "url_limit"}
+         limit = max_claims or None; url_limit = max_urls or None; site_only = claims cited
+         only by a ChatGPT chip whose link was lost (claim events with claim None and "site")
       {"type": "claim", "index", "claim", "text", "url", "urls", "label", "sources", "notes", ...}
          index = 1..checked; url = the first of urls (a claim may cite several); sources =
          [{url, label, reason, detail?, note?, model?}] one per URL, in citation order
          (uncited text comes as a claim event with claim None, index None, urls [])
+         "hidden": N when ChatGPT's "+N" hid N sources (hidden_cap(): never red)
       {"type": "skipped", "claim", "text", "url", "urls", "label": "NOT CHECKED", "reason"}
          cited but over the claim cap, with every source past the URL cap, or not in `only`;
          no fetch, no tokens
@@ -322,9 +350,10 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
     from providers import Groq
     provider = provider or Groq(client)
     pacer = pacer or TokenPacer.for_provider(provider.name, clock=clock)
-    segs = blocks_ctx(report)
-    cited = [(t, us) for t, us, _ in segs if us]
-    contexts = [c for _, us, c in segs if us]
+    segs = blocks_meta(report)
+    cited = [(t, us) for t, us, _, _ in segs if us]
+    contexts = [c for _, us, c, _ in segs if us]
+    site_only = sum(1 for _, us, _, m in segs if not us and m.get("site"))
     if only is not None:
         chosen = {i - 1 for i in only if 0 < i <= len(cited)}
     elif max_claims is not None:
@@ -338,7 +367,8 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
         chosen -= url_capped
     checks = lambda i: [u for u in cited[i][1][:MAX_SOURCES] if allowed is None or u in allowed]
     yield {"type": "start", "cited": len(cited), "checked": len(chosen),
-           "uncited": len(segs) - len(cited), "limit": max_claims, "url_limit": max_urls}
+           "uncited": len(segs) - len(cited) - site_only, "site_only": site_only,
+           "limit": max_claims, "url_limit": max_urls}
 
     if pages is None:
         urls = list(dict.fromkeys(u for i in sorted(chosen) for u in checks(i)))
@@ -347,7 +377,12 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
     tokens, n, index, out_of_capacity = 0, 0, 0, False
     batch = {}          # Gemini: (claim number, url) -> result, filled one cited page at a time
     per_call = getattr(provider, "claims_per_call", None) or 10**9
-    for text, urls, context in segs:
+    for text, urls, context, chip in segs:
+        if not urls and chip.get("site"):   # cited by a chip whose link was lost: never fetched
+            yield {"type": "claim", "index": None, "claim": None, "text": text, "url": None, "urls": [],
+                   "label": "NO SOURCE GIVEN", "quote": "", "site": chip["site"],
+                   "reason": SITE_ONLY.format(chip["site"]), "tokens": 0}
+            continue
         if not urls:      # uncited text: nothing to check, costs no tokens
             yield {"type": "claim", "index": None, "claim": None, "text": text, "url": None, "urls": [],
                    "label": "NO SOURCE GIVEN", "quote": "",
@@ -435,6 +470,8 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
                 pacer.record(r["tokens"])
             res[url] = r
         r = combine(text, [(u, res[u]) for u in urls], pages, context)
+        if chip.get("hidden"):
+            r = {**hidden_cap(r, chip["hidden"]), "hidden": chip["hidden"]}
         tokens += r["tokens"]
         yield {"type": "claim", "index": index, "claim": n, "text": text, "url": urls[0],
                "urls": list(urls), **r}

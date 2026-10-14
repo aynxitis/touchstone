@@ -4,6 +4,7 @@ import html
 import json
 import re
 import sys
+from urllib.parse import unquote, urlsplit
 
 from fetch_links import URL_RE
 
@@ -47,9 +48,41 @@ LIST_ITEM = re.compile(r"^\s*(?:[-*+]|\d+\.)\s+")
 # runs are capped (an earlier nested "\s*" version hung on 20,000 spaces).
 ONE_MARKER = r"(?:\[\^?\d{1,4}(?:[ \t]{0,3},[ \t]{0,3}\d{1,4}){0,20}\]|\u3010\d{1,4}\u3011)(?![(:])"
 MARKER = re.compile(r"[ \t]{0,8}(" + ONE_MARKER + r"(?:[ \t]{0,8}" + ONE_MARKER + r")*)([.,;:!?]{0,3})")
-SOURCES_HEADING = re.compile(r"^\W*(sources|references|citations|bibliography|works cited|links)\W*$", re.I)
+# A reference-list heading, any level: "Sources", "### Sources and further reading", "Références",
+# "Sources et lectures complémentaires", "**Bibliography**". Its list lines are never claims.
+REF_WORDS = (r"(?:sources?|references?|r[eé]f[eé]rences?|citations|bibliography|bibliographie|works cited"
+             r"|links|liens|further reading|lectures?(?: compl[eé]mentaires)?|pour aller plus loin)")
+SOURCES_HEADING = re.compile(r"^\W{0,12}(" + REF_WORDS + r"(?:[ \t]{1,3}(?:and|et|&)[ \t]{1,3}" + REF_WORDS
+                             + r")?)\W{0,12}$", re.I)
 BRACKET_DEF = re.compile(r"^\s*(?:\[\^?(\d+)\]|【(\d+)】):?\s*(.*)$")   # [1] / [1]: / [^1]: / 【1】
 NUMBERED_DEF = re.compile(r"^\s*(\d+)[.)]\s+(.*)$")                           # 1. / 1)
+
+
+def without_links(line):
+    """The line's text with its links (markdown links whole, bare URLs) removed."""
+    for a, b, _ in reversed(md_links(line)):
+        line = line[:a] + " " + line[b:]
+    return URL_RE.sub(" ", line)
+
+
+def short_entry(line, most=12):
+    """A source entry's shape: at most `most` words once its links are removed."""
+    return len(re.findall(r"[^\W_]+", without_links(line))) <= most
+
+
+def reference_line(line):
+    """A list line that only names a source: "- ARPCE — [Observatoire](url).", "- Radio X —
+    [A](u1) and [B](u2)". Once its links are gone: no number, at most 8 words, and no
+    sentence before its first link ("- Sales fell. [src](url)" is a claim)."""
+    if not LIST_ITEM.match(line) or not URL_RE.search(line):
+        return False
+    rest = without_links(line)
+    words = [w for w in re.findall(r"[^\W_]+", rest) if w.lower() not in CONNECTORS]
+    first = min([a for a, _, _ in md_links(line)] + [m.start() for m in URL_RE.finditer(line)])
+    lead = LIST_ITEM.sub("", line[:first]).replace("**", "").strip()
+    named = (re.search(r"[\u2014\u2013:|-]$", lead) is not None
+             or all(w[0].isupper() or w.lower() in NAME_GLUE for w in words))
+    return not re.search(r"\d", rest) and len(words) <= 8 and named
 
 
 def resolve_footnotes(report):
@@ -69,7 +102,8 @@ def resolve_footnotes(report):
             in_sources, _ = True, defs.add(i)
             continue
         if in_sources and (s_.startswith("#") or (s_ and not LIST_ITEM.match(line)
-                                                  and not BRACKET_DEF.match(line))):
+                                                  and not BRACKET_DEF.match(line)
+                                                  and not (URL_RE.search(line) and short_entry(line)))):
             in_sources = False            # another heading or a paragraph: section over
         m = BRACKET_DEF.match(line)
         n, rest = (m.group(1) or m.group(2), m.group(3)) if m else (None, None)
@@ -78,7 +112,7 @@ def resolve_footnotes(report):
             link = URL_RE.search(rest)
             if not in_sources and not link:
                 continue                  # "1. text" in the body: an ordinary list item
-        if n is None and in_sources and LIST_ITEM.match(line):
+        if n is None and in_sources and s_ and (LIST_ITEM.match(line) or URL_RE.search(line)):
             rest = line                   # "- Title url" under Sources: unnumbered entry
         elif n is None:
             continue
@@ -152,28 +186,123 @@ def is_chip_label(s):
             and not LIST_ITEM.match(s) and s[-1] not in ".!?:;")
 
 
+# ChatGPT's citation chips: a favicon image (google.com/s2/favicons?domain=<site>), a caption
+# line (the site's name) and maybe "+N" (N more sources hidden from the copied text). A chip
+# cites the block above it. copy_cleanup() resolves the chip's domain to the report's own
+# links on that site (usually its Sources list) and writes them as a "Source:" line, so
+# attach_sources() gives them to that block. What can't be a real link travels as a
+# pseudo-link (CHIP_TAG, never fetched: blocks_meta() turns it into the claim's meta):
+#   CHIP_TAG + "more/N"       N sources hidden by "+N"
+#   CHIP_TAG + "site/DOMAIN"  a chip whose site has no (or too many) links in the report
+CHIP_TAG = "https://chip.touchstone.invalid/"
+FAVICON_DOMAIN = re.compile(r"[?&]domain=([^&\s]{1,300})")
+SECOND_LEVEL = {"co", "com", "net", "org", "gov", "gouv", "edu", "ac", "or", "ne", "go", "gob", "nic", "mil"}
+MAX_CHIP_LINKS = 3                                  # more links on one site: ambiguous
+
+
+def host_of(url):
+    try:
+        return (urlsplit(url if "://" in url else "https://" + url).hostname or "").lower()
+    except ValueError:
+        return ""
+
+
+def registrable(host):
+    """The registrable domain, approximately: "news.radiox.ma" -> "radiox.ma", "www.bbc.co.uk"
+    -> "bbc.co.uk" (a 2-letter country code under a generic second level keeps 3 labels)."""
+    labels = host.removeprefix("www.").split(".")
+    keep = 3 if len(labels) >= 3 and len(labels[-1]) == 2 and labels[-2] in SECOND_LEVEL else 2
+    return ".".join(labels[-keep:])
+
+
+def chip_domain(url):
+    """The site a favicon chip names (Google s2: "?domain=https://www.anrt.ma"), or None."""
+    m = FAVICON_DOMAIN.search(url)
+    return host_of(unquote(m.group(1))) or None if m else None
+
+
+def chip_links(domains, report_urls):
+    """(links, unresolved domains) for a chip's sites: each site's links in the report, when
+    there are 1-3 of them."""
+    links, missing = [], []
+    for d in domains:
+        found = [u for u in report_urls if registrable(host_of(u)) == registrable(d)]
+        if 1 <= len(found) <= MAX_CHIP_LINKS:
+            links += [u for u in found if u not in links]
+        else:
+            missing.append(d.removeprefix("www."))
+    return links, missing
+
+
 def copy_cleanup(report):
-    """Decode HTML entities, drop favicon chips and the caption lines right after them, drop
-    chart-axis residue. None of these are claims, uncited passages or sources."""
+    """Decode HTML entities, turn citation chips into "Source:" lines for the block above them
+    (their caption and "+N" lines dropped), drop chart-axis residue."""
     text = MD_ESCAPE.sub(r"\1", unescape_entities(report)).replace("\u00a0", " ")
-    out, after_chip = [], 0
-    for line in text.split("\n"):
+    lines = text.split("\n")
+    report_urls = list(dict.fromkeys(u for u in link_urls(text) if "favicon" not in u.lower()
+                                     and not u.startswith(CHIP_TAG)))
+    out, i = [], 0
+    while i < len(lines):
+        line = lines[i]
         stripped = drop_favicons(line)
-        if stripped != line and not stripped.strip():
-            after_chip = 2                       # a line of chips only: captions may follow
+        i += 1
+        if stripped != line and not stripped.strip():          # a line of chips only
+            domains = [d for _, _, u in md_links(line) if "favicon" in u.lower() and (d := chip_domain(u))]
+            hidden, caption = 0, False
+            while i < len(lines):                               # more chips, caption, "+N"
+                s = lines[i].strip()
+                if not s:
+                    i += 1
+                elif drop_favicons(lines[i]) != lines[i] and not drop_favicons(lines[i]).strip():
+                    domains += [d for _, _, u in md_links(lines[i]) if "favicon" in u.lower()
+                                and (d := chip_domain(u))]
+                    i += 1
+                elif CHIP_COUNT.fullmatch(s):
+                    hidden, i = int(s[1:]), i + 1
+                    break
+                elif not caption and is_chip_label(s):
+                    caption, i = True, i + 1
+                else:
+                    break
+            cite_above(out, list(dict.fromkeys(domains)), hidden, report_urls,
+                       line[:len(line) - len(line.lstrip())])
             continue
         s = stripped.strip()
         if not s:
             out.append("")
             continue
-        if after_chip and (CHIP_COUNT.fullmatch(s) or (after_chip == 2 and is_chip_label(s))):
-            after_chip = 0 if CHIP_COUNT.fullmatch(s) else 1
-            continue
-        after_chip = 0
         if not URL_RE.search(s) and len(GLUED.findall(s)) >= GLUED_MIN:
             continue                             # chart axis labels glued together
         out.append(stripped)
     return "\n".join(out)
+
+
+def cite_above(out, domains, hidden, report_urls, indent):
+    """Give a chip's sources to the block above it (the last non-blank line in `out`):
+      - already cited: only "+N" is kept, as a pseudo-link right after its last link;
+      - a "Source: ANRT." line without a link: the links join it (attach_sources() then gives
+        them to the block above that line, a table say);
+      - anything else: a new "Source:" line under it, with the chip's indentation (indented =
+        the last bullet only)."""
+    k = next((j for j in range(len(out) - 1, -1, -1) if out[j].strip()), None)
+    if k is None:
+        return
+    links, missing = chip_links(domains, report_urls)
+    more = [f"{CHIP_TAG}more/{hidden}"] if hidden else []
+    prev = out[k]
+    if URL_RE.search(prev):
+        if more:
+            spans = md_links(prev)
+            end = max([b for _, b, _ in spans] + [m.end() for m in URL_RE.finditer(prev)])
+            out[k] = prev[:end] + " " + more[0] + prev[end:]
+        return
+    tags = links + [f"{CHIP_TAG}site/{d}" for d in missing] + more
+    if not tags:
+        return
+    if SOURCE_LINE.match(prev):
+        out[k] = prev.rstrip() + " " + " ".join(tags)
+    else:
+        out.append(f"{indent}Source: {' '.join(tags)}")
 
 
 # ---- "Source:" lines and stat blocks ----
@@ -394,7 +523,51 @@ def blocks(report):
     return [(t, us) for t, us, _ in blocks_ctx(report)]
 
 
+SITE_ONLY = ("The copied text only kept the site name ({}), not the page link. Copy the link "
+             "from ChatGPT's sources panel and add it next to the claim.")
+NAME_GLUE = {"of", "the", "and", "for", "de", "du", "des", "la", "le", "les", "et", "&", "on", "in", "à"}
+
+
+def checkable(text):
+    """False for a "claim" with nothing to check: under 4 words with no number, or only a
+    name ("International Coffee Organization", "DataReportal —")."""
+    if re.search(r"\d", text):
+        return True
+    words = re.findall(r"[^\W\d_][\w'’-]*", text)
+    name = len(words) <= 8 and all(w[0].isupper() or w.lower() in NAME_GLUE for w in words)
+    return len(words) >= 4 and not name
+
+
+def blocks_meta(report):
+    """blocks_ctx() plus each claim's chip meta: (text, urls, context, meta). meta: {"hidden":
+    N} when "+N" (or a chip site with no link in the report) hid sources from the copied text;
+    {"site": domain} for text cited only by a chip whose link was lost (urls empty, never
+    fetched). Cited claims with nothing checkable (checkable()) are dropped."""
+    out = []
+    for text, urls, ctx in _blocks(report):
+        real = tuple(u for u in urls if not u.startswith(CHIP_TAG))
+        hidden = sum(int(u.rsplit("/", 1)[1]) for u in urls if u.startswith(CHIP_TAG + "more/"))
+        sites = [u[len(CHIP_TAG) + 5:] for u in urls if u.startswith(CHIP_TAG + "site/")]
+        if urls and not checkable(text):
+            continue                                   # a source name, not a claim
+        meta = {}
+        if real:
+            hidden += len(sites)                       # a chip site we couldn't link
+        elif sites:
+            meta["site"] = sites[0]
+        if hidden and (real or sites):
+            meta["hidden"] = hidden
+        out.append((text, real, ctx, meta))
+    return out
+
+
 def blocks_ctx(report):
+    """(text, urls, context) per claim: blocks_meta() without the meta (a claim cited only
+    by a link-less chip comes with no urls)."""
+    return [(t, us, c) for t, us, c, _ in blocks_meta(report)]
+
+
+def _blocks(report):
     """Split the report into (text, urls, context) in document order; urls is a tuple of the claim's
     sources (empty for uncited text). A link group only owns the text on its own line
     (paragraph, bullet or table row) since the previous group, so uncited paragraphs never get
@@ -406,7 +579,7 @@ def blocks_ctx(report):
     text; "" otherwise. The model sees the whole text; coverage (quote_check.coverage_caps)
     only requires the claim's own numbers."""
     report, _ = resolve_footnotes(copy_cleanup(report))
-    report = attach_sources(report)
+    report = attach_sources("\n".join(x for x in report.split("\n") if not reference_line(x)))
     out, block = [], []          # block: uncited lead-in + bullets waiting for a link
     head, last_row = None, None  # current table's header cells; the previous uncited row
 
