@@ -17,9 +17,7 @@ jobs:
           python-version: "3.14"
           cache: pip
       - run: pip install -r requirements.txt
-      # No secrets: no test calls a model. The placeholder only lets app.py build its Groq
-      # client at import. TOUCHSTONE_OFFLINE=1 skips the checks that need live sites.
+      # No secrets: no test calls a model. TOUCHSTONE_OFFLINE=1 skips the checks that need live sites.
       - run: python run_tests.py
         env:
-          GROQ_API_KEY: ci-placeholder-not-a-key
           TOUCHSTONE_OFFLINE: "1"

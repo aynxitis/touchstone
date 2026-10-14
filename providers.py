@@ -38,12 +38,25 @@ def make_client(name):
         from google import genai
         from google.genai import types
         return genai.Client(api_key=key, http_options=types.HttpOptions(timeout=GEMINI_TIMEOUT_MS))
-    key = os.environ.get("GROQ_API_KEY")
-    if not key:
-        raise SystemExit("GROQ_API_KEY missing from .env")
-    from groq import Groq
-    # max_retries=0: audit() does the retrying (pacing.py), visibly.
-    return Groq(api_key=key, timeout=GROQ_TIMEOUT, max_retries=0)
+    return LazyGroq()
+
+
+class LazyGroq:
+    """The Groq SDK client, built at its first use, so the app starts without GROQ_API_KEY
+    (PROVIDER=gemini, tests, CI). Calls behave exactly as with the client itself."""
+
+    def __init__(self):
+        self._client = None
+
+    def __getattr__(self, name):
+        if self._client is None:
+            key = os.environ.get("GROQ_API_KEY")
+            if not key:
+                raise RuntimeError("GROQ_API_KEY missing (set it in .env or the host's variables)")
+            from groq import Groq
+            # max_retries=0: audit() does the retrying (pacing.py), visibly.
+            self._client = Groq(api_key=key, timeout=GROQ_TIMEOUT, max_retries=0)
+        return getattr(self._client, name)
 
 
 # Response schema for Gemini: the per-claim JSON judge() already consumes, in a list.

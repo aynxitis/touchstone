@@ -772,3 +772,19 @@ finally:
     A.busy.release()
 
 print("security checks passed")
+
+
+# The app starts with only GEMINI_API_KEY: no Groq client is built when PROVIDER=gemini.
+_genv = {k: v for k, v in _os.environ.items() if k != "GROQ_API_KEY"}
+_genv.update(PROVIDER="gemini", GEMINI_API_KEY="test-placeholder-not-a-key", REQUIRE_PROXY_SECRET="0")
+_here = _os.path.dirname(_os.path.abspath(__file__))
+_skip_env = "import dotenv; dotenv.load_dotenv = lambda *a, **k: None; "   # ignore a local .env
+_r = _sp.run([_sys.executable, "-c", _skip_env + "import app; assert app.PROVIDER == 'gemini'"],
+             env=_genv, cwd=_here, capture_output=True, text=True)
+assert _r.returncode == 0, _r.stderr[-500:]
+# PROVIDER=groq without a key also starts; the missing key surfaces at the first Groq call.
+_r = _sp.run([_sys.executable, "-c", _skip_env + "import app\ntry:\n    app.client.chat\nexcept RuntimeError as e:\n"
+              "    assert 'GROQ_API_KEY' in str(e)\nelse:\n    raise AssertionError('no error')"],
+             env={**_genv, "PROVIDER": "groq"}, cwd=_here, capture_output=True, text=True)
+assert _r.returncode == 0, _r.stderr[-500:]
+print("ok  app starts without GROQ_API_KEY (gemini, and groq until its first call)")

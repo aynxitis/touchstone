@@ -84,7 +84,7 @@ HEARTBEAT = json.dumps({"type": "heartbeat"}) + "\n"
 
 # Groq: max_retries=0, audit() does the retrying, so a per-minute 429 becomes a visible
 # "waiting for capacity" pause and timeouts/5xx get 2 retries. Keys come from the
-# environment only and are never logged.
+# environment only and are never logged. The Groq client is built at its first call.
 client = make_client(PROVIDER)
 PACER = TokenPacer.for_provider(PROVIDER)   # the provider's minute/day, shared by audits
 def limits_line(max_claims, max_urls):

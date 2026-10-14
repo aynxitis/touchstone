@@ -6,13 +6,15 @@ Live: https://touchstone.aynx.dev. "Try an example" replays a saved run instantl
 
 ## The problem
 
+We built this after hitting the problem ourselves. While doing market research for a project this week, I asked ChatGPT for gaps in a market; it answered confidently, with sources that were years out of date or didn't say what it claimed. Checking each link by hand is exactly the work Touchstone does for you.
+
 Students use ChatGPT, Perplexity and Gemini for research. The citations in those reports often don't support the claim they sit next to, and checking every link by hand is slow, so most people don't.
 
 Our own small tests, not a study: we asked all three the same question ("internet access and the digital economy in Algeria", 14 Oct 2026).
 
-- Gemini gave 18 citations. Of the 13 pages we could open, at most 2 supported the claim. It cited the 2024 edition of a report for 2026 figures, attributed UNCTAD figures to the World Bank, and cited bare homepages.
-- Perplexity cited a page for figures that page doesn't contain.
-- ChatGPT was mostly accurate, but its copied text drops the actual links, so the citations can't be followed from the pasted report.
+- Gemini gave 18 citations. Of the 13 citations we could check, at most 2 were backed by the cited page. It cited the 2024 edition of a report for 2026 figures, attributed UNCTAD figures to the World Bank, and cited bare homepages.
+- Perplexity cited a page for figures that page doesn't contain (possibly because Perplexity's copied text dropped some of its sources).
+- ChatGPT was mostly accurate, but its copied text replaces inline links with site icons; Touchstone maps them back to the full links listed at the end of the report.
 
 ## How it works
 
@@ -61,6 +63,7 @@ Touchstone checks whether the cited source says what the report claims, not whet
 - JavaScript-only pages and sites that block bots come back SOURCE UNREACHABLE.
 - Qualitative claims depend on the model's reading.
 - A year anywhere in a quote softens a different-date red's wording.
+- When a copied report drops some of its citations (ChatGPT's '+1' chips, possibly Perplexity), Touchstone can only check the sources that are visible.
 - English and French only.
 - Limits of 25 claims and 8 sources per audit, 5 audits per hour.
 
@@ -69,14 +72,14 @@ Touchstone checks whether the cited source says what the report claims, not whet
 Requires Python 3.14.
 
 ```
-git clone <this repo> touchstone
+git clone https://github.com/aynxitis/touchstone.git touchstone
 cd touchstone
 python -m venv .venv
 .venv/bin/pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit `.env`: set `PROVIDER` (`gemini` or `groq`) and the matching key (`GEMINI_API_KEY` or `GROQ_API_KEY`). The app builds a Groq client at startup, so `GROQ_API_KEY` must be set (any placeholder works when `PROVIDER=gemini`).
+Edit `.env`: set `PROVIDER` (`gemini` or `groq`) and the matching key (`GEMINI_API_KEY` or `GROQ_API_KEY`).
 
 Start the web app (same command as production, on a local port):
 
@@ -84,7 +87,7 @@ Start the web app (same command as production, on a local port):
 .venv/bin/uvicorn app:app --host 127.0.0.1 --port 8000 --workers 1 --no-proxy-headers
 ```
 
-Run the tests (no model calls, no keys needed beyond the placeholder above):
+Run the tests (no model calls, no keys needed):
 
 ```
 .venv/bin/python run_tests.py
@@ -118,6 +121,14 @@ The optional second argument re-runs only those claim numbers. `--cache` stores 
 
 Deployment: the app runs on Railway (EU region) behind a Cloudflare Worker. The Worker sets a client-IP header and a shared secret on every request; with `REQUIRE_PROXY_SECRET=1` the app refuses any request that doesn't carry the secret, so direct traffic to the origin is rejected. See `DEPLOY.md`.
 
+## What's next
+
+- "Find a source": for claims with no source or a failed one, search the web neutrally, check what's found with the same strict rules, and show whether other pages support it, contradict it, or say nothing.
+- A second opinion from a stronger model on amber claims, with the code still deciding the label.
+- A citation-checking tool that AI agents can call before they answer (MCP).
+- Bring your own Gemini key, kept in the browser for one session and never stored.
+- Arabic support.
+
 ## AI use
 
 - Google Gemini runs inside the product: it splits claims into facts and proposes the quote for each fact. Code verifies everything it returns and decides the label.
@@ -127,7 +138,8 @@ Deployment: the app runs on Railway (EU region) behind a Cloudflare Worker. The 
 
 ## Team
 
-The git history has one author (git name `aynxitis`), who made all 62 commits and touched every file.
+- Mohamed Anis Belamri (aynxitis): checking engine, evaluation, deployment and the current interface.
+- TechyTails (VCoder18) is building the redesigned interface and saved-audit history; this section will credit that work once it is merged.
 
 ## License
 
