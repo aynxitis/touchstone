@@ -321,9 +321,9 @@
       "urls": [
         "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam"
       ],
-      "label": "COULDN'T CONFIRM",
+      "label": "SOURCED",
       "quote": "",
-      "reason": "Couldn't confirm (code check): At full supply level, the GERD reservoir has a surface area of roughly 1,900 km&sup2. Quote found, but 1,900 not in its passage.",
+      "reason": "Stated: At full supply level, the GERD reservoir has a surface area of roughly 1,900 km².",
       "facts": [
         {
           "fact": "At full supply level, the GERD reservoir has a surface area of roughly 1,900 km&sup2",
@@ -684,9 +684,9 @@
       "urls": [
         "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam"
       ],
-      "label": "COULDN'T CONFIRM",
+      "label": "SOURCED",
       "quote": "The Grand Ethiopian Renaissance Dam (GERD or TaIHiGe; Amharic: ታላቁ የኢትዮጵያ ሕዳሴ ግድብ, romanized: Tālāqu ye-Ītyōppyā Hidāsē Gidib, Tigrinya: ግድብ ሕዳሰ ኢትዮጵያ, Oromo: Hidha Guddicha Haaromsa Itoophiyaa[6]), formerly known as the Millennium Dam and sometimes referred to as the Hidase Dam (Amharic: ሕዳሴ ግድብ, romanized: Hidāsē Gidib, Oromo: Hidha Hidāsē), is a gravity dam on the Blue Nile River in Ethiopia.",
-      "reason": "Stated: The Grand Ethiopian Renaissance Dam is a gravity dam on the Blue Nile in Ethiopia's Benishangul-Gumuz Region, close to the Sudanese border. Not checked: Benishangul-Gumuz, Sudanese.",
+      "reason": "Stated: The Grand Ethiopian Renaissance Dam is a gravity dam on the Blue Nile in Ethiopia's Benishangul-Gumuz Region, close to the Sudanese border.",
       "facts": [
         {
           "fact": "The Grand Ethiopian Renaissance Dam is a gravity dam on the Blue Nile in Ethiopia's Benishangul-Gumuz Region, close to the Sudanese border",

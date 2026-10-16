@@ -16,7 +16,7 @@ Files:
 - `touchstone-run1-scored.csv`: the hand scoring of run 1 (56/80).
 - `run2_reportN.json`: the Gemini CLI run after the fixes of 16 Oct 2026 (71/80).
 - `run2r_reportN.json`: run 2's model replies re-scored with the final code (`rescore.py --out`,
-  zero tokens; 72/80).
+  zero tokens; 75/80 after the follow-up).
 
 ## Run
 

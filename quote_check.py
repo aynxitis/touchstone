@@ -1,6 +1,7 @@
 """Touchstone step 3: for each claim, find the exact supporting quote on the cited page.
 The model proposes a quote; code confirms the quote really exists on the page."""
 import contextvars
+import html
 import json
 import os
 import re
@@ -1013,14 +1014,15 @@ def name_in(name, text):
 
 
 def unchecked_names(claim, facts, context="", page="", url="", meta=None):
-    """The claim's names (claim_names) in no stated fact's verified quote and not the page's
-    subject (named in its title)."""
+    """The claim's names (claim_names) in no stated fact's verified quote's paragraph (its
+    page line, never the whole page) and not the page's subject (named in its title)."""
     # An "unconfirmed" fact's quote is verified too (a code check doubts its figure or name);
     # it can't make the claim SOURCED anyway, but its names were checked.
     quotes = [f["quote"] for f in facts if f.get("status") in ("stated", "unconfirmed") and f.get("quote")]
     title = (meta or {}).get("title") or ""
     return [n for n in claim_names(claim, context, page, url)
-            if not any(name_in(n, q) for q in quotes) and not (title and name_in(n, title))]
+            if not any(name_in(n, paragraph_of(q, page, quote_on_page) or q) for q in quotes)
+            and not (title and name_in(n, title))]
 
 
 def names_cap(names):
@@ -1166,9 +1168,10 @@ def _judge(out, claim, page, url="", raw="", meta=None, context=""):
                 "facts": [], "framing": [], "model": {"opinion": True, "parts": []}}
 
     # Model output is untrusted too: anything that isn't the expected shape is dropped
-    # or coerced to a string, never trusted.
-    s = lambda v: v if isinstance(v, str) else ""
+    # or coerced to a string, never trusted. HTML entities in it ("1,900 km&sup2;", "&nbsp;",
+    # "&amp;") are decoded before any comparison: "km&sup2" was read as km (length), not km2.
     parts = out.get("parts") if isinstance(out.get("parts"), list) else []
+    s = lambda v: html.unescape(v) if isinstance(v, str) else ""
     parts_in = [{"text": s(x.get("text")).strip().rstrip(".;,"), "kind": s(x.get("kind")),
                  "status": s(x.get("status")), "quote": s(x.get("quote"))}
                 for x in parts if isinstance(x, dict)]

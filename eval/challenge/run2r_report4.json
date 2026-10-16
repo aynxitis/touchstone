@@ -518,7 +518,7 @@
       ],
       "label": "PARTIAL",
       "quote": "It has a seven hour storage capacity.",
-      "reason": "Stated: Noor II has seven hours of storage capacity. Not in the checked passages: Noor II was inaugurated by King Mohammed VI. Not checked: Noor II, King Mohammed VI.",
+      "reason": "Stated: Noor II has seven hours of storage capacity. Not in the checked passages: Noor II was inaugurated by King Mohammed VI. Not checked: King Mohammed VI.",
       "facts": [
         {
           "fact": "Noor II has seven hours of storage capacity",
@@ -819,9 +819,9 @@
       "urls": [
         "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station"
       ],
-      "label": "COULDN'T CONFIRM",
+      "label": "SOURCED",
       "quote": "The panels follow the light, reflecting it to a 250-metre-tall (820 ft) solar tower.",
-      "reason": "Stated: Noor III uses a 250-metre solar tower; Noor III uses seven hours of energy storage. Not checked: Noor III.",
+      "reason": "Stated: Noor III uses a 250-metre solar tower; Noor III uses seven hours of energy storage.",
       "facts": [
         {
           "fact": "Noor III uses a 250-metre solar tower",

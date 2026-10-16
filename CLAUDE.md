@@ -399,10 +399,10 @@ quote sentence about the subject (named whole, or naming no one in a paragraph o
 on a page titled with it) + a shared event word + an incompatible date -> stays contradicted.
 (8) Names guard (NAMES_CAP): every claim name (entities minus a trailing Region/Province...,
 plus country adjectives, minus publisher/attributed site, a short "Label:" lead-in skipped) must
-be in a stated/unconfirmed fact's verified QUOTE or the page title (name_in: names with 1-2 char
+be in a stated/unconfirmed fact's verified quote's paragraph or the page title (name_in: names with 1-2 char
 words match whole, Noor II != Noor III), else SOURCED -> COULDN'T CONFIRM "Not checked: X, Y.";
 merge(): unchecked by every source. Cost on run1/run2: 3 correct SOURCED -> amber (Senegal,
-Benishangul-Gumuz, Noor III); the quote's paragraph would restore 2. (9) Hedges (roughly, about,
+Benishangul-Gumuz, Noor III); see follow-up below. (9) Hedges (roughly, about,
 around, approximately, circa, some, nearly, environ, près de...) = bound op "≈": the page value
 rounded to the claim's significant figures (min 2) matches; a hedge covers later figures of its
 clause (80 chars, no sentence break). (10) units.unit_at(): length (mm/cm/m/km; "5 m" spaced is
@@ -413,6 +413,9 @@ the fact's year row's cell, else "elsewhere"; a spanning Total row aligns under 
 check_numbers.row_cells keeps an empty first cell ("||19,276,767 |"). rescore.py --out writes the
 re-scored run. Dev baselines report3/4/5: 0 labels changed. Challenge: run1 56/80 -> run2
 (Gemini) 71/80, re-scored with the final code 72/80; false SOURCED 0, false red 0.
+Follow-up (2026-10-16): the names guard reads each verified quote's own PARAGRAPH (page line,
+never the whole page); the model's text and quotes are html.unescape()d before any check
+("km&sup2" had been read as length). run2 re-scored: 75/80, false SOURCED 0, false red 0.
 Labels: SOURCED / PARTIAL / COULDN'T CONFIRM / UNSUPPORTED / CONTRADICTED / UNVERIFIED / OPINION / SOURCE UNREACHABLE /
 NO SOURCE GIVEN / NOT CHECKED / ERROR. Verdicts judge factual parts only; editorial framing is noted, not penalized.
 

@@ -1013,5 +1013,23 @@ zq = "Zarga III uses a 250-metre solar tower."
 r = judge_q({"parts": [P("Zarga II uses a 250-metre solar tower", "stated", zq)]}, "Zarga II uses a 250-metre solar tower",
             "Intro\nThe complex has phases named Zarga II and Zarga III.\n" + zq)
 assert r["label"] != "SOURCED" and "Zarga II" in r["reason"], r
+# Follow-up: the names guard reads the verified quote's own paragraph (page line), never the
+# whole page; a model's HTML entities are decoded before any comparison.
+kq = "The Wadi Rum dam is a gravity dam on the Kufra river."
+kpage = ("Wadi Rum dam\n" + kq + " It stands in the Murzuq District, close to the Chadian border.\n"
+         "Elsewhere: Tibesti and Nigerien traders.")
+kc = "The Wadi Rum dam is a gravity dam on the Kufra river in the Murzuq District, near the Chadian border"
+r = judge_q({"parts": [P("The Wadi Rum dam is a gravity dam on the Kufra river", "stated", kq)]}, kc, kpage)
+assert "Not checked" not in r["reason"], r                        # Murzuq, Chadian: in the quote's paragraph
+kc2 = "The Wadi Rum dam is a gravity dam on the Kufra river near the Tibesti, by the Nigerien border"
+r = judge_q({"parts": [P("The Wadi Rum dam is a gravity dam on the Kufra river", "stated", kq)]}, kc2, kpage)
+assert r["label"] == "COULDN'T CONFIRM" and "Not checked: Tibesti, Nigerien." in r["reason"], r   # only elsewhere on the page
+eq = "The lake has a surface area of 2,264 km2 at full supply level."
+r = judge_q({"parts": [P("The lake covers roughly 2,300 km&sup2", "stated", eq)]},
+            "The lake covers roughly 2,300 km\u00b2", "Intro\n" + eq)
+assert r["label"] == "SOURCED" and r["facts"][0]["fact"] == "The lake covers roughly 2,300 km\u00b2", r
+r = judge_q({"parts": [P("Lakes &amp; rivers cover 2,264&nbsp;km2", "stated", "The lake has a surface area of 2,264&#x20;km2 at full supply level.")]},
+            "Lakes & rivers cover 2,264 km2", "Intro\n" + eq)
+assert r["facts"][0]["status"] == "stated" and "&#x20;" not in r["facts"][0]["quote"], r
 
 print("check tests passed")
