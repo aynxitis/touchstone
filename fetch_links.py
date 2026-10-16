@@ -13,7 +13,11 @@ from html import unescape
 
 import pdf_text
 
-URL_RE = re.compile(r"https?://[^\s<>\"'\)\]]+")
+# A URL may hold balanced parentheses ("wiki/Frontier_(supercomputer)"); an unbalanced ")"
+# ends it (the markdown link's own ")"). Linear: each repetition starts with a different
+# character class or a literal "(", the inner run is capped, and "++" never backtracks.
+URL_BODY = r"https?://(?:[^\s<>\"'()\]]|\([^\s<>\"'()\]]{0,200}\))++"
+URL_RE = re.compile(URL_BODY)
 CONNECT_TIMEOUT = 15    # seconds to open a connection (also write/pool)
 READ_TIMEOUT = 15       # seconds of silence while reading, first attempt
 RETRY_READ_TIMEOUT = 30 # after a timeout, one retry with twice the read timeout
@@ -44,6 +48,14 @@ BLOCK_MARKERS = ("cf-chl", "challenge-platform", "cf-error-details",   # Cloudfl
 TITLE_RE = re.compile(r"<title[^>]{0,200}>([^<]{0,200})", re.I)
 H_OPEN = re.compile(r"<h([1-3])\b[^>]{0,500}>", re.I)
 ANY_TAG = re.compile(r"<[^>]{0,500}>")
+# trafilatura drops <time> elements with their text: French Wikipedia writes dates as
+# <time datetime="2004-01-05"><a>5</a> <a>janvier</a> <a>2004</a></time>, so "inaugurated on
+# 5 January 2004" lost its date. Renamed to <span> before extraction, the text stays.
+TIME_TAG = re.compile(r"<(/?)time\b", re.I)
+
+
+def keep_time_text(html):
+    return TIME_TAG.sub(r"<\1span", html)
 MAX_HEADINGS = 200
 
 
@@ -225,6 +237,7 @@ async def fetch_one(url):
         return await pdf_result(url, got)
     html = got
     title, headings = outline(html)
+    html = keep_time_text(html)
     text = trafilatura.extract(html) or ""
     if len(text) < MIN_TEXT_CHARS or (len(text) < SHELL_CHARS and SHELL.search(text)):
         # JS-rendered pages often carry their key facts only in the meta description

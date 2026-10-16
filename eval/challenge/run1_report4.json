@@ -1,0 +1,840 @@
+{
+  "format": "touchstone-run",
+  "version": 1,
+  "created": "2026-10-16T20:46:35.909Z",
+  "report": "1. Erosion has carved nearly 300 natural rock arches in Tassili n'Ajjer, and the plateau is home to a population of Saharan cheetahs. [Wikipedia](https://en.wikipedia.org/wiki/Tassili_n%27Ajjer)\n2. MenAfriVac costs less than US$0.50 per dose. [Wikipedia](https://en.wikipedia.org/wiki/Meningitis_belt)\n3. Algeria's 2025 GDP at purchasing power parity is estimated at roughly US$875 billion. [Wikipedia](https://en.wikipedia.org/wiki/Economy_of_Algeria)\n4. Frontier's total cabling runs 245 km. [Wikipedia](https://en.wikipedia.org/wiki/Frontier_(supercomputer))\n5. Algeria's 2008 census recorded a population of about 34.1 million. [Wikipedia](https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population)\n6. Noor II was commissioned in January 2017. [Wikipedia](https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station)\n7. The African meningitis belt is home to more than 400 million people. [Wikipedia](https://en.wikipedia.org/wiki/Meningitis_belt)\n8. MenAfriVac was introduced across the meningitis belt in 2010 and has since been given to more than 350 million people. [Wikipedia](https://en.wikipedia.org/wiki/Meningitis_belt)\n9. Algeria became a member of OPEC in 1969. [Wikipedia](https://en.wikipedia.org/wiki/Economy_of_Algeria)\n10. Algeria's unemployment rate was below 9% in 2024. [Wikipedia](https://en.wikipedia.org/wiki/Economy_of_Algeria)\n11. The GERD's expected capacity factor is below 30%. [Wikipedia](https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam)\n12. Noor II has seven hours of storage capacity and was inaugurated by King Mohammed VI. [Wikipedia](https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station)\n13. With an installed capacity of 6.15 gigawatts, the GERD is the largest hydroelectric power plant in Africa. [Wikipedia](https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam)\n14. Frontier achieved an Rmax of more than 1 exaFLOPS. [Wikipedia](https://en.wikipedia.org/wiki/Frontier_(supercomputer))\n15. Algeria won its first Africa Cup of Nations title in 1986. [Wikipedia](https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final)\n16. The highest point of Tassili n'Ajjer is Adrar Afao, at 2,158 m. [Wikipedia](https://en.wikipedia.org/wiki/Tassili_n%27Ajjer)\n17. Frontier is hosted at Oak Ridge in Tennessee and runs entirely on renewable electricity. [Wikipedia](https://en.wikipedia.org/wiki/Frontier_(supercomputer))\n18. Noor III uses a 250-metre solar tower with seven hours of energy storage. [Wikipedia](https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station)\n19. Around 1,000 workers were employed to build the Ouarzazate solar complex. [Wikipedia](https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station)\n20. The GERD first produced electricity on 20 February 2022, delivering 375 MW to the grid. [Wikipedia](https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam)",
+  "cited": 20,
+  "checked": 20,
+  "tokens": 62216,
+  "stopped": null,
+  "claims": [
+    {
+      "claim": 1,
+      "text": "Erosion has carved nearly 300 natural rock arches in Tassili n'Ajjer, and the plateau is home to a population of Saharan cheetahs.",
+      "url": "https://en.wikipedia.org/wiki/Tassili_n%27Ajjer",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Tassili_n%27Ajjer"
+      ],
+      "label": "PARTIAL",
+      "quote": "Erosion in the area has resulted in nearly 300 natural rock arches being formed in the south east, along with deep gorges and permanent water pools in the north.",
+      "reason": "Stated: Erosion has carved nearly 300 natural rock arches in Tassili n'Ajjer. Not in the checked passages: the plateau is home to a population of Saharan cheetahs.",
+      "facts": [
+        {
+          "fact": "Erosion has carved nearly 300 natural rock arches in Tassili n'Ajjer",
+          "status": "stated",
+          "quote": "Erosion in the area has resulted in nearly 300 natural rock arches being formed in the south east, along with deep gorges and permanent water pools in the north."
+        },
+        {
+          "fact": "the plateau is home to a population of Saharan cheetahs",
+          "status": "missing",
+          "quote": ""
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Erosion has carved nearly 300 natural rock arches in Tassili n'Ajjer",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Erosion in the area has resulted in nearly 300 natural rock arches being formed in the south east, along with deep gorges and permanent water pools in the north."
+          },
+          {
+            "text": "the plateau is home to a population of Saharan cheetahs",
+            "kind": "fact",
+            "status": "missing",
+            "quote": ""
+          }
+        ]
+      },
+      "tokens": 5613,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Tassili_n%27Ajjer",
+          "label": "PARTIAL",
+          "reason": "Stated: Erosion has carved nearly 300 natural rock arches in Tassili n'Ajjer. Not in the checked passages: the plateau is home to a population of Saharan cheetahs."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 2,
+      "text": "MenAfriVac costs less than US$0.50 per dose.",
+      "url": "https://en.wikipedia.org/wiki/Meningitis_belt",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Meningitis_belt"
+      ],
+      "label": "UNSUPPORTED",
+      "quote": "",
+      "reason": "Not in the checked passages: MenAfriVac costs less than US$0.50 per dose.",
+      "facts": [
+        {
+          "fact": "MenAfriVac costs less than US$0.50 per dose",
+          "status": "missing",
+          "quote": ""
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "MenAfriVac costs less than US$0.50 per dose",
+            "kind": "fact",
+            "status": "missing",
+            "quote": ""
+          }
+        ]
+      },
+      "tokens": 1231,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Meningitis_belt",
+          "label": "UNSUPPORTED",
+          "reason": "Not in the checked passages: MenAfriVac costs less than US$0.50 per dose."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 3,
+      "text": "Algeria's 2025 GDP at purchasing power parity is estimated at roughly US$875 billion.",
+      "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Economy_of_Algeria"
+      ],
+      "label": "SOURCED",
+      "quote": "Using purchasing power parity, estimated GDP was US$874.6 billion, or US$18,510 on a per capita basis.",
+      "reason": "Stated: Algeria's 2025 GDP at purchasing power parity is estimated at roughly US$875 billion.",
+      "facts": [
+        {
+          "fact": "Algeria's 2025 GDP at purchasing power parity is estimated at roughly US$875 billion",
+          "status": "stated",
+          "quote": "Using purchasing power parity, estimated GDP was US$874.6 billion, or US$18,510 on a per capita basis."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Algeria's 2025 GDP at purchasing power parity is estimated at roughly US$875 billion",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Using purchasing power parity, estimated GDP was US$874.6 billion, or US$18,510 on a per capita basis."
+          }
+        ]
+      },
+      "tokens": 4712,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+          "label": "SOURCED",
+          "reason": "Stated: Algeria's 2025 GDP at purchasing power parity is estimated at roughly US$875 billion."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 4,
+      "text": "Frontier's total cabling runs 245 km.",
+      "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Frontier_(supercomputer"
+      ],
+      "label": "SOURCE UNREACHABLE",
+      "quote": "",
+      "reason": "The page was not found (it may have moved or been removed).",
+      "detail": "HTTP_ERR 404",
+      "tokens": 0,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer",
+          "label": "SOURCE UNREACHABLE",
+          "reason": "The page was not found (it may have moved or been removed).",
+          "detail": "HTTP_ERR 404"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 5,
+      "text": "Algeria's 2008 census recorded a population of about 34.1 million.",
+      "url": "https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population",
+      "urls": [
+        "https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population"
+      ],
+      "label": "SOURCED",
+      "quote": "| Total | | 22,971,658 | 29,276,767 | 34,080,030 |",
+      "reason": "Stated: Algeria's 2008 census recorded a population of about 34.1 million.",
+      "facts": [
+        {
+          "fact": "Algeria's 2008 census recorded a population of about 34.1 million",
+          "status": "stated",
+          "quote": "| Total | | 22,971,658 | 29,276,767 | 34,080,030 |"
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Algeria's 2008 census recorded a population of about 34.1 million",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "| Total | | 22,971,658 | 29,276,767 | 34,080,030 |"
+          }
+        ]
+      },
+      "tokens": 2899,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population",
+          "label": "SOURCED",
+          "reason": "Stated: Algeria's 2008 census recorded a population of about 34.1 million."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 6,
+      "text": "Noor II was commissioned in January 2017.",
+      "url": "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station"
+      ],
+      "label": "UNVERIFIED",
+      "quote": "",
+      "reason": "Not in the checked passages: Noor II was commissioned in January 2017. Some quotes from the model are not on the page.",
+      "facts": [
+        {
+          "fact": "Noor II was commissioned in January 2017",
+          "status": "missing",
+          "quote": "",
+          "rejected_quote": "Construction started in February 2016 and the plant was commissioned in January 2018."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Noor II was commissioned in January 2017",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "Construction started in February 2016 and the plant was commissioned in January 2018."
+          }
+        ]
+      },
+      "tokens": 1105,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station",
+          "label": "UNVERIFIED",
+          "reason": "Not in the checked passages: Noor II was commissioned in January 2017. Some quotes from the model are not on the page."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 7,
+      "text": "The African meningitis belt is home to more than 400 million people.",
+      "url": "https://en.wikipedia.org/wiki/Meningitis_belt",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Meningitis_belt"
+      ],
+      "label": "CONTRADICTED",
+      "quote": "The \"belt\" has an estimated 300 million people in its total area.",
+      "reason": "Contradicted by the page: The African meningitis belt is home to more than 400 million people.",
+      "facts": [
+        {
+          "fact": "The African meningitis belt is home to more than 400 million people",
+          "status": "contradicted",
+          "quote": "The \"belt\" has an estimated 300 million people in its total area."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "The African meningitis belt is home to more than 400 million people",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "The \"belt\" has an estimated 300 million people in its total area."
+          }
+        ]
+      },
+      "tokens": 1231,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Meningitis_belt",
+          "label": "CONTRADICTED",
+          "reason": "Contradicted by the page: The African meningitis belt is home to more than 400 million people."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 8,
+      "text": "MenAfriVac was introduced across the meningitis belt in 2010 and has since been given to more than 350 million people.",
+      "url": "https://en.wikipedia.org/wiki/Meningitis_belt",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Meningitis_belt"
+      ],
+      "label": "PARTIAL",
+      "quote": "However, a monovalent serogroup A meningococcal conjugate vaccine (MenAfriVac) was introduced in the region in 2010.",
+      "reason": "Stated: MenAfriVac was introduced across the meningitis belt in 2010. Not in the checked passages: MenAfriVac has since been given to more than 350 million people.",
+      "facts": [
+        {
+          "fact": "MenAfriVac was introduced across the meningitis belt in 2010",
+          "status": "stated",
+          "quote": "However, a monovalent serogroup A meningococcal conjugate vaccine (MenAfriVac) was introduced in the region in 2010."
+        },
+        {
+          "fact": "MenAfriVac has since been given to more than 350 million people",
+          "status": "missing",
+          "quote": ""
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "MenAfriVac was introduced across the meningitis belt in 2010",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "However, a monovalent serogroup A meningococcal conjugate vaccine (MenAfriVac) was introduced in the region in 2010."
+          },
+          {
+            "text": "MenAfriVac has since been given to more than 350 million people",
+            "kind": "fact",
+            "status": "missing",
+            "quote": ""
+          }
+        ]
+      },
+      "tokens": 1230,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Meningitis_belt",
+          "label": "PARTIAL",
+          "reason": "Stated: MenAfriVac was introduced across the meningitis belt in 2010. Not in the checked passages: MenAfriVac has since been given to more than 350 million people."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 9,
+      "text": "Algeria became a member of OPEC in 1969.",
+      "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Economy_of_Algeria"
+      ],
+      "label": "SOURCED",
+      "quote": "Algeria joined the OPEC cartel in 1969.",
+      "reason": "Stated: Algeria became a member of OPEC in 1969.",
+      "facts": [
+        {
+          "fact": "Algeria became a member of OPEC in 1969",
+          "status": "stated",
+          "quote": "Algeria joined the OPEC cartel in 1969."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Algeria became a member of OPEC in 1969",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Algeria joined the OPEC cartel in 1969."
+          }
+        ]
+      },
+      "tokens": 4712,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+          "label": "SOURCED",
+          "reason": "Stated: Algeria became a member of OPEC in 1969."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 10,
+      "text": "Algeria's unemployment rate was below 9% in 2024.",
+      "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Economy_of_Algeria"
+      ],
+      "label": "CONTRADICTED",
+      "quote": "9.7% (2024)",
+      "reason": "Contradicted by the page: Algeria's unemployment rate was below 9% in 2024.",
+      "facts": [
+        {
+          "fact": "Algeria's unemployment rate was below 9% in 2024",
+          "status": "contradicted",
+          "quote": "9.7% (2024)"
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Algeria's unemployment rate was below 9% in 2024",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "9.7% (2024)"
+          }
+        ]
+      },
+      "tokens": 4711,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+          "label": "CONTRADICTED",
+          "reason": "Contradicted by the page: Algeria's unemployment rate was below 9% in 2024."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 11,
+      "text": "The GERD's expected capacity factor is below 30%.",
+      "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam"
+      ],
+      "label": "SOURCED",
+      "quote": "The average annual flow of the Blue Nile being available for power generation is expected to be 1,547 m3/s (54,600 cu ft/s),[52] which gives rise to an annual expectation for power generation of 16,153 GWh, corresponding to a plant load factor (or capacity factor) of 28.6%.",
+      "reason": "Stated: The GERD's expected capacity factor is; below 30%.",
+      "facts": [
+        {
+          "fact": "The GERD's expected capacity factor is",
+          "status": "stated",
+          "quote": "The average annual flow of the Blue Nile being available for power generation is expected to be 1,547 m3/s (54,600 cu ft/s),[52] which gives rise to an annual expectation for power generation of 16,153 GWh, corresponding to a plant load factor (or capacity factor) of 28.6%."
+        },
+        {
+          "fact": "below 30%",
+          "status": "stated",
+          "quote": "The average annual flow of the Blue Nile being available for power generation is expected to be 1,547 m3/s (54,600 cu ft/s),[52] which gives rise to an annual expectation for power generation of 16,153 GWh, corresponding to a plant load factor (or capacity factor) of 28.6%."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "The GERD's expected capacity factor is",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "The average annual flow of the Blue Nile being available for power generation is expected to be 1,547 m3/s (54,600 cu ft/s),[52] which gives rise to an annual expectation for power generation of 16,153 GWh, corresponding to a plant load factor (or capacity factor) of 28.6%."
+          },
+          {
+            "text": "below 30%",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "The average annual flow of the Blue Nile being available for power generation is expected to be 1,547 m3/s (54,600 cu ft/s),[52] which gives rise to an annual expectation for power generation of 16,153 GWh, corresponding to a plant load factor (or capacity factor) of 28.6%."
+          }
+        ]
+      },
+      "tokens": 7158,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+          "label": "SOURCED",
+          "reason": "Stated: The GERD's expected capacity factor is; below 30%."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 12,
+      "text": "Noor II has seven hours of storage capacity and was inaugurated by King Mohammed VI.",
+      "url": "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station"
+      ],
+      "label": "PARTIAL",
+      "quote": "It has a seven hour storage capacity.",
+      "reason": "Stated: Noor II has seven hours of storage capacity. Not in the checked passages: Noor II was inaugurated by King Mohammed VI.",
+      "facts": [
+        {
+          "fact": "Noor II has seven hours of storage capacity",
+          "status": "stated",
+          "quote": "It has a seven hour storage capacity."
+        },
+        {
+          "fact": "Noor II was inaugurated by King Mohammed VI",
+          "status": "missing",
+          "quote": ""
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Noor II has seven hours of storage capacity",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "It has a seven hour storage capacity."
+          },
+          {
+            "text": "Noor II was inaugurated by King Mohammed VI",
+            "kind": "fact",
+            "status": "missing",
+            "quote": ""
+          }
+        ]
+      },
+      "tokens": 1105,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station",
+          "label": "PARTIAL",
+          "reason": "Stated: Noor II has seven hours of storage capacity. Not in the checked passages: Noor II was inaugurated by King Mohammed VI."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 13,
+      "text": "With an installed capacity of 6.15 gigawatts, the GERD is the largest hydroelectric power plant in Africa.",
+      "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam"
+      ],
+      "label": "CONTRADICTED",
+      "quote": "With an installed capacity of 5.15 gigawatts, the dam is the largest hydroelectric power plant in Africa [9] and among the 20 largest in the world.[10][11][12]",
+      "reason": "Contradicted by the page: With an installed capacity of 6.15 gigawatts. Stated: the GERD is the largest hydroelectric power plant in Africa.",
+      "facts": [
+        {
+          "fact": "With an installed capacity of 6.15 gigawatts",
+          "status": "contradicted",
+          "quote": "With an installed capacity of 5.15 gigawatts, the dam is the largest hydroelectric power plant in Africa [9] and among the 20 largest in the world.[10][11][12]"
+        },
+        {
+          "fact": "the GERD is the largest hydroelectric power plant in Africa",
+          "status": "stated",
+          "quote": "With an installed capacity of 5.15 gigawatts, the dam is the largest hydroelectric power plant in Africa [9] and among the 20 largest in the world.[10][11][12]"
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "With an installed capacity of 6.15 gigawatts",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "With an installed capacity of 5.15 gigawatts, the dam is the largest hydroelectric power plant in Africa [9] and among the 20 largest in the world.[10][11][12]"
+          },
+          {
+            "text": "the GERD is the largest hydroelectric power plant in Africa",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "With an installed capacity of 5.15 gigawatts, the dam is the largest hydroelectric power plant in Africa [9] and among the 20 largest in the world.[10][11][12]"
+          }
+        ]
+      },
+      "tokens": 7158,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+          "label": "CONTRADICTED",
+          "reason": "Contradicted by the page: With an installed capacity of 6.15 gigawatts. Stated: the GERD is the largest hydroelectric power plant in Africa."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 14,
+      "text": "Frontier achieved an Rmax of more than 1 exaFLOPS.",
+      "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Frontier_(supercomputer"
+      ],
+      "label": "SOURCE UNREACHABLE",
+      "quote": "",
+      "reason": "The page was not found (it may have moved or been removed).",
+      "detail": "HTTP_ERR 404",
+      "tokens": 0,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer",
+          "label": "SOURCE UNREACHABLE",
+          "reason": "The page was not found (it may have moved or been removed).",
+          "detail": "HTTP_ERR 404"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 15,
+      "text": "Algeria won its first Africa Cup of Nations title in 1986.",
+      "url": "https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final",
+      "urls": [
+        "https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final"
+      ],
+      "label": "UNSUPPORTED",
+      "quote": "",
+      "reason": "Not in the checked passages: Algeria won its first Africa Cup of Nations title in 1986. The model judged this contradicted, but its quote shows no conflicting figure.",
+      "facts": [
+        {
+          "fact": "Algeria won its first Africa Cup of Nations title in 1986",
+          "status": "missing",
+          "quote": "",
+          "unmatched_quote": "Algeria claim second Afcon title after Bounedjah's lucky strike sinks Senegal",
+          "note": "The model judged this contradicted, but its quote shows no conflicting figure."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Algeria won its first Africa Cup of Nations title in 1986",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "Algeria claim second Afcon title after Bounedjah's lucky strike sinks Senegal"
+          }
+        ]
+      },
+      "tokens": 4371,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final",
+          "label": "UNSUPPORTED",
+          "reason": "Not in the checked passages: Algeria won its first Africa Cup of Nations title in 1986. The model judged this contradicted, but its quote shows no conflicting figure."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 16,
+      "text": "The highest point of Tassili n'Ajjer is Adrar Afao, at 2,158 m.",
+      "url": "https://en.wikipedia.org/wiki/Tassili_n%27Ajjer",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Tassili_n%27Ajjer"
+      ],
+      "label": "SOURCED",
+      "quote": "Its highest point is the Adrar Afao that peaks at 2,158 m (7,080 ft), located at 25°10′N 8°11′E / 25.167°N 8.183°E.",
+      "reason": "Stated: The highest point of Tassili n'Ajjer is Adrar Afao, at 2,158 m.",
+      "facts": [
+        {
+          "fact": "The highest point of Tassili n'Ajjer is Adrar Afao, at 2,158 m",
+          "status": "stated",
+          "quote": "Its highest point is the Adrar Afao that peaks at 2,158 m (7,080 ft), located at 25°10′N 8°11′E / 25.167°N 8.183°E."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "The highest point of Tassili n'Ajjer is Adrar Afao, at 2,158 m",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Its highest point is the Adrar Afao that peaks at 2,158 m (7,080 ft), located at 25°10′N 8°11′E / 25.167°N 8.183°E."
+          }
+        ]
+      },
+      "tokens": 5613,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Tassili_n%27Ajjer",
+          "label": "SOURCED",
+          "reason": "Stated: The highest point of Tassili n'Ajjer is Adrar Afao, at 2,158 m."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 17,
+      "text": "Frontier is hosted at Oak Ridge in Tennessee and runs entirely on renewable electricity.",
+      "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Frontier_(supercomputer"
+      ],
+      "label": "SOURCE UNREACHABLE",
+      "quote": "",
+      "reason": "The page was not found (it may have moved or been removed).",
+      "detail": "HTTP_ERR 404",
+      "tokens": 0,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer",
+          "label": "SOURCE UNREACHABLE",
+          "reason": "The page was not found (it may have moved or been removed).",
+          "detail": "HTTP_ERR 404"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 18,
+      "text": "Noor III uses a 250-metre solar tower with seven hours of energy storage.",
+      "url": "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station"
+      ],
+      "label": "SOURCED",
+      "quote": "The panels follow the light, reflecting it to a 250-metre-tall (820 ft) solar tower.",
+      "reason": "Stated: Noor III uses a 250-metre solar tower; Noor III uses seven hours of energy storage.",
+      "facts": [
+        {
+          "fact": "Noor III uses a 250-metre solar tower",
+          "status": "stated",
+          "quote": "The panels follow the light, reflecting it to a 250-metre-tall (820 ft) solar tower."
+        },
+        {
+          "fact": "Noor III uses seven hours of energy storage",
+          "status": "stated",
+          "quote": "It is a 150 MW gross CSP solar project using a solar power tower with 7 hours energy storage."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Noor III uses a 250-metre solar tower",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "The panels follow the light, reflecting it to a 250-metre-tall (820 ft) solar tower."
+          },
+          {
+            "text": "Noor III uses seven hours of energy storage",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "It is a 150 MW gross CSP solar project using a solar power tower with 7 hours energy storage."
+          }
+        ]
+      },
+      "tokens": 1105,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station",
+          "label": "SOURCED",
+          "reason": "Stated: Noor III uses a 250-metre solar tower; Noor III uses seven hours of energy storage."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 19,
+      "text": "Around 1,000 workers were employed to build the Ouarzazate solar complex.",
+      "url": "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station"
+      ],
+      "label": "UNSUPPORTED",
+      "quote": "",
+      "reason": "Not in the checked passages: Around 1,000 workers were employed to build the Ouarzazate solar complex.",
+      "facts": [
+        {
+          "fact": "Around 1,000 workers were employed to build the Ouarzazate solar complex",
+          "status": "missing",
+          "quote": ""
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Around 1,000 workers were employed to build the Ouarzazate solar complex",
+            "kind": "fact",
+            "status": "missing",
+            "quote": ""
+          }
+        ]
+      },
+      "tokens": 1105,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station",
+          "label": "UNSUPPORTED",
+          "reason": "Not in the checked passages: Around 1,000 workers were employed to build the Ouarzazate solar complex."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 20,
+      "text": "The GERD first produced electricity on 20 February 2022, delivering 375 MW to the grid.",
+      "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam"
+      ],
+      "label": "SOURCED",
+      "quote": "On 20 February 2022, the dam produced electricity for the first time, delivering 375 MW to the grid.[20]",
+      "reason": "Stated: The GERD first produced electricity on 20 February 2022; delivering 375 MW to the grid.",
+      "facts": [
+        {
+          "fact": "The GERD first produced electricity on 20 February 2022",
+          "status": "stated",
+          "quote": "On 20 February 2022, the dam produced electricity for the first time, delivering 375 MW to the grid.[20]"
+        },
+        {
+          "fact": "delivering 375 MW to the grid",
+          "status": "stated",
+          "quote": "On 20 February 2022, the dam produced electricity for the first time, delivering 375 MW to the grid.[20]"
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "The GERD first produced electricity on 20 February 2022",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "On 20 February 2022, the dam produced electricity for the first time, delivering 375 MW to the grid.[20]"
+          },
+          {
+            "text": "delivering 375 MW to the grid",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "On 20 February 2022, the dam produced electricity for the first time, delivering 375 MW to the grid.[20]"
+          }
+        ]
+      },
+      "tokens": 7157,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+          "label": "SOURCED",
+          "reason": "Stated: The GERD first produced electricity on 20 February 2022; delivering 375 MW to the grid."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "not_checked": [],
+  "uncited": []
+}

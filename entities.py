@@ -17,6 +17,16 @@ reporting data figures sources source estimates analysts experts officials start
 ecosystem companies company founded launched backed based total government public
 private local national international global regional""".split())
 
+# French and English function words: capitalized at a sentence start or in a title ("Le
+# tramway de Constantine..."), never a name on their own (2026-10-16: "about Le, not
+# Constantine"). Inside a longer mid-sentence name they stay ("The Hague", "Le Monde").
+FUNCTION_WORDS = set("""le la les l un une des du de d au aux il elle ils elles on ce cet cette
+ces en dans pour par sur sous avec sans selon et ou mais son sa ses leur leurs nous vous je
+tu qui que quand lors depuis entre après avant chez vers comme
+the a an in on it this that these those at by for from to of with as and or but if when
+while after before since during its their there here he she his her we our they""".split())
+COMMON |= FUNCTION_WORDS
+
 # Capitalized but not names: months, days, units, generic finance words.
 GENERIC = set("""january february march april may june july august september october november
 december monday tuesday wednesday thursday friday saturday sunday ipo ceo cto coo cfo gdp ai
@@ -102,7 +112,8 @@ def entities(text, context=""):
 
     def end_run():
         if (run and " ".join(run).lower() not in {o.lower() for o in out}
-                and not all(w.lower() in DEMONYMS for w in run)):
+                and not all(w.lower() in DEMONYMS for w in run)
+                and not all(w.lower() in FUNCTION_WORDS for w in run)):
             out.append(" ".join(run))
         run.clear()
 
@@ -463,7 +474,9 @@ def opening_name(text, page):
     """The name a sentence or paragraph opens with (its subject), if it opens with one."""
     if _is_heading(text):
         return None
-    first = next(_tokens(text), None)
+    # The first word after any leading function words ("The", "Le"): "The Oran tramway"
+    # opens with Oran; "Le tramway de Constantine" opens with no name.
+    first = next((t for t in _tokens(text) if t[0].lower() not in FUNCTION_WORDS), None)
     ents = entities(text, page)
     return ents[0] if first and ents and ents[0].split()[0].lower() == first[0].lower() else None
 

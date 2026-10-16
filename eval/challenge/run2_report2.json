@@ -1,0 +1,860 @@
+{
+  "format": "touchstone-run",
+  "version": 1,
+  "provider": "gemini",
+  "model": "gemini-3.5-flash-lite",
+  "created": "2026-10-16T21:21:38.023998+00:00",
+  "report": "1. Noor II is expected to supply 0.6 TWh of electricity per year. [Wikipedia](https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station)\n2. Noor II is a 220 MW concentrated solar plant using parabolic troughs. [Wikipedia](https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station)\n3. Serogroup A meningitis cases in the African belt fell by more than 50% between 2010 and 2015. [WHO](https://www.who.int/news-room/fact-sheets/detail/meningitis-belt-statistics-2031)\n4. Oak Ridge plans to replace Frontier with a successor system named Discovery in 2028. [Wikipedia](https://en.wikipedia.org/wiki/Frontier_(supercomputer))\n5. Morocco's bet on concentrated solar power was a visionary move that every African country should copy. [Wikipedia](https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station)\n6. Frontier occupies more than 100 rack cabinets. [Wikipedia](https://en.wikipedia.org/wiki/Frontier_(supercomputer))\n7. Noor I, the first phase of Morocco's Ouarzazate solar complex, has 160 MW of installed capacity and was connected to the grid on 5 February 2016. [Wikipedia](https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station)\n8. Béjaïa Province had 697,669 inhabitants at the 1998 census. [Wikipedia](https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population)\n9. Tassili n'Ajjer was added to UNESCO's World Heritage list in 1982. [Wikipedia](https://en.wikipedia.org/wiki/Tassili_n%27Ajjer)\n10. Oran Province had 1,584,607 inhabitants at the 1998 census. [Wikipedia](https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population)\n11. At 118 m high and with a capacity of 960 million m³, the Beni Haroun dam in Mila province is Algeria's largest dam. [Wikipédia](https://fr.wikipedia.org/wiki/Barrage_de_Beni_Haroun)\n12. Algiers Province had roughly 2.99 million inhabitants at the 2008 census. [Wikipedia](https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population)\n13. Frontier is the most impressive feat of engineering of the past decade. [Wikipedia](https://en.wikipedia.org/wiki/Frontier_(supercomputer))\n14. Tassili n'Ajjer covers an area of about 82,000 km². [Wikipedia](https://en.wikipedia.org/wiki/Tassili_n%27Ajjer)\n15. Tassili n'Ajjer National Park receives around 3,000 foreign visitors a year. [Wikipedia](https://en.wikipedia.org/wiki/Tassili_n%27Ajjer)\n16. The Beni Haroun dam has a raw-water pumping station with a capacity of 280 MW. [Wikipédia](https://fr.wikipedia.org/wiki/Barrage_de_Beni_Haroun)\n17. Algeria's real GDP grew 3.7% in 2024. [World Bank](https://www.worldbank.org)\n18. Oak Ridge built Frontier together with HPE Cray and AMD at a cost of US$600 million. [Wikipedia](https://en.wikipedia.org/wiki/Frontier_(supercomputer))\n19. Ethiopia has an estimated hydropower potential of about 45 GW.\n20. Algiers Province has the highest population density of any Algerian province. [Wikipedia](https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population)",
+  "cited": 19,
+  "checked": 19,
+  "tokens": 26826,
+  "stopped": null,
+  "claims": [
+    {
+      "claim": 1,
+      "text": "Noor II is expected to supply 0.6 TWh of electricity per year.",
+      "url": "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station"
+      ],
+      "label": "SOURCED",
+      "quote": "Annual net output\n370 GWh (Noor I) 600 GWh (Noor II) 500 GWh (Noor III)",
+      "reason": "Stated: Noor II is expected to supply 0.6 TWh of electricity per year.",
+      "facts": [
+        {
+          "fact": "Noor II is expected to supply 0.6 TWh of electricity per year",
+          "status": "stated",
+          "quote": "Annual net output\n370 GWh (Noor I) 600 GWh (Noor II) 500 GWh (Noor III)"
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Noor II is expected to supply 0.6 TWh of electricity per year",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Annual net output\n370 GWh (Noor I) 600 GWh (Noor II) 500 GWh (Noor III)"
+          }
+        ]
+      },
+      "tokens": 1099,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station",
+          "label": "SOURCED",
+          "reason": "Stated: Noor II is expected to supply 0.6 TWh of electricity per year."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 2,
+      "text": "Noor II is a 220 MW concentrated solar plant using parabolic troughs.",
+      "url": "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station"
+      ],
+      "label": "CONTRADICTED",
+      "quote": "It is a 200 MW CSP solar plant using parabolic troughs.",
+      "reason": "Contradicted by the page: Noor II is a 220 MW concentrated solar plant using parabolic troughs. Not checked: Noor II.",
+      "facts": [
+        {
+          "fact": "Noor II is a 220 MW concentrated solar plant using parabolic troughs",
+          "status": "contradicted",
+          "quote": "It is a 200 MW CSP solar plant using parabolic troughs."
+        }
+      ],
+      "framing": [],
+      "caps": [
+        "Not checked: Noor II."
+      ],
+      "unchecked_names": [
+        "Noor II"
+      ],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Noor II is a 220 MW concentrated solar plant using parabolic troughs",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "It is a 200 MW CSP solar plant using parabolic troughs."
+          }
+        ]
+      },
+      "tokens": 1099,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station",
+          "label": "CONTRADICTED",
+          "reason": "Contradicted by the page: Noor II is a 220 MW concentrated solar plant using parabolic troughs. Not checked: Noor II."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 3,
+      "text": "Serogroup A meningitis cases in the African belt fell by more than 50% between 2010 and 2015.",
+      "url": "https://www.who.int/news-room/fact-sheets/detail/meningitis-belt-statistics-2031",
+      "urls": [
+        "https://www.who.int/news-room/fact-sheets/detail/meningitis-belt-statistics-2031"
+      ],
+      "label": "SOURCE UNREACHABLE",
+      "quote": "",
+      "reason": "The page was not found (it may have moved or been removed).",
+      "detail": "HTTP_ERR 404",
+      "tokens": 0,
+      "sources": [
+        {
+          "url": "https://www.who.int/news-room/fact-sheets/detail/meningitis-belt-statistics-2031",
+          "label": "SOURCE UNREACHABLE",
+          "reason": "The page was not found (it may have moved or been removed).",
+          "detail": "HTTP_ERR 404"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 4,
+      "text": "Oak Ridge plans to replace Frontier with a successor system named Discovery in 2028.",
+      "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer)",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Frontier_(supercomputer)"
+      ],
+      "label": "UNSUPPORTED",
+      "quote": "",
+      "reason": "Not in the checked passages: Oak Ridge plans to replace Frontier with a successor system named Discovery in 2028. Not checked: Oak Ridge, Discovery.",
+      "facts": [
+        {
+          "fact": "Oak Ridge plans to replace Frontier with a successor system named Discovery in 2028",
+          "status": "missing",
+          "quote": ""
+        }
+      ],
+      "framing": [],
+      "caps": [
+        "Not checked: Oak Ridge, Discovery."
+      ],
+      "unchecked_names": [
+        "Oak Ridge",
+        "Discovery"
+      ],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Oak Ridge plans to replace Frontier with a successor system named Discovery in 2028",
+            "kind": "fact",
+            "status": "missing",
+            "quote": ""
+          }
+        ]
+      },
+      "tokens": 896,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer)",
+          "label": "UNSUPPORTED",
+          "reason": "Not in the checked passages: Oak Ridge plans to replace Frontier with a successor system named Discovery in 2028. Not checked: Oak Ridge, Discovery."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 5,
+      "text": "Morocco's bet on concentrated solar power was a visionary move that every African country should copy.",
+      "url": "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station"
+      ],
+      "label": "OPINION",
+      "quote": "",
+      "reason": "Advice or opinion, not a checkable fact.",
+      "facts": [],
+      "framing": [],
+      "model": {
+        "opinion": true,
+        "parts": []
+      },
+      "tokens": 1099,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station",
+          "label": "OPINION",
+          "reason": "Advice or opinion, not a checkable fact."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 6,
+      "text": "Frontier occupies more than 100 rack cabinets.",
+      "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer)",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Frontier_(supercomputer)"
+      ],
+      "label": "CONTRADICTED",
+      "quote": "It occupies 74 19-inch (48 cm) rack cabinets.[10]",
+      "reason": "Contradicted by the page: more than 100. Stated: rack cabinets. Not in the checked passages: Frontier occupies. The model judged this contradicted, but its quote shows no conflicting figure.",
+      "facts": [
+        {
+          "fact": "Frontier occupies",
+          "status": "missing",
+          "quote": "",
+          "unmatched_quote": "It occupies 74 19-inch (48 cm) rack cabinets.[10]",
+          "note": "The model judged this contradicted, but its quote shows no conflicting figure."
+        },
+        {
+          "fact": "more than 100",
+          "status": "contradicted",
+          "quote": "It occupies 74 19-inch (48 cm) rack cabinets.[10]"
+        },
+        {
+          "fact": "rack cabinets",
+          "status": "stated",
+          "quote": "It occupies 74 19-inch (48 cm) rack cabinets.[10]"
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Frontier occupies",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "It occupies 74 19-inch (48 cm) rack cabinets.[10]"
+          },
+          {
+            "text": "more than 100",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "It occupies 74 19-inch (48 cm) rack cabinets.[10]"
+          },
+          {
+            "text": "rack cabinets",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "It occupies 74 19-inch (48 cm) rack cabinets.[10]"
+          }
+        ]
+      },
+      "tokens": 896,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer)",
+          "label": "CONTRADICTED",
+          "reason": "Contradicted by the page: more than 100. Stated: rack cabinets. Not in the checked passages: Frontier occupies. The model judged this contradicted, but its quote shows no conflicting figure."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 7,
+      "text": "Noor I, the first phase of Morocco's Ouarzazate solar complex, has 160 MW of installed capacity and was connected to the grid on 5 February 2016.",
+      "url": "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station"
+      ],
+      "label": "SOURCED",
+      "quote": "Ouarzazate Solar Power Station (OSPS) – Phase 1, also referred to as Noor I CSP, has an installed capacity of 160 MW.",
+      "reason": "Stated: Noor I, the first phase of Morocco's Ouarzazate solar complex, has 160 MW of installed capacity; and was connected to the grid on 5 February 2016.",
+      "facts": [
+        {
+          "fact": "Noor I, the first phase of Morocco's Ouarzazate solar complex, has 160 MW of installed capacity",
+          "status": "stated",
+          "quote": "Ouarzazate Solar Power Station (OSPS) – Phase 1, also referred to as Noor I CSP, has an installed capacity of 160 MW."
+        },
+        {
+          "fact": "and was connected to the grid on 5 February 2016",
+          "status": "stated",
+          "quote": "It was connected to the Moroccan power grid on 5 February 2016."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Noor I, the first phase of Morocco's Ouarzazate solar complex, has 160 MW of installed capacity",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Ouarzazate Solar Power Station (OSPS) – Phase 1, also referred to as Noor I CSP, has an installed capacity of 160 MW."
+          },
+          {
+            "text": "and was connected to the grid on 5 February 2016",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "It was connected to the Moroccan power grid on 5 February 2016."
+          }
+        ]
+      },
+      "tokens": 1098,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Ouarzazate_Solar_Power_Station",
+          "label": "SOURCED",
+          "reason": "Stated: Noor I, the first phase of Morocco's Ouarzazate solar complex, has 160 MW of installed capacity; and was connected to the grid on 5 February 2016."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 8,
+      "text": "Béjaïa Province had 697,669 inhabitants at the 1998 census.",
+      "url": "https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population",
+      "urls": [
+        "https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population"
+      ],
+      "label": "CONTRADICTED",
+      "quote": "| 6 | Béjaïa Province | 697,669 | 848,560 | 915,835 |",
+      "reason": "Contradicted by the page: Béjaïa Province had 697,669 inhabitants at the 1998 census. The page gives 848,560 for 1998; 697,669 is its 1987 figure.",
+      "facts": [
+        {
+          "fact": "Béjaïa Province had 697,669 inhabitants at the 1998 census",
+          "status": "contradicted",
+          "quote": "| 6 | Béjaïa Province | 697,669 | 848,560 | 915,835 |",
+          "note": "The page gives 848,560 for 1998; 697,669 is its 1987 figure."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Béjaïa Province had 697,669 inhabitants at the 1998 census",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "| 6 | Béjaïa Province | 697,669 | 848,560 | 915,835 |"
+          }
+        ]
+      },
+      "tokens": 855,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population",
+          "label": "CONTRADICTED",
+          "reason": "Contradicted by the page: Béjaïa Province had 697,669 inhabitants at the 1998 census. The page gives 848,560 for 1998; 697,669 is its 1987 figure."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 9,
+      "text": "Tassili n'Ajjer was added to UNESCO's World Heritage list in 1982.",
+      "url": "https://en.wikipedia.org/wiki/Tassili_n%27Ajjer",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Tassili_n%27Ajjer"
+      ],
+      "label": "SOURCED",
+      "quote": "The site has been designated a national park and a Biosphere Reserve, and was inducted into the UNESCO World Heritage Site list in 1982.",
+      "reason": "Stated: Tassili n'Ajjer was added to UNESCO's World Heritage list in 1982.",
+      "facts": [
+        {
+          "fact": "Tassili n'Ajjer was added to UNESCO's World Heritage list in 1982",
+          "status": "stated",
+          "quote": "The site has been designated a national park and a Biosphere Reserve, and was inducted into the UNESCO World Heritage Site list in 1982."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Tassili n'Ajjer was added to UNESCO's World Heritage list in 1982",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "The site has been designated a national park and a Biosphere Reserve, and was inducted into the UNESCO World Heritage Site list in 1982."
+          }
+        ]
+      },
+      "tokens": 3738,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Tassili_n%27Ajjer",
+          "label": "SOURCED",
+          "reason": "Stated: Tassili n'Ajjer was added to UNESCO's World Heritage list in 1982."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 10,
+      "text": "Oran Province had 1,584,607 inhabitants at the 1998 census.",
+      "url": "https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population",
+      "urls": [
+        "https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population"
+      ],
+      "label": "CONTRADICTED",
+      "quote": "| 31 | Oran Province | 916,678 | 1,155,464 | 1,584,607 |",
+      "reason": "Contradicted by the page: Oran Province had 1,584,607 inhabitants at the 1998 census. The page gives 1,155,464 for 1998; 1,584,607 is its 2008 figure.",
+      "facts": [
+        {
+          "fact": "Oran Province had 1,584,607 inhabitants at the 1998 census",
+          "status": "contradicted",
+          "quote": "| 31 | Oran Province | 916,678 | 1,155,464 | 1,584,607 |",
+          "note": "The page gives 1,155,464 for 1998; 1,584,607 is its 2008 figure."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Oran Province had 1,584,607 inhabitants at the 1998 census",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "| 31 | Oran Province | 916,678 | 1,155,464 | 1,584,607 |"
+          }
+        ]
+      },
+      "tokens": 855,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population",
+          "label": "CONTRADICTED",
+          "reason": "Contradicted by the page: Oran Province had 1,584,607 inhabitants at the 1998 census. The page gives 1,155,464 for 1998; 1,584,607 is its 2008 figure."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 11,
+      "text": "At 118 m high and with a capacity of 960 million m³, the Beni Haroun dam in Mila province is Algeria's largest dam.",
+      "url": "https://fr.wikipedia.org/wiki/Barrage_de_Beni_Haroun",
+      "urls": [
+        "https://fr.wikipedia.org/wiki/Barrage_de_Beni_Haroun"
+      ],
+      "label": "SOURCED",
+      "quote": "D'une hauteur de 118 m, il est le plus grand barrage en Algérie avec une capacité de 960 millions m3.",
+      "reason": "Stated: At 118 m high; and with a capacity of 960 million m3; the Beni Haroun dam in Mila province; is Algeria's largest dam.",
+      "facts": [
+        {
+          "fact": "At 118 m high",
+          "status": "stated",
+          "quote": "D'une hauteur de 118 m, il est le plus grand barrage en Algérie avec une capacité de 960 millions m3."
+        },
+        {
+          "fact": "and with a capacity of 960 million m3",
+          "status": "stated",
+          "quote": "D'une hauteur de 118 m, il est le plus grand barrage en Algérie avec une capacité de 960 millions m3."
+        },
+        {
+          "fact": "the Beni Haroun dam in Mila province",
+          "status": "stated",
+          "quote": "Le barrage de Beni Haroun est un barrage de type poids, situé à l'extrême nord de la wilaya de Mila, au nord-est de l'Algérie."
+        },
+        {
+          "fact": "is Algeria's largest dam",
+          "status": "stated",
+          "quote": "D'une hauteur de 118 m, il est le plus grand barrage en Algérie avec une capacité de 960 millions m3."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "At 118 m high",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "D'une hauteur de 118 m, il est le plus grand barrage en Algérie avec une capacité de 960 millions m3."
+          },
+          {
+            "text": "and with a capacity of 960 million m3",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "D'une hauteur de 118 m, il est le plus grand barrage en Algérie avec une capacité de 960 millions m3."
+          },
+          {
+            "text": "the Beni Haroun dam in Mila province",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Le barrage de Beni Haroun est un barrage de type poids, situé à l'extrême nord de la wilaya de Mila, au nord-est de l'Algérie."
+          },
+          {
+            "text": "is Algeria's largest dam",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "D'une hauteur de 118 m, il est le plus grand barrage en Algérie avec une capacité de 960 millions m3."
+          }
+        ]
+      },
+      "tokens": 1307,
+      "sources": [
+        {
+          "url": "https://fr.wikipedia.org/wiki/Barrage_de_Beni_Haroun",
+          "label": "SOURCED",
+          "reason": "Stated: At 118 m high; and with a capacity of 960 million m3; the Beni Haroun dam in Mila province; is Algeria's largest dam."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 12,
+      "text": "Algiers Province had roughly 2.99 million inhabitants at the 2008 census.",
+      "url": "https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population",
+      "urls": [
+        "https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population"
+      ],
+      "label": "SOURCED",
+      "quote": "| 16 | Algiers Province | 1,687,579 | 2,561,992 | 2,988,145 |",
+      "reason": "Stated: Algiers Province had roughly 2.99 million inhabitants at the 2008 census.",
+      "facts": [
+        {
+          "fact": "Algiers Province had roughly 2.99 million inhabitants at the 2008 census",
+          "status": "stated",
+          "quote": "| 16 | Algiers Province | 1,687,579 | 2,561,992 | 2,988,145 |"
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Algiers Province had roughly 2.99 million inhabitants at the 2008 census",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "| 16 | Algiers Province | 1,687,579 | 2,561,992 | 2,988,145 |"
+          }
+        ]
+      },
+      "tokens": 854,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population",
+          "label": "SOURCED",
+          "reason": "Stated: Algiers Province had roughly 2.99 million inhabitants at the 2008 census."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 13,
+      "text": "Frontier is the most impressive feat of engineering of the past decade.",
+      "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer)",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Frontier_(supercomputer)"
+      ],
+      "label": "OPINION",
+      "quote": "",
+      "reason": "Advice or opinion, not a checkable fact.",
+      "facts": [],
+      "framing": [],
+      "model": {
+        "opinion": true,
+        "parts": []
+      },
+      "tokens": 896,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer)",
+          "label": "OPINION",
+          "reason": "Advice or opinion, not a checkable fact."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 14,
+      "text": "Tassili n'Ajjer covers an area of about 82,000 km².",
+      "url": "https://en.wikipedia.org/wiki/Tassili_n%27Ajjer",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Tassili_n%27Ajjer"
+      ],
+      "label": "CONTRADICTED",
+      "quote": "...and covers an area of more than 72,000 km2 (28,000 sq mi).",
+      "reason": "Contradicted by the page: Tassili n'Ajjer covers an area of about 82,000 km².",
+      "facts": [
+        {
+          "fact": "Tassili n'Ajjer covers an area of about 82,000 km²",
+          "status": "contradicted",
+          "quote": "...and covers an area of more than 72,000 km2 (28,000 sq mi)."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Tassili n'Ajjer covers an area of about 82,000 km²",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "...and covers an area of more than 72,000 km2 (28,000 sq mi)."
+          }
+        ]
+      },
+      "tokens": 3738,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Tassili_n%27Ajjer",
+          "label": "CONTRADICTED",
+          "reason": "Contradicted by the page: Tassili n'Ajjer covers an area of about 82,000 km²."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 15,
+      "text": "Tassili n'Ajjer National Park receives around 3,000 foreign visitors a year.",
+      "url": "https://en.wikipedia.org/wiki/Tassili_n%27Ajjer",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Tassili_n%27Ajjer"
+      ],
+      "label": "UNSUPPORTED",
+      "quote": "",
+      "reason": "Not in the checked passages: Tassili n'Ajjer National Park receives around 3,000 foreign visitors a year. Not checked: Ajjer National Park.",
+      "facts": [
+        {
+          "fact": "Tassili n'Ajjer National Park receives around 3,000 foreign visitors a year",
+          "status": "missing",
+          "quote": ""
+        }
+      ],
+      "framing": [],
+      "caps": [
+        "Not checked: Ajjer National Park."
+      ],
+      "unchecked_names": [
+        "Ajjer National Park"
+      ],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Tassili n'Ajjer National Park receives around 3,000 foreign visitors a year",
+            "kind": "fact",
+            "status": "missing",
+            "quote": ""
+          }
+        ]
+      },
+      "tokens": 3737,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Tassili_n%27Ajjer",
+          "label": "UNSUPPORTED",
+          "reason": "Not in the checked passages: Tassili n'Ajjer National Park receives around 3,000 foreign visitors a year. Not checked: Ajjer National Park."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 16,
+      "text": "The Beni Haroun dam has a raw-water pumping station with a capacity of 280 MW.",
+      "url": "https://fr.wikipedia.org/wiki/Barrage_de_Beni_Haroun",
+      "urls": [
+        "https://fr.wikipedia.org/wiki/Barrage_de_Beni_Haroun"
+      ],
+      "label": "CONTRADICTED",
+      "quote": "Le barrage de Beni Haroun est doté d'une grande station de pompage d'eau brute, d'une puissance de 180 MW.",
+      "reason": "Contradicted by the page: has a raw-water pumping station with a capacity of 280 MW. Stated: The Beni Haroun dam.",
+      "facts": [
+        {
+          "fact": "The Beni Haroun dam",
+          "status": "stated",
+          "quote": "Le barrage de Beni Haroun est doté d'une grande station de pompage d'eau brute, d'une puissance de 180 MW."
+        },
+        {
+          "fact": "has a raw-water pumping station with a capacity of 280 MW",
+          "status": "contradicted",
+          "quote": "Le barrage de Beni Haroun est doté d'une grande station de pompage d'eau brute, d'une puissance de 180 MW."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "The Beni Haroun dam",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Le barrage de Beni Haroun est doté d'une grande station de pompage d'eau brute, d'une puissance de 180 MW."
+          },
+          {
+            "text": "has a raw-water pumping station with a capacity of 280 MW",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "Le barrage de Beni Haroun est doté d'une grande station de pompage d'eau brute, d'une puissance de 180 MW."
+          }
+        ]
+      },
+      "tokens": 1307,
+      "sources": [
+        {
+          "url": "https://fr.wikipedia.org/wiki/Barrage_de_Beni_Haroun",
+          "label": "CONTRADICTED",
+          "reason": "Contradicted by the page: has a raw-water pumping station with a capacity of 280 MW. Stated: The Beni Haroun dam."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 17,
+      "text": "Algeria's real GDP grew 3.7% in 2024.",
+      "url": "https://www.worldbank.org",
+      "urls": [
+        "https://www.worldbank.org"
+      ],
+      "label": "COULDN'T CONFIRM",
+      "quote": "",
+      "reason": "This cites a homepage, not the page with this figure. Homepages change constantly — find the exact page.",
+      "facts": [
+        {
+          "fact": "Algeria's real GDP grew 3.7% in 2024",
+          "status": "missing",
+          "quote": ""
+        }
+      ],
+      "framing": [],
+      "caps": [
+        "Not checked: Algeria."
+      ],
+      "unchecked_names": [
+        "Algeria"
+      ],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Algeria's real GDP grew 3.7% in 2024",
+            "kind": "fact",
+            "status": "missing",
+            "quote": ""
+          }
+        ]
+      },
+      "tokens": 1603,
+      "sources": [
+        {
+          "url": "https://www.worldbank.org",
+          "label": "COULDN'T CONFIRM",
+          "reason": "This cites a homepage, not the page with this figure. Homepages change constantly — find the exact page.",
+          "note": "Cites a homepage, not a specific page"
+        }
+      ],
+      "notes": [
+        "Cites a homepage, not a specific page"
+      ]
+    },
+    {
+      "claim": 18,
+      "text": "Oak Ridge built Frontier together with HPE Cray and AMD at a cost of US$600 million.",
+      "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer)",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Frontier_(supercomputer)"
+      ],
+      "label": "SOURCED",
+      "quote": "Oak Ridge partnered with HPE Cray and AMD to build the system at a cost of US$600 million.",
+      "reason": "Stated: Oak Ridge built Frontier together with HPE Cray and AMD; at a cost of US$600 million.",
+      "facts": [
+        {
+          "fact": "Oak Ridge built Frontier together with HPE Cray and AMD",
+          "status": "stated",
+          "quote": "Oak Ridge partnered with HPE Cray and AMD to build the system at a cost of US$600 million."
+        },
+        {
+          "fact": "at a cost of US$600 million",
+          "status": "stated",
+          "quote": "Oak Ridge partnered with HPE Cray and AMD to build the system at a cost of US$600 million."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Oak Ridge built Frontier together with HPE Cray and AMD",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Oak Ridge partnered with HPE Cray and AMD to build the system at a cost of US$600 million."
+          },
+          {
+            "text": "at a cost of US$600 million",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Oak Ridge partnered with HPE Cray and AMD to build the system at a cost of US$600 million."
+          }
+        ]
+      },
+      "tokens": 895,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer)",
+          "label": "SOURCED",
+          "reason": "Stated: Oak Ridge built Frontier together with HPE Cray and AMD; at a cost of US$600 million."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 19,
+      "text": "Algiers Province has the highest population density of any Algerian province.",
+      "url": "https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population",
+      "urls": [
+        "https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population"
+      ],
+      "label": "UNSUPPORTED",
+      "quote": "",
+      "reason": "Not in the checked passages: Algiers Province has the highest population density of any Algerian province.",
+      "facts": [
+        {
+          "fact": "Algiers Province has the highest population density of any Algerian province",
+          "status": "missing",
+          "quote": ""
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Algiers Province has the highest population density of any Algerian province",
+            "kind": "fact",
+            "status": "missing",
+            "quote": ""
+          }
+        ]
+      },
+      "tokens": 854,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population",
+          "label": "UNSUPPORTED",
+          "reason": "Not in the checked passages: Algiers Province has the highest population density of any Algerian province."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "not_checked": [],
+  "uncited": [
+    "Ethiopia has an estimated hydropower potential of about 45 GW."
+  ]
+}

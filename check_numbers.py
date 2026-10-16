@@ -7,7 +7,7 @@ import secrets
 import sys
 from urllib.parse import unquote, urlsplit
 
-from fetch_links import URL_RE
+from fetch_links import URL_BODY, URL_RE
 
 NUM_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
 
@@ -18,7 +18,8 @@ def norm(n):
 
 def clean(text):
     """Strip markdown: table pipes, list markers, bold, '[label](' before a link."""
-    text = re.sub(r"\[[^\][]*\]\($", "", text)     # [^][]: no rescans on "[[[["
+    text = re.sub(r"\[[^\][]*\]\(<?$", "", text)     # [^][]: no rescans on "[[[["
+    text = re.sub(r"^\s{0,3}>(?=\s{0,3}\))", "", text)   # ">)" closing a "<url>" link
     if text.lstrip().startswith("|"):
         text = " — ".join(c.strip() for c in text.split("|") if c.strip())
     text = re.sub(r"^\s*(?:[-*+]|\d+\.)\s+", "", text)
@@ -146,7 +147,8 @@ MD_ESCAPE = re.compile(r"\\([&_#=?%+~])")          # "\&sz=32": markdown escapes
 # A markdown image/link; a favicon chip when its URL holds "favicon" (Google's s2/favicons).
 # Linear: the regex stops at the URL; the closing ")" is checked separately (LINK_END at the
 # URL's end), so a URL with no ")" after it is never backtracked through char by char.
-MD_LINK = re.compile(r"!?\[[^\[\]\n]{0,300}\]\(\s{0,3}(https?://[^\s()]{1,2000})")
+# Destinations: a URL with balanced parentheses (URL_BODY), or "<url>".
+MD_LINK = re.compile(r"!?\[[^\[\]\n]{0,300}\]\(\s{0,3}(?:<(https?://[^\s<>]{1,2000})>|(" + URL_BODY + "))")
 LINK_END = re.compile(r"\s{0,3}\)")
 
 
@@ -155,7 +157,7 @@ def md_links(line):
     out, pos = [], 0
     while m := MD_LINK.search(line, pos):
         if end := LINK_END.match(line, m.end()):
-            out.append((m.start(), end.end(), m.group(1)))
+            out.append((m.start(), end.end(), m.group(1) or m.group(2)))
             pos = end.end()
         else:
             pos = m.start() + 1
@@ -425,10 +427,14 @@ def row_cells(line):
     link is "" (its column is then left out of the claim)."""
     for a, b, _ in reversed(md_links(line)):
         line = line[:a] + line[b:]
-    line = URL_RE.sub("", line)
+    line = URL_RE.sub("", line).strip()
+    # One edge pipe each side: "||19,276,767 |" has an empty first cell (a Total row), which
+    # strip("|") dropped, shifting every value one column left.
+    line = line[1:] if line.startswith("|") else line
+    line = line[:-1] if line.endswith("|") else line
     out = []
-    for c in line.strip().strip("|").split("|"):
-        c = re.sub(r"\[[^\][]*\]\($|\(\s*\)", "", c).replace("**", "")
+    for c in line.split("|"):
+        c = re.sub(r"\[[^\][]*\]\(<?$|\(\s*\)", "", c).replace("**", "")
         c = trim_parens(" ".join(c.split()).strip(" *[]"))     # "-1%" keeps its sign
         out.append("" if re.fullmatch(r"[-\u2013\u2014]*", c) else c)   # "—" placeholder: empty
     return out

@@ -1,6 +1,6 @@
 """Re-score a saved run with the current code checks, zero tokens.
 
-  .venv/bin/python rescore.py RUN.json [--cache PAGES.json] [--labels LABELS.json]
+  .venv/bin/python rescore.py RUN.json [--cache PAGES.json] [--labels LABELS.json] [--out NEW.json]
 
 RUN.json is a file from the web page's "Download results" button, or the CLI's audit.json.
 Each checked claim's saved model reply is fed through the current judge() against its page,
@@ -136,6 +136,7 @@ def main():
     ap.add_argument("run")
     ap.add_argument("--cache", help="pages cache (read if present, else written)")
     ap.add_argument("--labels", help="hand labels [{claim, label}] to score old vs new")
+    ap.add_argument("--out", help="save the run with its new labels and reasons (eval/score.py reads it)")
     args = ap.parse_args()
 
     claims = load_run(args.run)
@@ -147,13 +148,14 @@ def main():
         with open(args.labels, encoding="utf-8") as f:
             labels = {x["claim"]: x["label"] for x in json.load(f)}
 
-    changed, results = 0, {}
+    changed, results, reasons = 0, {}, {}
     for c in claims:
         if len(c.get("sources") or []) > 1:
             new, reason = rescore_multi(c, pages, contexts.get(c["claim"], ""))
         else:
             new, reason = rescore(c, pages.get(c["url"]) or {}, contexts.get(c["claim"], ""))
         results[c["claim"]] = new or c["label"]
+        reasons[c["claim"]] = reason if new else c.get("reason", "")
         mark = "  " if new in (None, c["label"]) else "->"
         changed += mark == "->"
         note = f"  ({reason})" if new is None else ""
@@ -161,6 +163,15 @@ def main():
         if mark == "->":
             print(f"       {reason}")
     print(f"\n{changed} label(s) changed out of {len(claims)}.")
+    if args.out:
+        with open(args.run, encoding="utf-8") as f:
+            run = json.load(f)
+        for c in run["claims"] if isinstance(run, dict) else run:
+            if isinstance(c, dict) and c.get("claim") in results:
+                c.update(label=results[c["claim"]], reason=reasons[c["claim"]])
+        with open(args.out, "w", encoding="utf-8") as f:
+            json.dump(run, f, indent=2, ensure_ascii=False)
+        print(f"Saved the re-scored run to {args.out}")
     if labels:
         # CLAUDE.md scoring: CONTRADICTED = UNSUPPORTED (red), COULDN'T CONFIRM = PARTIAL (amber)
         sc = lambda l: {"CONTRADICTED": "UNSUPPORTED", "COULDN'T CONFIRM": "PARTIAL"}.get(l, l)

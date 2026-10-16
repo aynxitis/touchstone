@@ -1,0 +1,793 @@
+{
+  "format": "touchstone-run",
+  "version": 1,
+  "created": "2026-10-16T20:43:12.592Z",
+  "report": "1. The Sahara covers roughly 80% of Algeria's land area.\n2. Algeria's nominal GDP is estimated at about US$288 billion for 2025. [Wikipedia](https://en.wikipedia.org/wiki/Economy_of_Algeria)\n3. Algeria beat Senegal 1–0 in the 2019 Africa Cup of Nations final, winning its second continental title and its first since 1990. [Wikipedia](https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final)\n4. Since the GERD came online, Ethiopia's national electricity access rate has risen to about 55%. [Wikipedia](https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam)\n5. The World Bank expects Algeria's economy to grow 3.4% in 2025. [World Bank](https://www.worldbank.org/en/country/algeria/publication/algeria-economic-update-spring-2031)\n6. Morocco joined OPEC in 1969. [Wikipedia](https://en.wikipedia.org/wiki/Economy_of_Algeria)\n7. Algeria's government debt stood at 46.0% of GDP in 2019. [Wikipedia](https://en.wikipedia.org/wiki/Economy_of_Algeria)\n8. The 2019 Africa Cup of Nations final at Cairo International Stadium was watched by 95,000 spectators. [Wikipedia](https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final)\n9. At full supply level, the GERD reservoir has a surface area of roughly 1,900 km². [Wikipedia](https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam)\n10. Hydrocarbon rents account for about 60% of Algeria's government revenue and 90% of its export revenue. [Wikipedia](https://en.wikipedia.org/wiki/Economy_of_Algeria)\n11. Constantine's tramway carried around 10 million passengers in 2019. [Wikipédia](https://fr.wikipedia.org/wiki/Tramway_de_Constantine)\n12. Under the WHO definition, a meningococcal epidemic in the African belt means at least 100 cases per 100,000 inhabitants in a year. [Wikipedia](https://en.wikipedia.org/wiki/Meningitis_belt)\n13. The 2019 Africa Cup of Nations was the first edition of the tournament contested by 24 teams. [Wikipedia](https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final)\n14. With an installed capacity of 5.15 GW, Sudan's Merowe Dam is the largest hydroelectric power plant in Africa. [Wikipedia](https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam)\n15. Constantine's tramway runs 37 Citadis 402 trainsets built by Alstom in Spain. [Wikipédia](https://fr.wikipedia.org/wiki/Tramway_de_Constantine)\n16. Sonatrach, Algeria's state oil and gas company, employs more than 50,000 people. [Wikipedia](https://en.wikipedia.org/wiki/Economy_of_Algeria)\n17. The Grand Ethiopian Renaissance Dam is a gravity dam on the Blue Nile in Ethiopia's Benishangul-Gumuz Region, close to the Sudanese border. [Wikipedia](https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam)\n18. A US$3.8 billion contract to build the GERD was awarded to Salini Impregilo without competitive bidding. [Wikipedia](https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam)\n19. More than 90,000 meningitis cases were reported in the African meningitis belt in 2009. [WHO](https://www.who.int)\n20. By October 2019, construction of the GERD was more than 75% complete. [Wikipedia](https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam)",
+  "cited": 19,
+  "checked": 19,
+  "tokens": 48215,
+  "stopped": null,
+  "claims": [
+    {
+      "claim": 1,
+      "text": "Algeria's nominal GDP is estimated at about US$288 billion for 2025.",
+      "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Economy_of_Algeria"
+      ],
+      "label": "SOURCED",
+      "quote": "In 2025 Algeria's nominal GDP is estimated to be US$288.01 billion.",
+      "reason": "Stated: Algeria's nominal GDP is estimated at about US$288 billion for 2025.",
+      "facts": [
+        {
+          "fact": "Algeria's nominal GDP is estimated at about US$288 billion for 2025",
+          "status": "stated",
+          "quote": "In 2025 Algeria's nominal GDP is estimated to be US$288.01 billion."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Algeria's nominal GDP is estimated at about US$288 billion for 2025",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "In 2025 Algeria's nominal GDP is estimated to be US$288.01 billion."
+          }
+        ]
+      },
+      "tokens": 2877,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+          "label": "SOURCED",
+          "reason": "Stated: Algeria's nominal GDP is estimated at about US$288 billion for 2025."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 2,
+      "text": "Algeria beat Senegal 1–0 in the 2019 Africa Cup of Nations final, winning its second continental title and its first since 1990.",
+      "url": "https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final",
+      "urls": [
+        "https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final"
+      ],
+      "label": "SOURCED",
+      "quote": "Algeria won the final 1–0 for their second Africa Cup of Nations title, and their first since 1990.",
+      "reason": "Stated: Algeria beat Senegal 1–0 in the 2019 Africa Cup of Nations final; Algeria won its second continental title; Algeria won its first title since 1990.",
+      "facts": [
+        {
+          "fact": "Algeria beat Senegal 1–0 in the 2019 Africa Cup of Nations final",
+          "status": "stated",
+          "quote": "Algeria won the final 1–0 for their second Africa Cup of Nations title, and their first since 1990."
+        },
+        {
+          "fact": "Algeria won its second continental title",
+          "status": "stated",
+          "quote": "Algeria won the final 1–0 for their second Africa Cup of Nations title, and their first since 1990."
+        },
+        {
+          "fact": "Algeria won its first title since 1990",
+          "status": "stated",
+          "quote": "Algeria won the final 1–0 for their second Africa Cup of Nations title, and their first since 1990."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Algeria beat Senegal 1–0 in the 2019 Africa Cup of Nations final",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Algeria won the final 1–0 for their second Africa Cup of Nations title, and their first since 1990."
+          },
+          {
+            "text": "Algeria won its second continental title",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Algeria won the final 1–0 for their second Africa Cup of Nations title, and their first since 1990."
+          },
+          {
+            "text": "Algeria won its first title since 1990",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Algeria won the final 1–0 for their second Africa Cup of Nations title, and their first since 1990."
+          }
+        ]
+      },
+      "tokens": 1599,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final",
+          "label": "SOURCED",
+          "reason": "Stated: Algeria beat Senegal 1–0 in the 2019 Africa Cup of Nations final; Algeria won its second continental title; Algeria won its first title since 1990."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 3,
+      "text": "Since the GERD came online, Ethiopia's national electricity access rate has risen to about 55%.",
+      "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam"
+      ],
+      "label": "COULDN'T CONFIRM",
+      "quote": "",
+      "reason": "Possibly stated, check the page line shown: Since the GERD came online, Ethiopia's national electricity access rate has risen to about 55%.",
+      "facts": [
+        {
+          "fact": "Since the GERD came online, Ethiopia's national electricity access rate has risen to about 55%",
+          "status": "possible",
+          "quote": "",
+          "evidence": "…just as it would affect the Ethiopian part of the Blue Nile valley downstream of the dam.[114] Specifically, the GERD would reduce seasonal flooding of the plains surrounding the reservoir of the Roseires Dam located at Ad-Damazin, just as the Tekeze Dam, by retaining a reservoir in the deep gorges of the northern Ethiopian Highlands, had reduced flooding at Sudan's Khashm el-Girba Dam.[115][55]"
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Since the GERD came online, Ethiopia's national electricity access rate has risen to about 55%",
+            "kind": "fact",
+            "status": "missing",
+            "quote": ""
+          }
+        ]
+      },
+      "tokens": 3614,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+          "label": "COULDN'T CONFIRM",
+          "reason": "Possibly stated, check the page line shown: Since the GERD came online, Ethiopia's national electricity access rate has risen to about 55%."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 4,
+      "text": "The World Bank expects Algeria's economy to grow 3.4% in 2025.",
+      "url": "https://www.worldbank.org/en/country/algeria/publication/algeria-economic-update-spring-2031",
+      "urls": [
+        "https://www.worldbank.org/en/country/algeria/publication/algeria-economic-update-spring-2031"
+      ],
+      "label": "SOURCE UNREACHABLE",
+      "quote": "",
+      "reason": "The page was not found (it may have moved or been removed).",
+      "detail": "HTTP_ERR 404",
+      "tokens": 0,
+      "sources": [
+        {
+          "url": "https://www.worldbank.org/en/country/algeria/publication/algeria-economic-update-spring-2031",
+          "label": "SOURCE UNREACHABLE",
+          "reason": "The page was not found (it may have moved or been removed).",
+          "detail": "HTTP_ERR 404"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 5,
+      "text": "Morocco joined OPEC in 1969.",
+      "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Economy_of_Algeria"
+      ],
+      "label": "UNSUPPORTED",
+      "quote": "",
+      "reason": "Not in the checked passages: Morocco joined OPEC in 1969.",
+      "facts": [
+        {
+          "fact": "Morocco joined OPEC in 1969",
+          "status": "missing",
+          "quote": ""
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Morocco joined OPEC in 1969",
+            "kind": "fact",
+            "status": "missing",
+            "quote": ""
+          }
+        ]
+      },
+      "tokens": 2877,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+          "label": "UNSUPPORTED",
+          "reason": "Not in the checked passages: Morocco joined OPEC in 1969."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 6,
+      "text": "Algeria's government debt stood at 46.0% of GDP in 2019.",
+      "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Economy_of_Algeria"
+      ],
+      "label": "COULDN'T CONFIRM",
+      "quote": "",
+      "reason": "Couldn't confirm (code check): Algeria's government debt stood at 46.0% of GDP in 2019. Quote found, but 2019 not in its passage.",
+      "facts": [
+        {
+          "fact": "Algeria's government debt stood at 46.0% of GDP in 2019",
+          "status": "unconfirmed",
+          "quote": "| 2020 | 489.7 | 11,167 | 145.7 | −5.1 % | 2.4 % | 11.4 % | 46.0 % |",
+          "note": "Quote found, but 2019 not in its passage."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Algeria's government debt stood at 46.0% of GDP in 2019",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "| 2020 | 489.7 | 11,167 | 145.7 | −5.1 % | 2.4 % | 11.4 % | 46.0 % |"
+          }
+        ]
+      },
+      "tokens": 2877,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+          "label": "COULDN'T CONFIRM",
+          "reason": "Couldn't confirm (code check): Algeria's government debt stood at 46.0% of GDP in 2019. Quote found, but 2019 not in its passage."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 7,
+      "text": "The 2019 Africa Cup of Nations final at Cairo International Stadium was watched by 95,000 spectators.",
+      "url": "https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final",
+      "urls": [
+        "https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final"
+      ],
+      "label": "CONTRADICTED",
+      "quote": "Attendance | 75,000 |",
+      "reason": "Contradicted by the page: The 2019 Africa Cup of Nations final at Cairo International Stadium was watched by 95,000 spectators.",
+      "facts": [
+        {
+          "fact": "The 2019 Africa Cup of Nations final at Cairo International Stadium was watched by 95,000 spectators",
+          "status": "contradicted",
+          "quote": "Attendance | 75,000 |"
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "The 2019 Africa Cup of Nations final at Cairo International Stadium was watched by 95,000 spectators",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "Attendance | 75,000 |"
+          }
+        ]
+      },
+      "tokens": 1599,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final",
+          "label": "CONTRADICTED",
+          "reason": "Contradicted by the page: The 2019 Africa Cup of Nations final at Cairo International Stadium was watched by 95,000 spectators."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 8,
+      "text": "At full supply level, the GERD reservoir has a surface area of roughly 1,900 km².",
+      "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam"
+      ],
+      "label": "COULDN'T CONFIRM",
+      "quote": "",
+      "reason": "Couldn't confirm (code check): At full supply level, the GERD reservoir has a surface area of roughly 1,900 km². Quote found, but 1,900 not in its passage. Numbers not on page: 1,900.",
+      "facts": [
+        {
+          "fact": "At full supply level, the GERD reservoir has a surface area of roughly 1,900 km²",
+          "status": "unconfirmed",
+          "quote": "The size of the reservoir at full supply level went up to 1,874 km2 (724 mi2), an increase of 194 km2 (75 sq mi).",
+          "note": "Quote found, but 1,900 not in its passage."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "At full supply level, the GERD reservoir has a surface area of roughly 1,900 km²",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "The size of the reservoir at full supply level went up to 1,874 km2 (724 mi2), an increase of 194 km2 (75 sq mi)."
+          }
+        ]
+      },
+      "tokens": 3614,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+          "label": "COULDN'T CONFIRM",
+          "reason": "Couldn't confirm (code check): At full supply level, the GERD reservoir has a surface area of roughly 1,900 km². Quote found, but 1,900 not in its passage. Numbers not on page: 1,900."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 9,
+      "text": "Hydrocarbon rents account for about 60% of Algeria's government revenue and 90% of its export revenue.",
+      "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Economy_of_Algeria"
+      ],
+      "label": "SOURCED",
+      "quote": "The Algerian economy remains highly dependent on hydrocarbon rents, which represent 60% of government revenue and 90% of export revenue, but the country is working heavily in diversifying and establishing internationally competitive industrialization.",
+      "reason": "Stated: Hydrocarbon rents account for about 60% of Algeria's government revenue and 90% of its export revenue.",
+      "facts": [
+        {
+          "fact": "Hydrocarbon rents account for about 60% of Algeria's government revenue and 90% of its export revenue",
+          "status": "stated",
+          "quote": "The Algerian economy remains highly dependent on hydrocarbon rents, which represent 60% of government revenue and 90% of export revenue, but the country is working heavily in diversifying and establishing internationally competitive industrialization."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Hydrocarbon rents account for about 60% of Algeria's government revenue and 90% of its export revenue",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "The Algerian economy remains highly dependent on hydrocarbon rents, which represent 60% of government revenue and 90% of export revenue, but the country is working heavily in diversifying and establishing internationally competitive industrialization."
+          }
+        ]
+      },
+      "tokens": 2876,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+          "label": "SOURCED",
+          "reason": "Stated: Hydrocarbon rents account for about 60% of Algeria's government revenue and 90% of its export revenue."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 10,
+      "text": "Constantine's tramway carried around 10 million passengers in 2019.",
+      "url": "https://fr.wikipedia.org/wiki/Tramway_de_Constantine",
+      "urls": [
+        "https://fr.wikipedia.org/wiki/Tramway_de_Constantine"
+      ],
+      "label": "COULDN'T CONFIRM",
+      "quote": "",
+      "reason": "Couldn't confirm (code check): Constantine's tramway carried around 10 million passengers in 2019. The quoted passage is about Le, not Constantine.",
+      "facts": [
+        {
+          "fact": "Constantine's tramway carried around 10 million passengers in 2019",
+          "status": "unconfirmed",
+          "quote": "Il transporte environ 10 millions passagers en 2019.",
+          "note": "The quoted passage is about Le, not Constantine."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Constantine's tramway carried around 10 million passengers in 2019",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Il transporte environ 10 millions passagers en 2019."
+          }
+        ]
+      },
+      "tokens": 1971,
+      "sources": [
+        {
+          "url": "https://fr.wikipedia.org/wiki/Tramway_de_Constantine",
+          "label": "COULDN'T CONFIRM",
+          "reason": "Couldn't confirm (code check): Constantine's tramway carried around 10 million passengers in 2019. The quoted passage is about Le, not Constantine."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 11,
+      "text": "Under the WHO definition, a meningococcal epidemic in the African belt means at least 100 cases per 100,000 inhabitants in a year.",
+      "url": "https://en.wikipedia.org/wiki/Meningitis_belt",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Meningitis_belt"
+      ],
+      "label": "SOURCED",
+      "quote": "In the African meningitis belt, the WHO defines a meningococcal epidemic as at least 100 cases per 100,000 inhabitants in a year.",
+      "reason": "Stated: In the African meningitis belt, the WHO defines a meningococcal epidemic as at least 100 cases per 100,000 inhabitants in a year.",
+      "facts": [
+        {
+          "fact": "In the African meningitis belt, the WHO defines a meningococcal epidemic as at least 100 cases per 100,000 inhabitants in a year",
+          "status": "stated",
+          "quote": "In the African meningitis belt, the WHO defines a meningococcal epidemic as at least 100 cases per 100,000 inhabitants in a year."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "In the African meningitis belt, the WHO defines a meningococcal epidemic as at least 100 cases per 100,000 inhabitants in a year",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "In the African meningitis belt, the WHO defines a meningococcal epidemic as at least 100 cases per 100,000 inhabitants in a year."
+          }
+        ]
+      },
+      "tokens": 3410,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Meningitis_belt",
+          "label": "SOURCED",
+          "reason": "Stated: In the African meningitis belt, the WHO defines a meningococcal epidemic as at least 100 cases per 100,000 inhabitants in a year."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 12,
+      "text": "The 2019 Africa Cup of Nations was the first edition of the tournament contested by 24 teams.",
+      "url": "https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final",
+      "urls": [
+        "https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final"
+      ],
+      "label": "COULDN'T CONFIRM",
+      "quote": "",
+      "reason": "Possibly stated, check the page line shown: The 2019 Africa Cup of Nations was the first edition of the tournament contested by 24 teams.",
+      "facts": [
+        {
+          "fact": "The 2019 Africa Cup of Nations was the first edition of the tournament contested by 24 teams",
+          "status": "possible",
+          "quote": "",
+          "evidence": "- ↑ \"Senegal beat Tunisia 1-0 in extra time to reach Africa Cup of Nations final\". France 24. 14 July 2019. Archived from the original on 15 July 2019. Retrieved 15 July 2019."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "The 2019 Africa Cup of Nations was the first edition of the tournament contested by 24 teams",
+            "kind": "fact",
+            "status": "missing",
+            "quote": ""
+          }
+        ]
+      },
+      "tokens": 1599,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final",
+          "label": "COULDN'T CONFIRM",
+          "reason": "Possibly stated, check the page line shown: The 2019 Africa Cup of Nations was the first edition of the tournament contested by 24 teams."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 13,
+      "text": "With an installed capacity of 5.15 GW, Sudan's Merowe Dam is the largest hydroelectric power plant in Africa.",
+      "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam"
+      ],
+      "label": "UNSUPPORTED",
+      "quote": "",
+      "reason": "Not in the checked passages: With an installed capacity of 5.15 GW, Sudan's Merowe Dam is the largest hydroelectric power plant in Africa. The model judged this contradicted, but its quote shows no conflicting figure.",
+      "facts": [
+        {
+          "fact": "With an installed capacity of 5.15 GW, Sudan's Merowe Dam is the largest hydroelectric power plant in Africa",
+          "status": "missing",
+          "quote": "",
+          "unmatched_quote": "With an installed capacity of 5.15 gigawatts, the dam is the largest hydroelectric power plant in Africa",
+          "note": "The model judged this contradicted, but its quote shows no conflicting figure."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "With an installed capacity of 5.15 GW, Sudan's Merowe Dam is the largest hydroelectric power plant in Africa",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "With an installed capacity of 5.15 gigawatts, the dam is the largest hydroelectric power plant in Africa"
+          }
+        ]
+      },
+      "tokens": 3614,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+          "label": "UNSUPPORTED",
+          "reason": "Not in the checked passages: With an installed capacity of 5.15 GW, Sudan's Merowe Dam is the largest hydroelectric power plant in Africa. The model judged this contradicted, but its quote shows no conflicting figure."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 14,
+      "text": "Constantine's tramway runs 37 Citadis 402 trainsets built by Alstom in Spain.",
+      "url": "https://fr.wikipedia.org/wiki/Tramway_de_Constantine",
+      "urls": [
+        "https://fr.wikipedia.org/wiki/Tramway_de_Constantine"
+      ],
+      "label": "CONTRADICTED",
+      "quote": "Le tramway de Constantine est équipé de 27 rames du type Citadis 402 construites par Alstom dans son usine de Santa Perpètua de Mogoda, en Espagne[5].",
+      "reason": "Contradicted by the page: Constantine's tramway runs 37 Citadis 402 trainsets. Stated: built by Alstom; in Spain.",
+      "facts": [
+        {
+          "fact": "Constantine's tramway runs 37 Citadis 402 trainsets",
+          "status": "contradicted",
+          "quote": "Le tramway de Constantine est équipé de 27 rames du type Citadis 402 construites par Alstom dans son usine de Santa Perpètua de Mogoda, en Espagne[5]."
+        },
+        {
+          "fact": "built by Alstom",
+          "status": "stated",
+          "quote": "Le tramway de Constantine est équipé de 27 rames du type Citadis 402 construites par Alstom dans son usine de Santa Perpètua de Mogoda, en Espagne[5]."
+        },
+        {
+          "fact": "in Spain",
+          "status": "stated",
+          "quote": "Le tramway de Constantine est équipé de 27 rames du type Citadis 402 construites par Alstom dans son usine de Santa Perpètua de Mogoda, en Espagne[5]."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Constantine's tramway runs 37 Citadis 402 trainsets",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "Le tramway de Constantine est équipé de 27 rames du type Citadis 402 construites par Alstom dans son usine de Santa Perpètua de Mogoda, en Espagne[5]."
+          },
+          {
+            "text": "built by Alstom",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Le tramway de Constantine est équipé de 27 rames du type Citadis 402 construites par Alstom dans son usine de Santa Perpètua de Mogoda, en Espagne[5]."
+          },
+          {
+            "text": "in Spain",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Le tramway de Constantine est équipé de 27 rames du type Citadis 402 construites par Alstom dans son usine de Santa Perpètua de Mogoda, en Espagne[5]."
+          }
+        ]
+      },
+      "tokens": 1971,
+      "sources": [
+        {
+          "url": "https://fr.wikipedia.org/wiki/Tramway_de_Constantine",
+          "label": "CONTRADICTED",
+          "reason": "Contradicted by the page: Constantine's tramway runs 37 Citadis 402 trainsets. Stated: built by Alstom; in Spain."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 15,
+      "text": "Sonatrach, Algeria's state oil and gas company, employs more than 50,000 people.",
+      "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Economy_of_Algeria"
+      ],
+      "label": "COULDN'T CONFIRM",
+      "quote": "",
+      "reason": "Possibly stated, check the page line shown: Sonatrach, Algeria's state oil and gas company, employs more than 50,000 people.",
+      "facts": [
+        {
+          "fact": "Sonatrach, Algeria's state oil and gas company, employs more than 50,000 people",
+          "status": "possible",
+          "quote": "",
+          "evidence": "In 2006 foreign direct investment (FDI) in Algeria totaled US$1.8 billion. The petrochemical, transport, and utilities sectors have been recent beneficiaries of FDI. FDI into the oil sector was expected to rise as a result of a hydrocarbons law, approved in April 2005, that created a more even playing field for foreign oil companies to compete with Algeria's state-owned oil company, Sonatrach,…"
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Sonatrach, Algeria's state oil and gas company, employs more than 50,000 people",
+            "kind": "fact",
+            "status": "missing",
+            "quote": ""
+          }
+        ]
+      },
+      "tokens": 2876,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+          "label": "COULDN'T CONFIRM",
+          "reason": "Possibly stated, check the page line shown: Sonatrach, Algeria's state oil and gas company, employs more than 50,000 people."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 16,
+      "text": "The Grand Ethiopian Renaissance Dam is a gravity dam on the Blue Nile in Ethiopia's Benishangul-Gumuz Region, close to the Sudanese border.",
+      "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam"
+      ],
+      "label": "SOURCED",
+      "quote": "The Grand Ethiopian Renaissance Dam (GERD or TaIHiGe; Amharic: ታላቁ የኢትዮጵያ ሕዳሴ ግድብ, romanized: Tālāqu ye-Ītyōppyā Hidāsē Gidib, Tigrinya: ግድብ ሕዳሰ ኢትዮጵያ, Oromo: Hidha Guddicha Haaromsa Itoophiyaa[6]), formerly known as the Millennium Dam and sometimes referred to as the Hidase Dam (Amharic: ሕዳሴ ግድብ, romanized: Hidāsē Gidib, Oromo: Hidha Hidāsē), is a gravity dam on the Blue Nile River in Ethiopia.",
+      "reason": "Stated: The Grand Ethiopian Renaissance Dam is a gravity dam on the Blue Nile in Ethiopia's Benishangul-Gumuz Region, close to the Sudanese border.",
+      "facts": [
+        {
+          "fact": "The Grand Ethiopian Renaissance Dam is a gravity dam on the Blue Nile in Ethiopia's Benishangul-Gumuz Region, close to the Sudanese border",
+          "status": "stated",
+          "quote": "The Grand Ethiopian Renaissance Dam (GERD or TaIHiGe; Amharic: ታላቁ የኢትዮጵያ ሕዳሴ ግድብ, romanized: Tālāqu ye-Ītyōppyā Hidāsē Gidib, Tigrinya: ግድብ ሕዳሰ ኢትዮጵያ, Oromo: Hidha Guddicha Haaromsa Itoophiyaa[6]), formerly known as the Millennium Dam and sometimes referred to as the Hidase Dam (Amharic: ሕዳሴ ግድብ, romanized: Hidāsē Gidib, Oromo: Hidha Hidāsē), is a gravity dam on the Blue Nile River in Ethiopia."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "The Grand Ethiopian Renaissance Dam is a gravity dam on the Blue Nile in Ethiopia's Benishangul-Gumuz Region, close to the Sudanese border",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "The Grand Ethiopian Renaissance Dam (GERD or TaIHiGe; Amharic: ታላቁ የኢትዮጵያ ሕዳሴ ግድብ, romanized: Tālāqu ye-Ītyōppyā Hidāsē Gidib, Tigrinya: ግድብ ሕዳሰ ኢትዮጵያ, Oromo: Hidha Guddicha Haaromsa Itoophiyaa[6]), formerly known as the Millennium Dam and sometimes referred to as the Hidase Dam (Amharic: ሕዳሴ ግድብ, romanized: Hidāsē Gidib, Oromo: Hidha Hidāsē), is a gravity dam on the Blue Nile River in Ethiopia."
+          }
+        ]
+      },
+      "tokens": 3614,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+          "label": "SOURCED",
+          "reason": "Stated: The Grand Ethiopian Renaissance Dam is a gravity dam on the Blue Nile in Ethiopia's Benishangul-Gumuz Region, close to the Sudanese border."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 17,
+      "text": "A US$3.8 billion contract to build the GERD was awarded to Salini Impregilo without competitive bidding.",
+      "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam"
+      ],
+      "label": "CONTRADICTED",
+      "quote": "On 31 March 2011, a day after the project was made public, a US$4.8 billion contract was awarded without competitive bidding to Italian company Salini Impregilo, and the dam's foundation stone was laid on 2 April 2011 by the Prime Minister Meles Zenawi.[25]",
+      "reason": "The page gives 31 for March 2011. Your figure may be from a different date — the citation may point to an older or different source.",
+      "facts": [
+        {
+          "fact": "A US$3.8 billion contract to build the GERD was awarded to Salini Impregilo without competitive bidding",
+          "status": "contradicted",
+          "quote": "On 31 March 2011, a day after the project was made public, a US$4.8 billion contract was awarded without competitive bidding to Italian company Salini Impregilo, and the dam's foundation stone was laid on 2 April 2011 by the Prime Minister Meles Zenawi.[25]"
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "A US$3.8 billion contract to build the GERD was awarded to Salini Impregilo without competitive bidding",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "On 31 March 2011, a day after the project was made public, a US$4.8 billion contract was awarded without competitive bidding to Italian company Salini Impregilo, and the dam's foundation stone was laid on 2 April 2011 by the Prime Minister Meles Zenawi.[25]"
+          }
+        ]
+      },
+      "tokens": 3614,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+          "label": "CONTRADICTED",
+          "reason": "The page gives 31 for March 2011. Your figure may be from a different date — the citation may point to an older or different source."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 18,
+      "text": "More than 90,000 meningitis cases were reported in the African meningitis belt in 2009.",
+      "url": "https://www.who.int",
+      "urls": [
+        "https://www.who.int"
+      ],
+      "label": "COULDN'T CONFIRM",
+      "quote": "",
+      "tokens": 0,
+      "reason": "This cites a homepage, not the page with this figure. Homepages change constantly — find the exact page.",
+      "sources": [
+        {
+          "url": "https://www.who.int",
+          "label": "COULDN'T CONFIRM",
+          "reason": "This cites a homepage, not the page with this figure. Homepages change constantly — find the exact page.",
+          "note": "Cites a homepage, not a specific page"
+        }
+      ],
+      "notes": [
+        "Cites a homepage, not a specific page"
+      ]
+    },
+    {
+      "claim": 19,
+      "text": "By October 2019, construction of the GERD was more than 75% complete.",
+      "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam"
+      ],
+      "label": "CONTRADICTED",
+      "quote": "In October 2019, the work was approximately 70% complete.[69]",
+      "reason": "Contradicted by the page: By October 2019, construction of the GERD was more than 75% complete.",
+      "facts": [
+        {
+          "fact": "By October 2019, construction of the GERD was more than 75% complete",
+          "status": "contradicted",
+          "quote": "In October 2019, the work was approximately 70% complete.[69]"
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "By October 2019, construction of the GERD was more than 75% complete",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "In October 2019, the work was approximately 70% complete.[69]"
+          }
+        ]
+      },
+      "tokens": 3613,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+          "label": "CONTRADICTED",
+          "reason": "Contradicted by the page: By October 2019, construction of the GERD was more than 75% complete."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "not_checked": [],
+  "uncited": [
+    "The Sahara covers roughly 80% of Algeria's land area."
+  ]
+}

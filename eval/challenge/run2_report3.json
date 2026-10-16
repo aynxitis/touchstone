@@ -1,0 +1,975 @@
+{
+  "format": "touchstone-run",
+  "version": 1,
+  "provider": "gemini",
+  "model": "gemini-3.5-flash-lite",
+  "created": "2026-10-16T21:22:10.149139+00:00",
+  "report": "1. Building Constantine's tramway cost 44 billion dinars, almost three times the initial estimate. [Wikipédia](https://fr.wikipedia.org/wiki/Tramway_de_Constantine)\n2. El Capitan replaced Frontier as the world's fastest supercomputer in November 2024. [Wikipedia](https://en.wikipedia.org/wiki/Frontier_(supercomputer))\n3. Frontier uses roughly 9,500 AMD Epyc CPUs and 37,900 Instinct MI250X GPUs. [Wikipedia](https://en.wikipedia.org/wiki/Frontier_(supercomputer))\n4. Algeria's youth unemployment rate stood just under 30% in 2025. [Wikipedia](https://en.wikipedia.org/wiki/Economy_of_Algeria)\n5. Algeria's provinces had a combined population of 29,276,767 at the 2008 census. [Wikipedia](https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population)\n6. Fugaku was the world's first exascale supercomputer. [Wikipedia](https://en.wikipedia.org/wiki/Frontier_(supercomputer))\n7. Around 90% of Egypt's water comes from the Nile. [Wikipedia](https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam)\n8. The GERD's main dam is 145 m tall, and a passenger ferry service now operates across its reservoir. [Wikipedia](https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam)\n9. The GERD was formally inaugurated on 9 September 2024. [Wikipedia](https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam)\n10. Senegal won the 2019 Africa Cup of Nations final 1–0 against Algeria. [Wikipedia](https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final)\n11. Lapeyssonnie observed that the disease occurred in areas receiving 30–110 cm of mean annual rainfall. [Wikipedia](https://en.wikipedia.org/wiki/Meningitis_belt)\n12. Burkina Faso, Ethiopia and Niger together account for more than 60% of all meningitis cases in Africa. [Wikipedia](https://en.wikipedia.org/wiki/Meningitis_belt)\n13. Constantine Province had 815,032 inhabitants at the 2008 census. [Wikipedia](https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population)\n14. Baghdad Bounedjah scored the only goal of the 2019 Africa Cup of Nations final, in the second minute. [Wikipedia](https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final)\n15. In 2007, Algeria exported US$73.3 billion of goods, more than twice the value of its imports. [Wikipedia](https://en.wikipedia.org/wiki/Economy_of_Algeria)\n16. President Abdelaziz Bouteflika inaugurated the Beni Haroun dam on 5 January 2004. [Wikipédia](https://fr.wikipedia.org/wiki/Barrage_de_Beni_Haroun)\n17. Frontier first topped the TOP500 list in its June 2021 edition. [Wikipedia](https://en.wikipedia.org/wiki/Frontier_(supercomputer))\n18. Large meningitis epidemics in the belt occur every 5–10 years, typically during the dry season. [Wikipedia](https://en.wikipedia.org/wiki/Meningitis_belt)\n19. Algeria effectively nationalised its hydrocarbon industry in 1971 by taking 51% of the local assets of French oil companies. [Wikipedia](https://en.wikipedia.org/wiki/Economy_of_Algeria)\n20. Algeria joined OPEC in 1969 and was a founding member of the Gas Exporting Countries Forum in 2001. [Wikipedia](https://en.wikipedia.org/wiki/Economy_of_Algeria)",
+  "cited": 20,
+  "checked": 20,
+  "tokens": 57783,
+  "stopped": null,
+  "claims": [
+    {
+      "claim": 1,
+      "text": "Building Constantine's tramway cost 44 billion dinars, almost three times the initial estimate.",
+      "url": "https://fr.wikipedia.org/wiki/Tramway_de_Constantine",
+      "urls": [
+        "https://fr.wikipedia.org/wiki/Tramway_de_Constantine"
+      ],
+      "label": "SOURCED",
+      "quote": "Le projet confié au groupement Alstom-Pizzarrotti, et a couté 44 milliards de dinars, soit près de trois fois son estimation initiale, est désormais considéré comme le plus coûteux par rapport à ceux d'Alger et d'Oran, ce qui fait une moyenne de 4,88 milliards de dinars par kilomètre.",
+      "reason": "Stated: Building Constantine's tramway cost 44 billion dinars; almost three times the initial estimate.",
+      "facts": [
+        {
+          "fact": "Building Constantine's tramway cost 44 billion dinars",
+          "status": "stated",
+          "quote": "Le projet confié au groupement Alstom-Pizzarrotti, et a couté 44 milliards de dinars, soit près de trois fois son estimation initiale, est désormais considéré comme le plus coûteux par rapport à ceux d'Alger et d'Oran, ce qui fait une moyenne de 4,88 milliards de dinars par kilomètre."
+        },
+        {
+          "fact": "almost three times the initial estimate",
+          "status": "stated",
+          "quote": "Le projet confié au groupement Alstom-Pizzarrotti, et a couté 44 milliards de dinars, soit près de trois fois son estimation initiale, est désormais considéré comme le plus coûteux par rapport à ceux d'Alger et d'Oran, ce qui fait une moyenne de 4,88 milliards de dinars par kilomètre."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Building Constantine's tramway cost 44 billion dinars",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Le projet confié au groupement Alstom-Pizzarrotti, et a couté 44 milliards de dinars, soit près de trois fois son estimation initiale, est désormais considéré comme le plus coûteux par rapport à ceux d'Alger et d'Oran, ce qui fait une moyenne de 4,88 milliards de dinars par kilomètre."
+          },
+          {
+            "text": "almost three times the initial estimate",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Le projet confié au groupement Alstom-Pizzarrotti, et a couté 44 milliards de dinars, soit près de trois fois son estimation initiale, est désormais considéré comme le plus coûteux par rapport à ceux d'Alger et d'Oran, ce qui fait une moyenne de 4,88 milliards de dinars par kilomètre."
+          }
+        ]
+      },
+      "tokens": 4129,
+      "sources": [
+        {
+          "url": "https://fr.wikipedia.org/wiki/Tramway_de_Constantine",
+          "label": "SOURCED",
+          "reason": "Stated: Building Constantine's tramway cost 44 billion dinars; almost three times the initial estimate."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 2,
+      "text": "El Capitan replaced Frontier as the world's fastest supercomputer in November 2024.",
+      "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer)",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Frontier_(supercomputer)"
+      ],
+      "label": "SOURCED",
+      "quote": "Frontier was superseded as the fastest supercomputer in the world by El Capitan in November 2024 and both by the Chinese Line Shine in June 2026.",
+      "reason": "Stated: El Capitan replaced Frontier as the world's fastest supercomputer in November 2024.",
+      "facts": [
+        {
+          "fact": "El Capitan replaced Frontier as the world's fastest supercomputer in November 2024",
+          "status": "stated",
+          "quote": "Frontier was superseded as the fastest supercomputer in the world by El Capitan in November 2024 and both by the Chinese Line Shine in June 2026."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "El Capitan replaced Frontier as the world's fastest supercomputer in November 2024",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Frontier was superseded as the fastest supercomputer in the world by El Capitan in November 2024 and both by the Chinese Line Shine in June 2026."
+          }
+        ]
+      },
+      "tokens": 931,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer)",
+          "label": "SOURCED",
+          "reason": "Stated: El Capitan replaced Frontier as the world's fastest supercomputer in November 2024."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 3,
+      "text": "Frontier uses roughly 9,500 AMD Epyc CPUs and 37,900 Instinct MI250X GPUs.",
+      "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer)",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Frontier_(supercomputer)"
+      ],
+      "label": "PARTIAL",
+      "quote": "",
+      "reason": "Possibly stated, check the page line shown: Frontier uses roughly 9,500 AMD Epyc CPUs. Not in the checked passages: and 37,900 Instinct MI250X GPUs. The model judged this contradicted, but its quote shows no conflicting figure. Not checked: AMD Epyc CPUs, Instinct MI250X GPUs.",
+      "facts": [
+        {
+          "fact": "Frontier uses roughly 9,500 AMD Epyc CPUs",
+          "status": "possible",
+          "quote": "",
+          "unmatched_quote": "Frontier uses 9,472 AMD Epyc 7713 \"Trento\" 64 core 2 GHz CPUs (606,208 cores) and 37,888 Instinct MI250X GPUs (8,335,360 cores).",
+          "note": "The model judged this contradicted, but its quote shows no conflicting figure.",
+          "evidence": "Frontier uses 9,472 AMD Epyc 7713 \"Trento\" 64 core 2 GHz CPUs (606,208 cores) and 37,888 Instinct MI250X GPUs (8,335,360 cores). They can perform double-precision operations at the same speed as single precision.[8]"
+        },
+        {
+          "fact": "and 37,900 Instinct MI250X GPUs",
+          "status": "missing",
+          "quote": "",
+          "unmatched_quote": "Frontier uses 9,472 AMD Epyc 7713 \"Trento\" 64 core 2 GHz CPUs (606,208 cores) and 37,888 Instinct MI250X GPUs (8,335,360 cores).",
+          "note": "The model judged this contradicted, but its quote shows no conflicting figure."
+        }
+      ],
+      "framing": [],
+      "caps": [
+        "Not checked: AMD Epyc CPUs, Instinct MI250X GPUs."
+      ],
+      "unchecked_names": [
+        "AMD Epyc CPUs",
+        "Instinct MI250X GPUs"
+      ],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Frontier uses roughly 9,500 AMD Epyc CPUs",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "Frontier uses 9,472 AMD Epyc 7713 \"Trento\" 64 core 2 GHz CPUs (606,208 cores) and 37,888 Instinct MI250X GPUs (8,335,360 cores)."
+          },
+          {
+            "text": "and 37,900 Instinct MI250X GPUs",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "Frontier uses 9,472 AMD Epyc 7713 \"Trento\" 64 core 2 GHz CPUs (606,208 cores) and 37,888 Instinct MI250X GPUs (8,335,360 cores)."
+          }
+        ]
+      },
+      "tokens": 931,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer)",
+          "label": "PARTIAL",
+          "reason": "Possibly stated, check the page line shown: Frontier uses roughly 9,500 AMD Epyc CPUs. Not in the checked passages: and 37,900 Instinct MI250X GPUs. The model judged this contradicted, but its quote shows no conflicting figure. Not checked: AMD Epyc CPUs, Instinct MI250X GPUs."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 4,
+      "text": "Algeria's youth unemployment rate stood just under 30% in 2025.",
+      "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Economy_of_Algeria"
+      ],
+      "label": "SOURCED",
+      "quote": "29.4% (2025)[23]",
+      "reason": "Stated: Algeria's youth unemployment rate stood just under 30% in 2025.",
+      "facts": [
+        {
+          "fact": "Algeria's youth unemployment rate stood just under 30% in 2025",
+          "status": "stated",
+          "quote": "29.4% (2025)[23]"
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Algeria's youth unemployment rate stood just under 30% in 2025",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "29.4% (2025)[23]"
+          }
+        ]
+      },
+      "tokens": 3664,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+          "label": "SOURCED",
+          "reason": "Stated: Algeria's youth unemployment rate stood just under 30% in 2025."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 5,
+      "text": "Algeria's provinces had a combined population of 29,276,767 at the 2008 census.",
+      "url": "https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population",
+      "urls": [
+        "https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population"
+      ],
+      "label": "COULDN'T CONFIRM",
+      "quote": "",
+      "reason": "Couldn't confirm (code check): Algeria's provinces had a combined population of 29,276,767 at the 2008 census. The page gives 34,080,030 for 2008; 29,276,767 is its 1998 figure.",
+      "facts": [
+        {
+          "fact": "Algeria's provinces had a combined population of 29,276,767 at the 2008 census",
+          "status": "unconfirmed",
+          "quote": "| Total |  | 22,971,658 | 29,276,767 | 34,080,030 |",
+          "note": "The page gives 34,080,030 for 2008; 29,276,767 is its 1998 figure."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Algeria's provinces had a combined population of 29,276,767 at the 2008 census",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "| Total |  | 22,971,658 | 29,276,767 | 34,080,030 |"
+          }
+        ]
+      },
+      "tokens": 1555,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population",
+          "label": "COULDN'T CONFIRM",
+          "reason": "Couldn't confirm (code check): Algeria's provinces had a combined population of 29,276,767 at the 2008 census. The page gives 34,080,030 for 2008; 29,276,767 is its 1998 figure."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 6,
+      "text": "Fugaku was the world's first exascale supercomputer.",
+      "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer)",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Frontier_(supercomputer)"
+      ],
+      "label": "UNSUPPORTED",
+      "quote": "",
+      "reason": "Not in the checked passages: Fugaku was the world's first exascale supercomputer. The model judged this contradicted, but its quote shows no conflicting figure. Not checked: Fugaku.",
+      "facts": [
+        {
+          "fact": "Fugaku was the world's first exascale supercomputer",
+          "status": "missing",
+          "quote": "",
+          "unmatched_quote": "Hewlett Packard Enterprise Frontier, or OLCF-5, is the world's first exascale supercomputer.",
+          "note": "The model judged this contradicted, but its quote shows no conflicting figure."
+        }
+      ],
+      "framing": [],
+      "caps": [
+        "Not checked: Fugaku."
+      ],
+      "unchecked_names": [
+        "Fugaku"
+      ],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Fugaku was the world's first exascale supercomputer",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "Hewlett Packard Enterprise Frontier, or OLCF-5, is the world's first exascale supercomputer."
+          }
+        ]
+      },
+      "tokens": 931,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer)",
+          "label": "UNSUPPORTED",
+          "reason": "Not in the checked passages: Fugaku was the world's first exascale supercomputer. The model judged this contradicted, but its quote shows no conflicting figure. Not checked: Fugaku."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 7,
+      "text": "Around 90% of Egypt's water comes from the Nile.",
+      "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam"
+      ],
+      "label": "SOURCED",
+      "quote": "Egypt depends on the Nile for about 90% of its water.",
+      "reason": "Stated: Egypt depends on the Nile for about 90% of its water.",
+      "facts": [
+        {
+          "fact": "Egypt depends on the Nile for about 90% of its water",
+          "status": "stated",
+          "quote": "Egypt depends on the Nile for about 90% of its water."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Egypt depends on the Nile for about 90% of its water",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Egypt depends on the Nile for about 90% of its water."
+          }
+        ]
+      },
+      "tokens": 7118,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+          "label": "SOURCED",
+          "reason": "Stated: Egypt depends on the Nile for about 90% of its water."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 8,
+      "text": "The GERD's main dam is 145 m tall, and a passenger ferry service now operates across its reservoir.",
+      "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam"
+      ],
+      "label": "PARTIAL",
+      "quote": "Counting from the ground level, the main gravity dam is 145 m (476 ft) tall, 1,780 m (5,840 ft) long and composed of roller-compacted concrete.",
+      "reason": "Stated: The GERD's main dam is 145 m tall. Not in the checked passages: and a passenger ferry service now operates across its reservoir.",
+      "facts": [
+        {
+          "fact": "The GERD's main dam is 145 m tall",
+          "status": "stated",
+          "quote": "Counting from the ground level, the main gravity dam is 145 m (476 ft) tall, 1,780 m (5,840 ft) long and composed of roller-compacted concrete."
+        },
+        {
+          "fact": "and a passenger ferry service now operates across its reservoir",
+          "status": "missing",
+          "quote": ""
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "The GERD's main dam is 145 m tall",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Counting from the ground level, the main gravity dam is 145 m (476 ft) tall, 1,780 m (5,840 ft) long and composed of roller-compacted concrete."
+          },
+          {
+            "text": "and a passenger ferry service now operates across its reservoir",
+            "kind": "fact",
+            "status": "missing",
+            "quote": ""
+          }
+        ]
+      },
+      "tokens": 7117,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+          "label": "PARTIAL",
+          "reason": "Stated: The GERD's main dam is 145 m tall. Not in the checked passages: and a passenger ferry service now operates across its reservoir."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 9,
+      "text": "The GERD was formally inaugurated on 9 September 2024.",
+      "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam"
+      ],
+      "label": "UNSUPPORTED",
+      "quote": "",
+      "reason": "Not in the checked passages: The GERD was formally inaugurated on 9 September 2024. The model judged this contradicted, but its quote shows no conflicting figure.",
+      "facts": [
+        {
+          "fact": "The GERD was formally inaugurated on 9 September 2024",
+          "status": "missing",
+          "quote": "",
+          "unmatched_quote": "The plant was formally inaugurated on 9 September 2025.",
+          "note": "The model judged this contradicted, but its quote shows no conflicting figure."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "The GERD was formally inaugurated on 9 September 2024",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "The plant was formally inaugurated on 9 September 2025."
+          }
+        ]
+      },
+      "tokens": 7117,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Grand_Ethiopian_Renaissance_Dam",
+          "label": "UNSUPPORTED",
+          "reason": "Not in the checked passages: The GERD was formally inaugurated on 9 September 2024. The model judged this contradicted, but its quote shows no conflicting figure."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 10,
+      "text": "Senegal won the 2019 Africa Cup of Nations final 1–0 against Algeria.",
+      "url": "https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final",
+      "urls": [
+        "https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final"
+      ],
+      "label": "UNSUPPORTED",
+      "quote": "",
+      "reason": "Not in the checked passages: Senegal won the 2019 Africa Cup of Nations final 1–0 against Algeria. The model judged this contradicted, but its quote shows no conflicting figure. Not checked: Senegal, Algeria.",
+      "facts": [
+        {
+          "fact": "Senegal won the 2019 Africa Cup of Nations final 1–0 against Algeria",
+          "status": "missing",
+          "quote": "",
+          "unmatched_quote": "Algeria won the final 1–0 for their second Africa Cup of Nations title, and their first since 1990.[3]",
+          "note": "The model judged this contradicted, but its quote shows no conflicting figure."
+        }
+      ],
+      "framing": [],
+      "caps": [
+        "Not checked: Senegal, Algeria."
+      ],
+      "unchecked_names": [
+        "Senegal",
+        "Algeria"
+      ],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Senegal won the 2019 Africa Cup of Nations final 1–0 against Algeria",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "Algeria won the final 1–0 for their second Africa Cup of Nations title, and their first since 1990.[3]"
+          }
+        ]
+      },
+      "tokens": 2349,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final",
+          "label": "UNSUPPORTED",
+          "reason": "Not in the checked passages: Senegal won the 2019 Africa Cup of Nations final 1–0 against Algeria. The model judged this contradicted, but its quote shows no conflicting figure. Not checked: Senegal, Algeria."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 11,
+      "text": "Lapeyssonnie observed that the disease occurred in areas receiving 30–110 cm of mean annual rainfall.",
+      "url": "https://en.wikipedia.org/wiki/Meningitis_belt",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Meningitis_belt"
+      ],
+      "label": "COULDN'T CONFIRM",
+      "quote": "",
+      "reason": "Possibly stated, check the page line shown: Lapeyssonnie observed that the disease occurred in areas receiving 30–110 cm of mean annual rainfall. The model judged this contradicted, but its quote shows no conflicting figure. Not checked: Lapeyssonnie.",
+      "facts": [
+        {
+          "fact": "Lapeyssonnie observed that the disease occurred in areas receiving 30–110 cm of mean annual rainfall",
+          "status": "possible",
+          "quote": "",
+          "unmatched_quote": "Lapeyssonnie noticed that the disease occurred in areas receiving 300–1,100 mm of mean annual rainfall, which is the case in sub-Saharan Africa.[1]",
+          "note": "The model judged this contradicted, but its quote shows no conflicting figure.",
+          "evidence": "…Lapeyssonnie noticed that the disease occurred in areas receiving 300–1,100 mm of mean annual rainfall, which is the case in sub-Saharan Africa.[1] Another analysis of the epidemiology of meningitis notes its intercontinental spread, traced to South Asia and brought by those making the Hajj, a pilgrimage to Saudi Arabia, in 1987, leading to epidemics in Nepal, Saudi Arabia, and Chad.[2]"
+        }
+      ],
+      "framing": [],
+      "caps": [
+        "Not checked: Lapeyssonnie."
+      ],
+      "unchecked_names": [
+        "Lapeyssonnie"
+      ],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Lapeyssonnie observed that the disease occurred in areas receiving 30–110 cm of mean annual rainfall",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "Lapeyssonnie noticed that the disease occurred in areas receiving 300–1,100 mm of mean annual rainfall, which is the case in sub-Saharan Africa.[1]"
+          }
+        ]
+      },
+      "tokens": 1278,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Meningitis_belt",
+          "label": "COULDN'T CONFIRM",
+          "reason": "Possibly stated, check the page line shown: Lapeyssonnie observed that the disease occurred in areas receiving 30–110 cm of mean annual rainfall. The model judged this contradicted, but its quote shows no conflicting figure. Not checked: Lapeyssonnie."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 12,
+      "text": "Burkina Faso, Ethiopia and Niger together account for more than 60% of all meningitis cases in Africa.",
+      "url": "https://en.wikipedia.org/wiki/Meningitis_belt",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Meningitis_belt"
+      ],
+      "label": "SOURCED",
+      "quote": "Burkina Faso, Ethiopia, and Niger were accountable for 65% of all cases in Africa.",
+      "reason": "Stated: Burkina Faso, Ethiopia and Niger together account for more than 60% of all meningitis cases in Africa.",
+      "facts": [
+        {
+          "fact": "Burkina Faso, Ethiopia and Niger together account for more than 60% of all meningitis cases in Africa",
+          "status": "stated",
+          "quote": "Burkina Faso, Ethiopia, and Niger were accountable for 65% of all cases in Africa."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Burkina Faso, Ethiopia and Niger together account for more than 60% of all meningitis cases in Africa",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Burkina Faso, Ethiopia, and Niger were accountable for 65% of all cases in Africa."
+          }
+        ]
+      },
+      "tokens": 1277,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Meningitis_belt",
+          "label": "SOURCED",
+          "reason": "Stated: Burkina Faso, Ethiopia and Niger together account for more than 60% of all meningitis cases in Africa."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 13,
+      "text": "Constantine Province had 815,032 inhabitants at the 2008 census.",
+      "url": "https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population",
+      "urls": [
+        "https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population"
+      ],
+      "label": "CONTRADICTED",
+      "quote": "| 25 | Constantine Province | 662,330 | 815,032 | 943,112 |",
+      "reason": "Contradicted by the page: Constantine Province had 815,032 inhabitants at the 2008 census. The page gives 943,112 for 2008; 815,032 is its 1998 figure.",
+      "facts": [
+        {
+          "fact": "Constantine Province had 815,032 inhabitants at the 2008 census",
+          "status": "contradicted",
+          "quote": "| 25 | Constantine Province | 662,330 | 815,032 | 943,112 |",
+          "note": "The page gives 943,112 for 2008; 815,032 is its 1998 figure."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Constantine Province had 815,032 inhabitants at the 2008 census",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "| 25 | Constantine Province | 662,330 | 815,032 | 943,112 |"
+          }
+        ]
+      },
+      "tokens": 1555,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/List_of_Algerian_provinces_by_population",
+          "label": "CONTRADICTED",
+          "reason": "Contradicted by the page: Constantine Province had 815,032 inhabitants at the 2008 census. The page gives 943,112 for 2008; 815,032 is its 1998 figure."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 14,
+      "text": "Baghdad Bounedjah scored the only goal of the 2019 Africa Cup of Nations final, in the second minute.",
+      "url": "https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final",
+      "urls": [
+        "https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final"
+      ],
+      "label": "SOURCED",
+      "quote": "The only goal of the match was scored in the 2nd minute when Baghdad Bounedjah cut in from the left and shot with his right foot from just outside the penalty area with the ball taking a deflection off defender Salif Sané, looping over goalkeeper Alfred Gomis and down into the right corner of the net.[22][23]",
+      "reason": "Stated: Baghdad Bounedjah scored the only goal of the 2019 Africa Cup of Nations final; in the second minute.",
+      "facts": [
+        {
+          "fact": "Baghdad Bounedjah scored the only goal of the 2019 Africa Cup of Nations final",
+          "status": "stated",
+          "quote": "The only goal of the match was scored in the 2nd minute when Baghdad Bounedjah cut in from the left and shot with his right foot from just outside the penalty area with the ball taking a deflection off defender Salif Sané, looping over goalkeeper Alfred Gomis and down into the right corner of the net.[22][23]"
+        },
+        {
+          "fact": "in the second minute",
+          "status": "stated",
+          "quote": "The only goal of the match was scored in the 2nd minute when Baghdad Bounedjah cut in from the left and shot with his right foot from just outside the penalty area with the ball taking a deflection off defender Salif Sané, looping over goalkeeper Alfred Gomis and down into the right corner of the net.[22][23]"
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Baghdad Bounedjah scored the only goal of the 2019 Africa Cup of Nations final",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "The only goal of the match was scored in the 2nd minute when Baghdad Bounedjah cut in from the left and shot with his right foot from just outside the penalty area with the ball taking a deflection off defender Salif Sané, looping over goalkeeper Alfred Gomis and down into the right corner of the net.[22][23]"
+          },
+          {
+            "text": "in the second minute",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "The only goal of the match was scored in the 2nd minute when Baghdad Bounedjah cut in from the left and shot with his right foot from just outside the penalty area with the ball taking a deflection off defender Salif Sané, looping over goalkeeper Alfred Gomis and down into the right corner of the net.[22][23]"
+          }
+        ]
+      },
+      "tokens": 2348,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/2019_Africa_Cup_of_Nations_final",
+          "label": "SOURCED",
+          "reason": "Stated: Baghdad Bounedjah scored the only goal of the 2019 Africa Cup of Nations final; in the second minute."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 15,
+      "text": "In 2007, Algeria exported US$73.3 billion of goods, more than twice the value of its imports.",
+      "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Economy_of_Algeria"
+      ],
+      "label": "CONTRADICTED",
+      "quote": "In 2007 Algerian imports totaled US$26.08 billion.",
+      "reason": "Contradicted by the page: In 2007, Algeria exported US$73.3 billion of goods. Not in the checked passages: more than twice the value of its imports. The model judged this contradicted, but its quote shows no conflicting figure. Not checked: US.",
+      "facts": [
+        {
+          "fact": "In 2007, Algeria exported US$73.3 billion of goods",
+          "status": "contradicted",
+          "quote": "In 2007 Algerian imports totaled US$26.08 billion."
+        },
+        {
+          "fact": "more than twice the value of its imports",
+          "status": "missing",
+          "quote": "",
+          "unmatched_quote": "In 2007 Algeria exported US$63.3 billion, more than twice as much as it imported.",
+          "note": "The model judged this contradicted, but its quote shows no conflicting figure."
+        }
+      ],
+      "framing": [],
+      "caps": [
+        "Not checked: US."
+      ],
+      "unchecked_names": [
+        "US"
+      ],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "In 2007, Algeria exported US$73.3 billion of goods",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "In 2007 Algerian imports totaled US$26.08 billion."
+          },
+          {
+            "text": "more than twice the value of its imports",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "In 2007 Algeria exported US$63.3 billion, more than twice as much as it imported."
+          }
+        ]
+      },
+      "tokens": 3664,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+          "label": "CONTRADICTED",
+          "reason": "Contradicted by the page: In 2007, Algeria exported US$73.3 billion of goods. Not in the checked passages: more than twice the value of its imports. The model judged this contradicted, but its quote shows no conflicting figure. Not checked: US."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 16,
+      "text": "President Abdelaziz Bouteflika inaugurated the Beni Haroun dam on 5 January 2004.",
+      "url": "https://fr.wikipedia.org/wiki/Barrage_de_Beni_Haroun",
+      "urls": [
+        "https://fr.wikipedia.org/wiki/Barrage_de_Beni_Haroun"
+      ],
+      "label": "SOURCED",
+      "quote": "Le 5 janvier 2004, le barrage est inauguré par le président Abdelaziz Bouteflika[3].",
+      "reason": "Stated: President Abdelaziz Bouteflika inaugurated the Beni Haroun dam on 5 January 2004.",
+      "facts": [
+        {
+          "fact": "President Abdelaziz Bouteflika inaugurated the Beni Haroun dam on 5 January 2004",
+          "status": "stated",
+          "quote": "Le 5 janvier 2004, le barrage est inauguré par le président Abdelaziz Bouteflika[3]."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "President Abdelaziz Bouteflika inaugurated the Beni Haroun dam on 5 January 2004",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Le 5 janvier 2004, le barrage est inauguré par le président Abdelaziz Bouteflika[3]."
+          }
+        ]
+      },
+      "tokens": 2284,
+      "sources": [
+        {
+          "url": "https://fr.wikipedia.org/wiki/Barrage_de_Beni_Haroun",
+          "label": "SOURCED",
+          "reason": "Stated: President Abdelaziz Bouteflika inaugurated the Beni Haroun dam on 5 January 2004."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 17,
+      "text": "Frontier first topped the TOP500 list in its June 2021 edition.",
+      "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer)",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Frontier_(supercomputer)"
+      ],
+      "label": "COULDN'T CONFIRM",
+      "quote": "",
+      "reason": "Possibly stated, check the page line shown: Frontier first topped the TOP500 list in its June 2021 edition. The model judged this contradicted, but its quote shows no conflicting figure. Not checked: TOP500.",
+      "facts": [
+        {
+          "fact": "Frontier first topped the TOP500 list in its June 2021 edition",
+          "status": "possible",
+          "quote": "",
+          "unmatched_quote": "It clocked 1.1 exaflops Rmax in May 2022, making it the world's fastest supercomputer as measured in the June 2022 edition of the TOP500 list, replacing Fugaku.",
+          "note": "The model judged this contradicted, but its quote shows no conflicting figure.",
+          "evidence": "Measured at 62.86 gigaflops/watt, the smaller Frontier TDS (test and development system) topped the Green500 list for most efficient supercomputer[6] until it was dethroned in efficiency by the Flatiron Institute's Henri supercomputer in November 2022.[7]"
+        }
+      ],
+      "framing": [],
+      "caps": [
+        "Not checked: TOP500."
+      ],
+      "unchecked_names": [
+        "TOP500"
+      ],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Frontier first topped the TOP500 list in its June 2021 edition",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "It clocked 1.1 exaflops Rmax in May 2022, making it the world's fastest supercomputer as measured in the June 2022 edition of the TOP500 list, replacing Fugaku."
+          }
+        ]
+      },
+      "tokens": 930,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Frontier_(supercomputer)",
+          "label": "COULDN'T CONFIRM",
+          "reason": "Possibly stated, check the page line shown: Frontier first topped the TOP500 list in its June 2021 edition. The model judged this contradicted, but its quote shows no conflicting figure. Not checked: TOP500."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 18,
+      "text": "Large meningitis epidemics in the belt occur every 5–10 years, typically during the dry season.",
+      "url": "https://en.wikipedia.org/wiki/Meningitis_belt",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Meningitis_belt"
+      ],
+      "label": "CONTRADICTED",
+      "quote": "Large epidemics occur every 5–12 years, typically during the dry season (December–June).",
+      "reason": "Contradicted by the page: Large meningitis epidemics in the belt occur every 5–10 years. Stated: typically during the dry season.",
+      "facts": [
+        {
+          "fact": "Large meningitis epidemics in the belt occur every 5–10 years",
+          "status": "contradicted",
+          "quote": "Large epidemics occur every 5–12 years, typically during the dry season (December–June)."
+        },
+        {
+          "fact": "typically during the dry season",
+          "status": "stated",
+          "quote": "Large epidemics occur every 5–12 years, typically during the dry season (December–June)."
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Large meningitis epidemics in the belt occur every 5–10 years",
+            "kind": "fact",
+            "status": "contradicted",
+            "quote": "Large epidemics occur every 5–12 years, typically during the dry season (December–June)."
+          },
+          {
+            "text": "typically during the dry season",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Large epidemics occur every 5–12 years, typically during the dry season (December–June)."
+          }
+        ]
+      },
+      "tokens": 1277,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Meningitis_belt",
+          "label": "CONTRADICTED",
+          "reason": "Contradicted by the page: Large meningitis epidemics in the belt occur every 5–10 years. Stated: typically during the dry season."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 19,
+      "text": "Algeria effectively nationalised its hydrocarbon industry in 1971 by taking 51% of the local assets of French oil companies.",
+      "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Economy_of_Algeria"
+      ],
+      "label": "SOURCED",
+      "quote": "In 1971 the government acquired 51% of the assets of French oil companies in Algeria, effectively nationalizing the hydrocarbon industry",
+      "reason": "Stated: Algeria effectively nationalised its hydrocarbon industry in 1971; by taking 51% of the local assets of French oil companies.",
+      "facts": [
+        {
+          "fact": "Algeria effectively nationalised its hydrocarbon industry in 1971",
+          "status": "stated",
+          "quote": "In 1971 the government acquired 51% of the assets of French oil companies in Algeria, effectively nationalizing the hydrocarbon industry"
+        },
+        {
+          "fact": "by taking 51% of the local assets of French oil companies",
+          "status": "stated",
+          "quote": "In 1971 the government acquired 51% of the assets of French oil companies in Algeria, effectively nationalizing the hydrocarbon industry"
+        }
+      ],
+      "framing": [],
+      "caps": [],
+      "unchecked_names": [],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Algeria effectively nationalised its hydrocarbon industry in 1971",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "In 1971 the government acquired 51% of the assets of French oil companies in Algeria, effectively nationalizing the hydrocarbon industry"
+          },
+          {
+            "text": "by taking 51% of the local assets of French oil companies",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "In 1971 the government acquired 51% of the assets of French oil companies in Algeria, effectively nationalizing the hydrocarbon industry"
+          }
+        ]
+      },
+      "tokens": 3664,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+          "label": "SOURCED",
+          "reason": "Stated: Algeria effectively nationalised its hydrocarbon industry in 1971; by taking 51% of the local assets of French oil companies."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "claim": 20,
+      "text": "Algeria joined OPEC in 1969 and was a founding member of the Gas Exporting Countries Forum in 2001.",
+      "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Economy_of_Algeria"
+      ],
+      "label": "PARTIAL",
+      "quote": "Algeria joined the OPEC cartel in 1969.[35]",
+      "reason": "Stated: Algeria joined OPEC in 1969. Not in the checked passages: and was a founding member of the Gas Exporting Countries Forum in 2001. Not checked: Gas Exporting Countries Forum.",
+      "facts": [
+        {
+          "fact": "Algeria joined OPEC in 1969",
+          "status": "stated",
+          "quote": "Algeria joined the OPEC cartel in 1969.[35]"
+        },
+        {
+          "fact": "and was a founding member of the Gas Exporting Countries Forum in 2001",
+          "status": "missing",
+          "quote": ""
+        }
+      ],
+      "framing": [],
+      "caps": [
+        "Not checked: Gas Exporting Countries Forum."
+      ],
+      "unchecked_names": [
+        "Gas Exporting Countries Forum"
+      ],
+      "model": {
+        "opinion": false,
+        "parts": [
+          {
+            "text": "Algeria joined OPEC in 1969",
+            "kind": "fact",
+            "status": "stated",
+            "quote": "Algeria joined the OPEC cartel in 1969.[35]"
+          },
+          {
+            "text": "and was a founding member of the Gas Exporting Countries Forum in 2001",
+            "kind": "fact",
+            "status": "missing",
+            "quote": ""
+          }
+        ]
+      },
+      "tokens": 3664,
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Economy_of_Algeria",
+          "label": "PARTIAL",
+          "reason": "Stated: Algeria joined OPEC in 1969. Not in the checked passages: and was a founding member of the Gas Exporting Countries Forum in 2001. Not checked: Gas Exporting Countries Forum."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "not_checked": [],
+  "uncited": []
+}

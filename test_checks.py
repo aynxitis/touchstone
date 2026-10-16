@@ -763,8 +763,11 @@ r = judge({"parts": [P("Algeria's population was 53.64 million in 2025", "contra
           "Algeria's population was 53.64 million in 2025.", rp, U)
 assert r["label"] != "CONTRADICTED", r
 r = judge({"parts": [P("Algeria's population was 53.64 million in 2025", "stated", rp)]},
-          "Algeria's population was 53.64 million in 2025.", rp, U)
+          "Algeria's population was 53.64 million in 2025.", rp, U, meta={"title": "Démographie de l'Algérie"})
 assert r["label"] == "SOURCED", r
+r = judge({"parts": [P("Algeria's population was 53.64 million in 2025", "stated", rp)]},
+          "Algeria's population was 53.64 million in 2025.", rp, U)
+assert r["label"] == "COULDN'T CONFIRM" and "Not checked: Algeria." in r["reason"], r   # names guard
 # Column check: a rounded figure in its own period's column is never a conflict.
 rnd_page = "| Operator | Q2 2024 lines | Q2 2025 lines |\n|---|---|---|\n| Mobilis | 2 412 000 | 2 565 347 |"
 rnd_row = "| Mobilis | 2 412 000 | 2 565 347 |"
@@ -873,5 +876,142 @@ assert r["label"] == "CONTRADICTED" and r["reason"].startswith("Contradicted by 
 # One assertion per fact, with its own quote (prompt, both providers).
 from quote_check import SYSTEM as SYS1, SYSTEM_MULTI as SYS2
 assert all("One assertion per fact" in x and "only if it actually states each of them" in x for x in (SYS1, SYS2))
+
+# ---- 2026-10-16 challenge-suite fixes (invented examples mirroring its patterns) ----
+# B2. Citation markers never break a verbatim quote match, on either side.
+mpage = "Overview.\nThe line opened in March 2009 [12] and was extended in May 2013.[13][note 2]\nIl a coûté 9 millions[réf. nécessaire] d'euros.¹"
+assert quote_on_page("The line opened in March 2009 and was extended in May 2013.", mpage)
+assert quote_on_page("opened in March 2009 [12] and was extended", mpage)
+assert quote_on_page("Il a coûté 9 millions d'euros.", mpage)
+assert not quote_on_page("The line opened in March 2008 and was extended in May 2013.", mpage)
+# B3. Capitalized function words ("Le", "La", "Il", "The"...) are never names, so a French
+# passage opening "Le tramway de Sétif" is not "about Le".
+from entities import FUNCTION_WORDS, opening_name
+fpage = ("Tramway de Sétif\n\nLa ville de Sétif a ouvert son réseau en 2018.\n\nLe tramway de Sétif a "
+         "transporté 6 millions de voyageurs en 2021. Il est exploité par la SETRAM.\n\nSelon Le Monde, il a coûté cher.")
+fq = "Le tramway de Sétif a transporté 6 millions de voyageurs en 2021."
+fc = "Sétif's tramway carried around 6 million passengers in 2021."
+assert check_fact(fc, fq, fc, fpage, quote_on_page) is None
+assert opening_name(fq, fpage) is None and entities(fq, fpage) == ["Sétif"]
+assert "Le Monde" in entities("Selon Le Monde, il a coûté cher. It sits in The Hague.", fpage)
+assert not any(w in FUNCTION_WORDS for e in entities(fpage) for w in [e.lower()])
+opage = "Réseaux urbains\n\nLe réseau de Sétif reste en projet.\n\nThe Oran tramway carried 6 million passengers in 2021."
+oq = "The Oran tramway carried 6 million passengers in 2021."
+assert check_fact(fc, oq, fc, opage, quote_on_page) == ("contradicted", ["Sétif"], "Oran")
+lq = "Le tramway d'Oran a transporté 6 millions de voyageurs en 2021."    # no name opens it: missing, never "about Le"
+assert check_fact(fc, lq, fc, opage.replace(oq, lq), quote_on_page) == ("missing", ["Sétif"], None)
+# B5. "Possibly stated" (A2) needs each number with what it counts (unit, %, head word on a
+# prose line), never from a references section or a "^ ..." reference entry.
+from quote_check import line_on_page as lop
+hp = ("Hoggar Park\n\nRock engravings in the Hoggar Park date from 4000\u20133000 BCE according to several surveys.\n"
+      "The park is visited by tourists from many countries during the cooler winter months.")
+assert lop("Hoggar Park receives around 4,000 foreign visitors a year", hp, ["Hoggar Park"]) is None
+assert lop("Hoggar Park receives around 4,000 foreign visitors a year",
+           hp + "\nHoggar Park receives about 4,000 foreign visitors each year, mostly in winter months.", ["Hoggar Park"])
+rp = ("The 2023 Sahel Cup final was played in Niamey before a large crowd of local supporters.\n"
+      "References\n\"Sahel Cup 2023 expands to 16 teams\". Sahel Sports. Retrieved 4 May 2023.")
+assert lop("The 2023 Sahel Cup was the first contested by 16 teams", rp, ["Sahel Cup"]) is None
+assert lop("The 2023 Sahel Cup was the first contested by 16 teams",
+           "Intro\n^ \"Sahel Cup 2023 expands to 16 teams\". Sahel Sports.", ["Sahel Cup"]) is None
+assert lop("Lake Volta's access rate rose to 45%", "Lake Volta holds 45 billion cubic metres of water behind the dam wall, the survey said.",
+           ["Lake Volta"]) is None
+r = one("Lake Kivu supplies 45% of the region's power", "Lake Kivu supplies 45% of the region's power", "",
+        "missing", "Intro\nLake Kivu's methane plant has 45 engineers on site during the dry season shifts.")
+assert r["label"] == "UNSUPPORTED", r
+
+# B10. Units normalised before comparing: length, area, power, energy; a range's first number
+# takes the unit written after the second.
+assert found("Rainfall there is 40\u2013120 cm a year.", "between 400\u20131,200 mm of rain")
+assert found("Rainfall there is 40 to 120 cm a year.", "between 400 to 1,200 mm of rain")
+assert not found("Rainfall there is 40\u2013120 cm a year.", "between 400\u20131,200 m of rain")
+assert found("The lake covers 2,300 km\u00b2.", "a surface of 230,000 ha")
+assert found("The tower is 0.2 km tall.", "a 200-metre tower")
+assert found("The plant makes 0.7 TWh a year.", "about 700 GWh a year")
+assert found("The plant is 0.45 GW.", "a 450 MW plant")
+assert not found("The tower is 0.3 km tall.", "a 200-metre tower")
+# B6. The dated-conflict reason names the quote's figure of the fact's kind, never a date's day.
+dq = "On 31 March 2011, a US$4.8bn contract was awarded to Nilecon without competitive bidding."
+dc = "A US$3.8 billion contract for the dam was awarded to Nilecon without competitive bidding."
+r = one(dc, dc, dq)
+assert r["label"] == "CONTRADICTED" and "The page gives US$4.8bn for March 2011" in r["reason"] and "31" not in r["reason"], r["reason"]
+dq2 = "On 31 March 2011, a US$4.8bn contract and a US$1.2bn loan were signed with Nilecon."
+r = one(dc, dc, dq2)              # two figures of the same kind: can't tell which, standard reason
+assert r["label"] == "CONTRADICTED" and r["reason"].startswith("Contradicted by the page:"), r["reason"]
+# B7. A different date for the same event, in a verified quote sentence about the fact's
+# subject, is a conflict; a compatible date or another subject is not.
+tc = "The Tekeze Dam was formally inaugurated on 9 September 2024."
+assert one(tc, tc, "The Tekeze Dam was formally inaugurated on 9 September 2025 by the prime minister.")["label"] == "CONTRADICTED"
+assert one(tc, tc, "The Tekeze Dam was formally inaugurated in 2025.")["label"] == "CONTRADICTED"
+assert one(tc, tc, "The Tekeze Dam was formally inaugurated in September 2024.")["label"] == "UNSUPPORTED"
+assert one(tc, tc, "The Koka Dam was formally inaugurated on 9 September 2025.")["label"] == "UNSUPPORTED"
+assert one(tc, tc, "The Tekeze Dam was formally inaugurated on 9 September 2025.", "missing")["label"] != "CONTRADICTED"
+assert one(tc, tc, "The Tekeze Dam reached full height in 2025.")["label"] == "UNSUPPORTED"   # another event
+# B8. Names guard: every proper noun of the claim in a stated fact's verified quote (or the
+# page's title), else SOURCED -> COULDN'T CONFIRM "Not checked: ...".
+from quote_check import claim_names
+gc = "GERD is on the Blue Nile in Ethiopia's Benishangul-Gumuz Region, near the Sudanese border"
+gq = "The Grand Ethiopian Renaissance Dam is a gravity dam on the Blue Nile in Ethiopia."
+gpage = "Grand Ethiopian Renaissance Dam\n" + gq + "\nThe reservoir took five years to fill."
+gtitle = {"title": "Grand Ethiopian Renaissance Dam - Wikipedia"}
+assert claim_names(gc, page=gpage) == ["GERD", "Blue Nile", "Ethiopia", "Benishangul-Gumuz", "Sudanese"]
+r = judge_q({"parts": [{"text": "GERD is a gravity dam on the Blue Nile in Ethiopia", "kind": "fact",
+                        "status": "stated", "quote": gq}]}, gc, gpage, meta=gtitle)
+assert r["label"] == "COULDN'T CONFIRM" and "Not checked: Benishangul-Gumuz, Sudanese." in r["reason"], r["reason"]
+full = gq[:-1] + "'s Benishangul-Gumuz Region, about 15 km from the border with Sudan."
+r = judge_q({"parts": [{"text": gc, "kind": "fact", "status": "stated", "quote": full}]}, gc,
+            gpage.replace(gq, full), meta=gtitle)
+assert r["label"] == "SOURCED", r                                  # every name quoted (Sudan = Sudanese)
+dq_ = "The dam is a gravity dam on the Blue Nile in Ethiopia."
+r = judge_q({"parts": [{"text": "GERD is a gravity dam on the Blue Nile in Ethiopia", "kind": "fact",
+                        "status": "stated", "quote": dq_}]}, "GERD is a gravity dam on the Blue Nile in Ethiopia",
+            gpage.replace(gq, dq_))
+assert r["label"] == "COULDN'T CONFIRM" and "Not checked: GERD." in r["reason"], r   # no title: GERD unquoted
+# B9. Hedged figures: the page value rounded to the claim's significant figures (min. 2).
+assert not nni("The lake covers roughly 2,300 km\u00b2.", "a surface of 2,264 km2")
+assert nni("The lake covers roughly 2,000 km\u00b2.", "a surface of 2,264 km2") == ["2,000"]
+assert not nni("Le lac couvre environ 2 300 km2.", "une surface de 2 264 km2")
+assert not nni("It uses about 8,100 CPUs and 41,600 GPUs.", "It uses 8,128 CPUs and 41,632 GPUs.")
+assert nni("It uses 8,100 CPUs.", "It uses 8,128 CPUs.") == ["8,100"]          # no hedge: exact
+assert nni("It has about 30% of sales.", "It has 34% of sales.") == ["30"]
+assert nni("Output fell. It used 8,100 CPUs, about the same.", "It used 8,128 CPUs.") == ["8,100"]   # hedge after
+r = one("The lake covers roughly 2,300 km\u00b2", "The lake covers roughly 2,300 km\u00b2",
+        "The lake has a surface area of 2,264 km2 at full supply level.", "stated")
+assert r["label"] == "SOURCED", r
+# B11. Prompt (both providers): a number, its qualifier and its subject are one fact.
+assert all("A number, its qualifier and its subject are ONE fact" in x for x in (SYS1, SYS2))
+# B12. Years in table rows ("| Year | Debt |"), and a Total row whose label spans two columns.
+ypage = ("Economic indicators\n| Year | GDP | Debt |\n|---|---|---|\n| 2018 | 495.4 | 34.5 % |\n"
+         "| 2019 | 509.4 | 40.9 % |\n| 2020 | 489.7 | 46.0 % |")
+yr = "| 2020 | 489.7 | 46.0 % |"
+assert colc("Kasbia's government debt stood at 46.0% of GDP in 2019", yr, ypage) == (
+    "conflict", "The page gives 40.9 % for 2019; 46.0% is its 2020 figure.")
+assert colc("Kasbia's government debt stood at 46.0% of GDP in 2020", yr, ypage) is None
+assert colc("Kasbia's government debt stood at 46.0% of GDP in 2016", yr, ypage)[0] == "elsewhere"
+r = one("Kasbia's government debt stood at 46.0% of GDP in 2019", "Kasbia's government debt stood at 46.0% of GDP in 2019",
+        yr, "contradicted", ypage)
+assert r["label"] == "COULDN'T CONFIRM" and "46.0% is its 2020 figure" in r["reason"], r
+tpage = ("| Code | Name | 1998 census | 2008 census |\n|---|---|---|---|\n| 16 | Kasba Province | 1,561,992 | 1,988,145 |\n"
+         "| Total | 19,276,767 | 24,080,030 |")
+assert colc("The provinces had a combined population of 19,276,767 at the 2008 census",
+            "| Total | 19,276,767 | 24,080,030 |", tpage) == (
+    "conflict", "The page gives 24,080,030 for 2008; 19,276,767 is its 1998 figure.")
+assert colc("The provinces had a combined population of 19,276,767 at the 2008 census",
+            "| Total |  | 19,276,767 | 24,080,030 |", tpage.replace("| Total |", "| Total |  |"))[0] == "conflict"
+# B7/B8 follow-ups: a sentence naming no one ("The plant was commissioned ...") is about the
+# subject its paragraph opens with, or the page title's; "Noor II" is never found in "Noor III".
+nq = "Construction started in March 2015 and the plant was commissioned in May 2017."
+npage = "The complex has four phases, the largest being Zarga IV.\nZarga IV CSP is the fourth phase. " + nq
+nc = "Zarga IV was commissioned in May 2016."
+assert one(nc, nc, nq, "contradicted", npage)["label"] == "CONTRADICTED"
+assert one(nc, nc, nq, "contradicted", npage.replace("Zarga IV CSP is", "Zarga III is"))["label"] == "UNSUPPORTED"
+tq = "The plant was formally inaugurated on 9 September 2025."
+assert judge_q({"parts": [P(tc, "contradicted", tq)]}, tc, "Intro\nFilling ended. " + tq,
+               meta={"title": "Tekeze Dam - Wikipedia"})["label"] == "CONTRADICTED"
+assert judge_q({"parts": [P(tc, "contradicted", tq)]}, tc, "Intro\nFilling ended. " + tq,
+               meta={"title": "Koka Dam - Wikipedia"})["label"] == "UNSUPPORTED"
+zq = "Zarga III uses a 250-metre solar tower."
+r = judge_q({"parts": [P("Zarga II uses a 250-metre solar tower", "stated", zq)]}, "Zarga II uses a 250-metre solar tower",
+            "Intro\nThe complex has phases named Zarga II and Zarga III.\n" + zq)
+assert r["label"] != "SOURCED" and "Zarga II" in r["reason"], r
 
 print("check tests passed")

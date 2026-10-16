@@ -81,6 +81,18 @@ for status, html, headers in ((403, CF_CHALLENGE, {"cf-mitigated": "challenge"})
 assert fetch_fixture(200, ARTICLE)["status"] == "OK"
 assert fetch_fixture(403, NOT_FOUND) == {"url": "https://example.com/page", "status": "HTTP_ERR", "detail": "403"}
 
+# <time> elements keep their text (trafilatura dropped them): French Wikipedia's date template.
+DATED = ('<html><head><title>Barrage de Tichy</title></head><body><article><p>'
+         + 'Le barrage de Tichy retient les eaux de la rivière pour l\'irrigation de la vallée. ' * 8
+         + '</p><p>Le barrage a été inauguré le <time class="nowrap date-lien" datetime="2011-03-14" '
+         'data-sort-value="2011-03-14"><a href="/wiki/14_mars">14</a> <a href="/wiki/Mars_2011">mars</a> '
+         '<a href="/wiki/2011">2011</a></time> par le ministre des ressources en eau.</p><p>Mis en eau le '
+         '<span class="nowrap date-lien" data-sort-value="2010-06-02"><a href="/wiki/2_juin">2</a> juin 2010</span>, '
+         'il a été achevé en avance.</p><p>Report dated <TIME datetime="2012-01-09">9 January 2012</TIME>.</p></article></body></html>')
+dated = fetch_fixture(200, DATED)["text"]
+assert "inauguré le 14 mars 2011 par le ministre" in dated and "Mis en eau le 2 juin 2010" in dated, dated
+assert "Report dated 9 January 2012." in dated, dated
+
 # A blocked page becomes SOURCE UNREACHABLE with the reason shown, and costs no model call.
 url = "https://example.com/page"
 ev = [e for e in audit(f"- Algeria has 7,800 startups {url}", None,
@@ -368,5 +380,26 @@ list(_audit(frag, _Client, pages=fpage, only={3}))
 assert _Client.sent and "CLAIM:\nwhich operates alongside two rival operators" in _Client.sent[0] and whole in _Client.sent[0], _Client.sent
 import providers as _PV
 assert whole in _PV.gemini_prompt(["which operates alongside two rival operators"], "page", [whole])
+
+# URLs with parentheses (2026-10-16): balanced "(...)" stays in the URL, the link's own ")"
+# ends it; "<url>" destinations too. Bare URLs in prose still stop at an unbalanced ")".
+par = ("1. The Zephyr cluster reached 2.1 exaflops in 2026. [Wiki](https://en.wikipedia.org/wiki/Zephyr_(computer))\n"
+       "2. Its hall covers 4,200 m2 in total. [Doc](<https://docs.example.org/hall_(2026).pdf>) Built in 18 months.\n"
+       "3. Cooling uses 12 MW of power (see https://example.org/cooling).")
+assert blocks(par) == [("The Zephyr cluster reached 2.1 exaflops in 2026.", ("https://en.wikipedia.org/wiki/Zephyr_(computer)",)),
+                       ("Its hall covers 4,200 m2 in total.", ("https://docs.example.org/hall_(2026).pdf",)),
+                       ("Built in 18 months.", ()),
+                       ("Cooling uses 12 MW of power (see", ("https://example.org/cooling",))], blocks(par)
+assert md_links("[a](https://x.org/A_(b)_c) [d](https://y.org/e)") == [
+    (0, 26, "https://x.org/A_(b)_c"), (27, 47, "https://y.org/e")]
+import time as _t
+_t0 = _t.monotonic()
+blocks("[a](https://x.org/" + "(" * 20000 + ")\n" + "https://x.org/" + "(a" * 20000)
+assert _t.monotonic() - _t0 < 1
+# A Total row with an empty first cell ("||19,276,767 |") keeps every value under its header.
+assert blocks("| Name | 1998 census | 2008 census |\n|---|---|---|\n||19,276,767 | 24,080,030 | [W](https://x.org/a)") == [
+    ("1998 census: 19,276,767; 2008 census: 24,080,030", ("https://x.org/a",))]
+assert blocks("| Code | Name | 1998 | 2008 |\n|---|---|---|---|\n| Total | | 19,276 | 24,080 | [W](https://x.org/a)") == [
+    ("Code: Total; 1998: 19,276; 2008: 24,080", ("https://x.org/a",))]
 
 print("parsing checks passed")

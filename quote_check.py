@@ -5,14 +5,15 @@ import json
 import os
 import re
 import sys
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from dotenv import load_dotenv
 from rapidfuzz import fuzz
 
 from check_numbers import NUM_RE, blocks
-from entities import check_fact, entities, fold, named_in, names_country, paragraph_of
-from units import UNIT_AFTER, _unit, unit_supported
+from entities import (attributed_to_site, check_fact, countries_of, entities, fold, named_in, names_country,
+                      opening_name, paragraph_of, publisher)
+from units import FAMILIES as UNIT_FAMILIES, UNIT_AFTER, unit_at, unit_supported
 import locnum
 from locnum import NUMBER_RE
 
@@ -51,7 +52,10 @@ RULES = """- kind "fact": anything that describes what is the case: who, what, w
   private mills" -> three facts: "Tunisia's olive oil exports are growing"; "Tunisia's olive oil
   exports are supported by EU demand"; "The number of private olive mills in Tunisia is rising".
   One quote may back several facts only if it actually states each of them.
-- Keep a number's qualifier with it ("over 65%", "nearly 20 million", "up to 3 GW").
+- A number, its qualifier and its subject are ONE fact, never split into fragments:
+  "Mali, Chad and Sudan together hold more than 40% of the region's cattle" is one fact, not
+  "Mali, Chad and Sudan together hold" + "more than 40%" + "of the region's cattle".
+  Keep the qualifier with the number ("over 65%", "nearly 20 million", "up to 3 GW").
 - A claim may come with its FULL SENTENCE (the claim is one cited piece of it): use the
   sentence only to understand the claim (what "which" or "it" refers to); split and judge
   only the claim itself.
@@ -75,8 +79,19 @@ SYSTEM = PREAMBLE + TASK_ONE + RULES          # Groq: one claim per call (unchan
 SYSTEM_MULTI = PREAMBLE + TASK_MULTI + RULES  # Gemini: all claims citing one page
 
 
+# Citation markers a page or the model's quote may hold or drop: "[12]", "[a]", "[note 3]",
+# "[nb 1]", "[citation needed]", "[réf. nécessaire]", superscript digits. Never a 4-digit
+# "[2023]" (a year someone bracketed is text).
+CITE_MARK = re.compile(
+    r"\[(?:\d{1,3}|[a-z]|(?:note|nb|n|lower-alpha|upper-alpha)[ \u00a0]?\d{1,3}"
+    r"|[^\[\]\n]{0,40}?(?:needed|nécessaire|souhaitée?|souhaité|réf\.|citation|clarification|when\?|which\?|who\?)"
+    r"[^\[\]\n]{0,20})\]|[\u00b9\u00b2\u00b3\u2070\u2074-\u2079]{1,4}", re.I)
+
+
 def normalize(s):
-    """Make quote matching survive curly quotes, dashes, spacing and case."""
+    """Make quote matching survive curly quotes, dashes, spacing, case and citation markers
+    ("began in February 2016 [19] and" matches a quote without the [19])."""
+    s = CITE_MARK.sub(" ", s)
     for a, b in (("\u2019", "'"), ("\u2018", "'"), ("\u201c", '"'), ("\u201d", '"'),
                  ("\u2010", "-"), ("\u2011", "-"), ("\u2012", "-"), ("\u2013", "-"),
                  ("\u2014", "-"), ("\u2212", "-"), ("\u00a0", " "), ("\u202f", " ")):
@@ -319,13 +334,22 @@ def numbers_not_in(text, passage, min_digits=2, euro=None):
 QUALIFIER = re.compile(
     r"(?<![\w'])(over|more than|above|exceed(?:s|ing)?|in excess of|plus de|at least|au moins|"
     r"sup[ée]rieure?s? [àa]|under|less than|fewer than|below|moins de|at most|up to|"
-    r"inf[ée]rieure?s? [àa]|jusqu['’][àa]|nearly|almost|pr[èe]s de|presque)"
-    r"[ \t ]{1,3}(?:[$€£][  ]?)?$", re.I)
+    r"inf[ée]rieure?s? [àa]|jusqu['’][àa]|nearly|almost|pr[èe]s de|presque|"
+    r"roughly|about|around|approximately|approx\.?|circa|some|environ|autour de|~)"
+    r"[ \t\u00a0]{0,3}(?:(?:US|USD|EUR)?[ ]?[$\u20ac\u00a3][ \u00a0]?)?$", re.I)
+# Hedges: the page value rounded to the claim's significant figures (at least 2) is the
+# claim's figure: "roughly 1,900 km\u00b2" = 1,874 km\u00b2, never 2,000. A hedge also covers
+# the figures after it in the same clause ("roughly 9,500 CPUs and 37,900 GPUs").
+HEDGE = re.compile(r"(?<![\w'])(?:roughly|about|around|approximately|approx\.?|circa|nearly|almost|"
+                   r"environ|pr[èe]s de|presque|autour de)(?![\w'])", re.I)
+HEDGE_SCOPE = 80           # chars before a figure in which a hedge still covers it
 BOUND_OPS = {"over": ">", "more than": ">", "above": ">", "exceed": ">", "exceeds": ">",
              "exceeding": ">", "in excess of": ">", "plus de": ">", "at least": ">=", "au moins": ">=",
              "under": "<", "less than": "<", "fewer than": "<", "below": "<", "moins de": "<",
              "at most": "<=", "up to": "<=", "nearly": "~", "almost": "~", "près de": "~",
-             "pres de": "~", "presque": "~"}
+             "pres de": "~", "presque": "~", "roughly": "≈", "about": "≈", "around": "≈",
+             "approximately": "≈", "approx": "≈", "approx.": "≈", "circa": "≈", "some": "≈",
+             "environ": "≈", "autour de": "≈", "~": "≈"}
 # The claim being judged: a fact that drops the claim's "over" ("65% of users") still gets it.
 CLAIM_BOUNDS = contextvars.ContextVar("claim_bounds", default=())
 
@@ -347,9 +371,8 @@ def quantity_tokens(text, page=False, euro=None):
     out = []
     for m, rs in locnum.tokens(text, page=page, euro=euro):
         s, end, scale, fam = m.string, m.end(), 1, None
-        if (u := UNIT_AFTER.match(s, end)) and not (u.group("mw") == "m" and u.start("mw") > end):
-            fam, scale = _unit(u)
-            end = u.end()
+        if u := unit_at(s, end):
+            fam, scale, end = u
         pct = bool(PERCENT_AFTER.match(s, end))
         out.append((m, {r * scale for r in rs}, pct, fam))
     return out
@@ -363,7 +386,21 @@ def bounds(text):
             continue                                   # "up to 2025" is a date, not a bound
         if q := QUALIFIER.search(m.string, max(0, m.start() - 30), m.start()):
             out.append((m.start(), bound_op(q.group(1)), vals, pct, fam))
+        elif (h := list(HEDGE.finditer(m.string, max(0, m.start() - HEDGE_SCOPE), m.start()))) and not re.search(
+                r"[.;:!?]\s", m.string[h[-1].end():m.start()]):
+            out.append((m.start(), "≈", vals, pct, fam))
     return out
+
+
+def sig_round(value, places):
+    """value rounded half up to `places` significant figures."""
+    return value.quantize(Decimal(1).scaleb(value.adjusted() - places + 1), ROUND_HALF_UP)
+
+
+def significant(value):
+    """Significant figures as written (an integer's trailing zeros don't count), at least 2:
+    1,900 -> 2; 37,900 -> 3; 2,000 -> 2; 2.99 million -> 3."""
+    return max(2, len(value.normalize().as_tuple().digits))
 
 
 def satisfies(op, want, have):
@@ -375,7 +412,9 @@ def satisfies(op, want, have):
         return have < want
     if op == "<=":
         return have <= want
-    return want * Decimal("0.9") <= have <= want
+    if have > 0 and sig_round(have, significant(want)) == want:
+        return True                    # a hedged figure: the page value at the claim's precision
+    return op == "~" and want * Decimal("0.9") <= have <= want
 
 
 def bound_supported(text, passage, euro=None):
@@ -529,20 +568,83 @@ def value_conflict(fact, quote):
     return bool(figures(fact, quote)) and bool(figures(quote, fact))
 
 
+# A page's back matter: lines from such a heading on are citations and links, never
+# evidence ("24 teams" in a reference title is no support). Wikipedia's "^ ..." / "↑ ..."
+# reference entries are skipped wherever they sit.
+REF_HEADING = re.compile(
+    r"^\W{0,3}(?:references?|notes?|notes and references|footnotes|citations|bibliography|sources|"
+    r"further reading|external links|see also|works cited|références|notes et références|"
+    r"bibliographie|liens externes|voir aussi|articles connexes|annexes)\W{0,3}$", re.I)
+REF_ENTRY = re.compile(r"^(?:\^|\u2191|\[\d{1,3}\]\s|\d{1,3}\.\s{1,3}\^)")
+HEAD_WORD = re.compile(r"[^\W\d_][\w'\u2019\u00b2\u00b3]{0,30}")
+HEAD_SKIP = set("""of de des du d of the a an more than over under about around roughly nearly
+almost some approximately and or to et à a additional additionnels""".split())
+PERCENT_HEAD = re.compile(r"[ \t\u00a0]{0,2}(?:%|percent\b|per cent\b|pour cent\b)", re.I)
+
+
+def number_head(text, m):
+    """What a number counts, as written after it: "%", a unit family ("W", "Wh", "len",
+    "area"...), or its head word ("3,000 foreign visitors" -> "foreign"), None if nothing
+    follows. A magnitude word ("3 million visitors") is skipped for the word after it."""
+    end = m.end()
+    if PERCENT_HEAD.match(text, end):
+        return "%"
+    if u := unit_at(text, end):
+        if u[0] != "x":
+            return u[0]
+        end = u[2]
+    for w in HEAD_WORD.finditer(text, end, min(len(text), end + 40)):
+        if text[end:w.start()].strip(" \t\u00a0-"):
+            return None          # punctuation or another number first: no head word
+        if w.group().lower() not in HEAD_SKIP:
+            return w.group()
+        end = w.end()
+    return None
+
+
+PROSE_WORDS = 8           # a line this long is prose: its numbers say what they count
+
+
+def head_on_line(head, fact, m, line, euro=None):
+    """True if the line counts the same thing as the fact's number m: a % number on the line
+    that matches it (exactly, by rounding or by its qualifier), a number of the same unit
+    family, or the head word (plural/singular, accents ignored; asked of prose lines only: a
+    table row's or a short list item's noun is its header)."""
+    if head is None:
+        return True
+    if head == "%":
+        pct = " ; ".join(t.group() + "%" for t, _, p, _ in quantity_tokens(line, page=True, euro=euro) if p)
+        near = fact[max(0, m.start() - 30):m.end()] + "%"
+        return bool(pct) and m.group() not in numbers_not_in(near, pct, min_digits=1, euro=euro)
+    if head in UNIT_FAMILIES:
+        return any(fam == head for _, _, _, fam in quantity_tokens(line, page=True, euro=euro))
+    if locnum.table_line(line) or len(re.findall(r"[^\W\d_]{2,}", line)) < PROSE_WORDS:
+        return True
+    stem = re.sub(r"(?:es|s)$", "", fold(head)) if len(head) > 4 else fold(head)
+    return bool(re.search(r"(?<![a-z0-9])" + re.escape(stem) + r"[a-z]{0,3}(?![a-z0-9])", fold(line)))
+
+
 def line_on_page(fact, page, names=()):
     """Full-page fallback (no model call): the first page line (paragraph, list item, table
-    row) holding all of the fact's non-year numbers, at least one of them 2+ digits, plus the
-    fact's subject (the first of the claim's names written in the fact), if it names one.
-    A line over EVIDENCE_CHARS (a page with no line breaks) is cut to the sentence(s) holding
-    the match (evidence_window). None if there is no such line."""
+    row) holding all of the fact's non-year numbers, at least one of them 2+ digits, each with
+    what it counts (its unit, %, or head word: "3,000 foreign visitors" is not "3000-2000
+    BCE"), plus the fact's subject (the first of the claim's names written in the fact), if it
+    names one. Lines in a references / notes / bibliography section never count. A line over
+    EVIDENCE_CHARS (a page with no line breaks) is cut to the sentence(s) holding the match
+    (evidence_window). None if there is no such line."""
     nums = [m for m in NUMBER_RE.finditer(fact) if not is_year(m.group())]
     if not any(locnum.digits(m) >= 2 for m in nums):
         return None
     subject = next((n for n in names if named_in(n, fact)), None)
     euro = locnum.european(page)
+    heads = [(number_head(fact, m), m) for m in nums]
     for line in page.split("\n"):
         line = line.strip()
-        if (line and not [n for n in numbers_not_in(fact, line, min_digits=1, euro=euro) if not is_year(n)]
+        if REF_HEADING.match(line):
+            break
+        if (line and not REF_ENTRY.match(line)
+                and not [n for n in numbers_not_in(fact, line, min_digits=1, euro=euro) if not is_year(n)]
+                and all(head_on_line(h, fact, m, line, euro) for h, m in heads)
                 and (subject is None or named_in(subject, line))):
             return evidence_window(line, fact, subject, euro)
     return None
@@ -673,6 +775,9 @@ def table_header(row, page):
     idx = next((i for i, l in enumerate(lines) if l.strip() == row.strip()), None)
     if idx is None:
         return None
+    above = row_cells(lines[idx - 1]) if idx > 0 else None
+    if above and len(above) > len(want) and spans_label(want):
+        return table_header(lines[idx - 1], page)     # "| Total | 22,971,658 | ..." under a wider table
     i = idx
     while i > 0:
         above = row_cells(lines[i - 1])
@@ -686,6 +791,20 @@ def table_header(row, page):
         return None
     top = row_cells(lines[i])
     return None if any(figures(c) for c in top) else top
+
+
+def spans_label(cells):
+    """A row whose label cell spans several columns ("Total" over Code and Name): its first
+    cell is a label, every other cell holds a figure."""
+    return (len(cells) >= 2 and bool(re.search(r"[^\W\d_]", cells[0])) and not figures(cells[0])
+            and all(figures(c) for c in cells[1:]))
+
+
+def aligned(cells, head):
+    """The row's cells under its header: a short row's spanning label cell fills the gap."""
+    if len(cells) < len(head) and spans_label(cells):
+        return cells[:1] + [""] * (len(head) - len(cells)) + cells[1:]
+    return cells
 
 
 def signature(text):
@@ -720,10 +839,15 @@ def column_check(fact, row, page, fallback=(frozenset(), "")):
     period, or in one naming no period (Brand, YoY), passes; one not in the row at all is
     value_conflict()'s business."""
     sig, want = (signature(fact), period_label(fact)) if signature(fact) else fallback
-    if (not sig or sum(k[0] == "Y" for k in sig) != 1 or sum(k[0] != "Y" for k in sig) > 1
-            or not (head := table_header(row, page))):
+    if not sig or sum(k[0] == "Y" for k in sig) != 1 or sum(k[0] != "Y" for k in sig) > 1:
         return None
-    cells, euro = row_cells(row), locnum.european(page)
+    if by_row := year_row_check(fact, sig, row, page):
+        return by_row
+    if not (head := table_header(row, page)):
+        return None
+    cells, euro = aligned(row_cells(row), head), locnum.european(page)
+    if len(cells) != len(head):
+        return None
     heads = [signature(h) for h in head]
     clean = unperiod(fact)
     for m in NUMBER_RE.finditer(clean):
@@ -751,6 +875,53 @@ def column_check(fact, row, page, fallback=(frozenset(), "")):
             return ("conflict", f"The page gives {cells[t]} for {period_label(head[t]) or want}; "
                                 f"{figure} is its {other} figure.")
         return ("elsewhere", f"This figure appears on the page under '{head[where[0]]}', not {want}.")
+    return None
+
+
+YEAR_CELL = re.compile(r"(?:19|20)\d{2}")
+
+
+def table_run(row, page):
+    """The rows of the page table holding this row: the contiguous lines of the same cell count."""
+    lines = page.split("\n")
+    idx = next((i for i, l in enumerate(lines) if l.strip() == row.strip()), None)
+    want = row_cells(row)
+    if idx is None or not want:
+        return []
+    same = lambda i: (c := row_cells(lines[i])) is not None and len(c) == len(want)
+    a, b = idx, idx
+    while a > 0 and same(a - 1):
+        a -= 1
+    while b + 1 < len(lines) and same(b + 1):
+        b += 1
+    return [row_cells(lines[i]) for i in range(a, b + 1)]
+
+
+def year_row_check(fact, sig, row, page):
+    """column_check() for a table whose ROWS are years ("| Year | Debt % |", "| 2020 | 46.0 % |"):
+    a fact figure found in the quoted row only, when that row's year cell is another year than
+    the fact's: "conflict" if the fact's year has a row whose same column holds another figure
+    ("The page gives 40.9 % for 2019; 46.0% is its 2020 figure."), else "elsewhere"."""
+    cells = row_cells(row)
+    year = next(y for k, y in sig if k == "Y")
+    at = next((j for j, c in enumerate(cells or []) if YEAR_CELL.fullmatch(c)), None)
+    if at is None or cells[at] == year:
+        return None
+    clean, euro = unperiod(fact), locnum.european(page)
+    for m in NUMBER_RE.finditer(clean):
+        if is_year(m.group()):
+            continue
+        pct = bool(PERCENT_AFTER.match(clean, m.end()))
+        u = unit_at(clean, m.end(), ranged=False)
+        num = clean[m.start():u[2] if u else m.end()] + ("%" if pct else "")
+        where = [j for j, c in enumerate(cells) if j != at and not numbers_not_in(num, c, min_digits=1, euro=euro)]
+        if not where:
+            continue
+        j, figure = where[0], m.group() + ("%" if pct else "")
+        mine = [r for r in table_run(row, page) if len(r) == len(cells) and r[at] == year]
+        if mine and figures(mine[0][j]) and numbers_not_in(num, mine[0][j], min_digits=1, euro=euro):
+            return ("conflict", f"The page gives {mine[0][j]} for {year}; {figure} is its {cells[at]} figure.")
+        return ("elsewhere", f"This figure appears on the page in the {cells[at]} row, not {year}.")
     return None
 
 
@@ -792,6 +963,68 @@ def own_text(claim, context=""):
         label = next((l for l in labels if part.startswith(l + ": ")), None)
         out.append(part[len(label) + 2:] if label else part)
     return "; ".join(out)
+
+
+# Names guard (2026-10-16): every proper noun of the claim (place, organisation, person,
+# region, or a country adjective: "Sudanese") must be in a verified quote of a stated fact,
+# or be the page's own subject (its title), the publisher, or the organisation the claim
+# attributes it to on its own site. Otherwise SOURCED -> COULDN'T CONFIRM "Not checked: ...":
+# a claim that adds "in Benishangul-Gumuz, near the Sudanese border" to a quote saying only
+# "a dam on the Blue Nile in Ethiopia" was green.
+NAMES_CAP = "Not checked:"
+GEO_WORDS = {"region", "province", "state", "district", "county", "department", "governorate",
+             "wilaya", "prefecture", "municipality", "commune", "area", "zone"}
+LABEL_LEAD = re.compile(r"^[^:;\n]{1,60}:[ \t]")
+NAME_WORD = re.compile(r"[^\W\d_][\w\-'\u2019]*")
+
+
+def claim_names(claim, context="", page="", url=""):
+    """The claim's own proper nouns, in order: entities() (a trailing "Region", "Province"
+    dropped) plus country adjectives ("Sudanese"), minus the publisher's and an attributed
+    organisation's own name."""
+    own = own_text(claim, context)
+    if (lab := LABEL_LEAD.match(own)) and len(lab.group().split()) <= 6:
+        own = own[lab.end():]          # "Total EV Sales: 2,585,187 ..." - a label, not a name
+    found = []
+    for e in entities(own, page):
+        words = e.split()
+        while len(words) > 1 and words[-1].lower() in GEO_WORDS:
+            words = words[:-1]
+        found.append((own.find(words[0]), " ".join(words)))
+    for m in NAME_WORD.finditer(own):
+        w = POSSESSIVE_END.sub("", m.group())
+        if w[:1].isupper() and countries_of(w) is not None and not any(named_in(w, n) or named_in(n, w) for _, n in found):
+            found.append((m.start(), w))
+    names = [n for _, n in sorted(found)]
+    return [n for n in dict.fromkeys(names) if not publisher(n, url) and not attributed_to_site(n, claim, url)]
+
+
+POSSESSIVE_END = re.compile(r"['\u2019]s$")
+
+
+def name_in(name, text):
+    """named_in(), plus: a name with a 1-2 character word ("Noor II", "Model 3") must be there
+    whole, or "Noor II" would be found in a quote about Noor III."""
+    if not named_in(name, text):
+        return False
+    if all(len(w) >= 3 for w in name.split()):
+        return True
+    return bool(re.search(r"(?<![\w])" + re.escape(fold(name)) + r"(?![\w])", fold(text)))
+
+
+def unchecked_names(claim, facts, context="", page="", url="", meta=None):
+    """The claim's names (claim_names) in no stated fact's verified quote and not the page's
+    subject (named in its title)."""
+    # An "unconfirmed" fact's quote is verified too (a code check doubts its figure or name);
+    # it can't make the claim SOURCED anyway, but its names were checked.
+    quotes = [f["quote"] for f in facts if f.get("status") in ("stated", "unconfirmed") and f.get("quote")]
+    title = (meta or {}).get("title") or ""
+    return [n for n in claim_names(claim, context, page, url)
+            if not any(name_in(n, q) for q in quotes) and not (title and name_in(n, title))]
+
+
+def names_cap(names):
+    return [f"{NAMES_CAP} {', '.join(names)}."] if names else []
 
 
 # Cheap language guess for the coverage cap: share of common function words. A French claim
@@ -982,7 +1215,8 @@ def _judge(out, claim, page, url="", raw="", meta=None, context=""):
             # no verified quote, no credit: the fact counts as missing
             fact.update(status="missing", quote="", rejected_quote=quote)
             demoted = True
-        elif status == "contradicted" and not value_conflict(fact["fact"], quote):
+        elif status == "contradicted" and not value_conflict(fact["fact"], quote) and not date_conflict(
+                fact["fact"], quote, names, page, meta):
             # CONTRADICTED needs a different value in the quote, not just the model's word:
             # without one, the page simply doesn't support the fact. A table row's figure under
             # another period's column, with the fact's period column saying otherwise, is one.
@@ -1027,12 +1261,14 @@ def _judge(out, claim, page, url="", raw="", meta=None, context=""):
         facts.append(fact)
 
     # Coverage after the checks: only quotes still attached to a fact are verified.
+    unnamed_ = unchecked_names(claim, facts, context, page, url, meta)
     caps = coverage_caps(claim, [x["text"] for x in parts_in], context,
                          [f["quote"] for f in facts if f.get("quote")]) + too_many + period_caps(
-        claim, facts, page, meta)
+        claim, facts, page, meta) + names_cap(unnamed_)
     v = verdict(facts, framing, demoted, missing_numbers(claim, page), bool(out), raw,
                 caps if facts else ())
     return {**v, "facts": facts, "framing": framing, "caps": caps if facts else [],
+            "unchecked_names": unnamed_,
             "model": {"opinion": False, "parts": parts_in} if out else None}
 
 
@@ -1057,33 +1293,113 @@ def dates(text):
     return out
 
 
+DAY_OF = re.compile(r"[ \t\u00a0]{0,2}(?:" + "|".join(sorted(MONTHS, key=len, reverse=True)) + r")\b", re.I)
+MONTH_BEFORE = re.compile(r"\b(?:" + "|".join(sorted(MONTHS, key=len, reverse=True)) + r")\.?[ \t\u00a0]{1,2}$", re.I)
+CURRENCY_BEFORE = re.compile(r"(?:[$\u20ac\u00a3\u00a5]|US\$|USD|EUR|DZD)[ \t\u00a0]?$")
+
+
+def is_day(text, m):
+    """True for the day of a written date: "31 March 2011", "March 31, 2011"."""
+    return locnum.digits(m) <= 2 and bool(DAY_OF.match(text, m.end()) or MONTH_BEFORE.search(text[max(0, m.start() - 12):m.start()]))
+
+
+def kind(text, m):
+    """What a figure measures, as far as the code can tell: (percent, unit family, currency)."""
+    u = unit_at(text, m.end())
+    end = u[2] if u else m.end()
+    return (bool(PERCENT_AFTER.match(text, end)), u[0] if u else None,
+            bool(CURRENCY_BEFORE.search(text[max(0, m.start() - 4):m.start()])))
+
+
 def date_reason(claim, facts):
     """DATE_REASON for the first contradicted fact whose quote gives a conflicting figure
-    with a date, when the claim has no date or another one; else None."""
+    with a date, when the claim has no date or another one; else None. The figure named is
+    the quote's figure of the same kind as the fact's (US$4.8bn for a "US$3.8 billion" fact,
+    never the "31" of "31 March 2011"); if there isn't exactly one, None (standard reason)."""
     have = {(y, mo) for _, _, y, mo, _ in dates(claim)}
     years = {y for y, _ in have}
     for f in facts:
         quote = f.get("quote") or ""
         if f.get("status") != "contradicted" or not quote or f.get("note"):
             continue
-        q = unperiod(quote)
-        figs = [m for m in NUMBER_RE.finditer(q) if not is_year(m.group())
+        q, fx = unperiod(quote), unperiod(f["fact"])
+        mine = [m for m in NUMBER_RE.finditer(fx) if not is_year(m.group()) and not is_day(fx, m)
+                and numbers_not_in(m.group(), q, min_digits=1)]
+        figs = [m for m in NUMBER_RE.finditer(q) if not is_year(m.group()) and not is_day(q, m)
                 and numbers_not_in(m.group(), f["fact"], min_digits=1)]
         when = dates(q)
-        if not figs or not when:
+        if not mine or not figs or not when:
             continue
-        m = figs[0]
+        same = [m for m in figs if kind(q, m) == kind(fx, mine[0])]
+        if len(same) != 1:
+            return None
+        m = same[0]
         end = m.end()
-        if (u := UNIT_AFTER.match(q, end)) and not (u.group("mw") == "m" and u.start("mw") > end):
-            end = u.end()
+        if u := unit_at(q, end, ranged=False):
+            end = u[2]
         if p := PERCENT_AFTER.match(q, end):
             end = p.end()
         start, _, year, month, written = min(when, key=lambda d: min(abs(d[0] - end), abs(d[1] - m.start())))
         if year in years and (month is None or (year, month) in have
                               or not any(y == year and mo for y, mo in have)):
             return None                        # same date: the figure itself disagrees
-        return DATE_REASON.format(q[m.start():end].strip(), written)
+        cur = CURRENCY_BEFORE.search(q[max(0, m.start() - 4):m.start()])
+        return DATE_REASON.format(q[m.start() - (len(cur.group()) if cur else 0):end].strip(), written)
     return None
+
+
+FULL_DATE = re.compile(
+    r"\b(?:(\d{1,2})(?:er)?[ \t\u00a0]{1,2}([A-Za-z\u00e9\u00fb\u00c9]{3,9})\.?|([A-Za-z\u00e9\u00fb\u00c9]{3,9})\.?"
+    r"[ \t\u00a0]{1,2}(\d{1,2})(?:st|nd|rd|th)?,?|([A-Za-z\u00e9\u00fb\u00c9]{3,9})\.?)?[ \t\u00a0]{0,2}\b((?:19|20)\d{2})\b")
+
+
+def full_dates(text):
+    """{(year, month or None, day or None)} of the text's dates: "9 September 2024",
+    "September 9, 2024", "January 2017", "2017", "1er janvier 2004"."""
+    out = set()
+    for m in FULL_DATE.finditer(text):
+        day, mon = (m[1], m[2]) if m[2] else (m[4], m[3]) if m[3] else (None, m[5])
+        month = MONTHS.get(fold(mon).lower()) if mon else None
+        out.add((m[6], month, int(day) if day and month else None))
+    return out
+
+
+def compatible(a, b):
+    """Two dates that can be the same: same year, and month / day equal where both give one."""
+    return a[0] == b[0] and (a[1] is None or b[1] is None or a[1] == b[1]) and (
+        a[2] is None or b[2] is None or a[2] == b[2])
+
+
+def date_conflict(fact, quote, names, page="", meta=None):
+    """True if a verified quote dates the fact's event differently: the fact gives a year or
+    date, the quote has none compatible with it, and one quote sentence about the fact's
+    subject (its first claim name) holding one of its other content words ("inaugurated")
+    gives another date. A sentence is about the subject if it names it, or names no one
+    ("The plant was commissioned in January 2018") in a paragraph that opens with the subject
+    or on a page whose title names it. Names never count as conflicts: a quote about someone
+    else is "missing"."""
+    want = full_dates(fact)
+    subject = next((n for n in names if named_in(n, fact)), None)
+    if not want or subject is None:
+        return False
+    words = {w for w in content_words(fact) if not named_in(w, subject) and w not in MONTHS
+             and not w.isdigit() and len(w) >= 4}
+    # name_in(): named_in() skips 1-2 letter words, so "Noor II" would be "named" in a
+    # paragraph about Noor III; acronyms still match their spelled-out form (GERD).
+    exact = lambda text: bool(text) and name_in(subject, text)
+    para = paragraph_of(quote, page, quote_on_page) if page else None
+    lead = opening_name(para, page) if para else None
+    implied = exact(lead) or exact((meta or {}).get("title") or "")
+    for a, b in sentence_spans(quote):
+        sent = quote[a:b]
+        got = full_dates(sent)
+        if not got or not words & set(content_words(sent)):
+            continue
+        if not (exact(sent) or (implied and not entities(sent, page))):
+            continue
+        if not any(compatible(w, g) for w in want for g in got):
+            return True
+    return False
 
 
 def verdict(facts, framing, demoted, missing, ok=True, raw="", caps=()):
@@ -1196,6 +1512,10 @@ def merge(claim, results, texts, context=""):
     per_src = [[c for c in r.get("caps") or [] if c.startswith(PERIOD_CAP)] for r in stating]
     if stating and all(per_src):
         caps.append(per_src[0][0])
+    # Names: a name counts as checked if any source's stated quote (or title) has it.
+    left = [n for n in claim_names(claim, context) if all(
+        n in (r.get("unchecked_names") if "unchecked_names" in r else [n]) for _, r in with_facts)]
+    caps += names_cap(left)
     token = CLAIM_BOUNDS.set(tuple(b[1:] for b in bounds(claim)))
     try:
         v = verdict(facts, base["framing"], demoted, missing_numbers(claim, "\n".join(texts)), caps=caps)

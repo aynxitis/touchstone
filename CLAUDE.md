@@ -383,6 +383,36 @@ Fix (2026-10-14): quantity_tokens read a page number's %/unit at its LINE offset
 WHOLE page (locnum.tokens page=True matches per line), so on multi-line pages qualifiers
 never matched ("over 72%" vs 74.2 percent -> "Numbers not on page: 72"); now m.string.
 Excerpt anchors (has_anchor) also use bound_supported. Rescore report4/report5: no change.
+2026-10-16 (challenge suite fixes; eval/challenge is a DEV set, eval/score.py scores it):
+(1) URLs keep balanced parentheses (fetch_links.URL_BODY, possessive, linear; also "<url>"
+destinations): wiki/Frontier_(supercomputer) was fetched cut at "(supercomputer". (2) normalize()
+strips citation markers ([12], [a], [note 3], [citation needed], [réf. nécessaire], superscript
+digits; never a 4-digit [2023]) on page and quote. (3) entities.FUNCTION_WORDS (Le, La, Il, The,
+In...) are never names alone; opening_name skips them ("Le tramway de X" opens with no name).
+(4) fetch_links.keep_time_text: <time> -> <span> before trafilatura (it dropped fr.wikipedia
+dates). (5) A2 "possibly stated": each number needs its unit / % (equal value, qualifier-aware)
+or, on prose lines (8+ words, not a table row), its head word ("3,000 foreign visitors" not
+"3000-2000 BCE"); stops at a References/Notes/Bibliographie heading, skips "^"/"↑" entries.
+(6) date_reason names the quote figure of the fact's kind (% / unit family / currency), never a
+date's day; ambiguous -> standard reason. (7) date_conflict: model "contradicted" + a verified
+quote sentence about the subject (named whole, or naming no one in a paragraph opening with it /
+on a page titled with it) + a shared event word + an incompatible date -> stays contradicted.
+(8) Names guard (NAMES_CAP): every claim name (entities minus a trailing Region/Province...,
+plus country adjectives, minus publisher/attributed site, a short "Label:" lead-in skipped) must
+be in a stated/unconfirmed fact's verified QUOTE or the page title (name_in: names with 1-2 char
+words match whole, Noor II != Noor III), else SOURCED -> COULDN'T CONFIRM "Not checked: X, Y.";
+merge(): unchecked by every source. Cost on run1/run2: 3 correct SOURCED -> amber (Senegal,
+Benishangul-Gumuz, Noor III); the quote's paragraph would restore 2. (9) Hedges (roughly, about,
+around, approximately, circa, some, nearly, environ, près de...) = bound op "≈": the page value
+rounded to the claim's significant figures (min 2) matches; a hedge covers later figures of its
+clause (80 chars, no sentence break). (10) units.unit_at(): length (mm/cm/m/km; "5 m" spaced is
+metres, "53.6m" glued is million), area (m²/ha/km²), W, Wh; a range's first number takes the
+unit after the second ("30–110 cm"). (11) Prompt: number + qualifier + subject = ONE fact (hash
+pinned). (12) year_row_check: tables whose rows are years ("| 2020 | 46.0 % |"): conflict with
+the fact's year row's cell, else "elsewhere"; a spanning Total row aligns under the header;
+check_numbers.row_cells keeps an empty first cell ("||19,276,767 |"). rescore.py --out writes the
+re-scored run. Dev baselines report3/4/5: 0 labels changed. Challenge: run1 56/80 -> run2
+(Gemini) 71/80, re-scored with the final code 72/80; false SOURCED 0, false red 0.
 Labels: SOURCED / PARTIAL / COULDN'T CONFIRM / UNSUPPORTED / CONTRADICTED / UNVERIFIED / OPINION / SOURCE UNREACHABLE /
 NO SOURCE GIVEN / NOT CHECKED / ERROR. Verdicts judge factual parts only; editorial framing is noted, not penalized.
 
