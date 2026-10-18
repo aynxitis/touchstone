@@ -17,6 +17,7 @@ const SUMMARY = [
   ["SOURCE UNREACHABLE", "unreachable"], ["NOT CHECKED", "not checked (time limit)"],
   ["ERROR", "failed"],
 ];
+const SUMMARY_WORDS = new Map(SUMMARY);
 const STATUS_TEXT = {
   stated: "stated", missing: "not found", contradicted: "contradicted",
   unconfirmed: "couldn't confirm",   // the model found it; a code check doubts it (never an accusation)
@@ -109,10 +110,89 @@ function reasonExtra(ev) {
   return reason.replace(/\s{2,}/g, " ").trim();
 }
 
+// --- Diff marks -------------------------------------------------------------
+// A figure here is a number with a unit ("19%", "84.4 million"). Bare numbers are
+// deliberately left alone: years, claim numbers and table columns would match far
+// too often for a mark to mean anything.
+const FIGURE = /(\d[\d,]*(?:\.\d+)?)\s*(%|percent\b|percentage points?\b|bn\b|billion\b|million\b|thousand\b)/gi;
+
+function figureUnit(word) {
+  const w = word.toLowerCase();
+  if (w === "%") return "%";
+  if (w.startsWith("percentage")) return "pp";   // a percentage point is not a percent
+  if (w.startsWith("percent")) return "%";
+  if (w.startsWith("b")) return "bn";
+  if (w.startsWith("m")) return "m";
+  return "k";
+}
+
+function figureValue(raw) {
+  const s = raw.replace(/\s/g, "");
+  const v = /^\d{1,3}(,\d{3})+$/.test(s) ? Number(s.replace(/,/g, "")) : Number(s.replace(",", "."));
+  return Number.isFinite(v) ? v : null;
+}
+
+// Every figure in a text, with where it sits, so the renderer can mark it in place.
+function figuresIn(text) {
+  const out = [];
+  FIGURE.lastIndex = 0;
+  let m;
+  while ((m = FIGURE.exec(text))) {
+    const value = figureValue(m[1]);
+    if (value !== null) out.push({ unit: figureUnit(m[2]), value, start: m.index, end: m.index + m[0].length });
+  }
+  return out;
+}
+
+// The marks for one claim: the figures the engine's "contradicted" facts put in
+// doubt (in the claim text) and the page's differing figures (in the shown quote).
+// Only a two-sided pair is ever marked — a figure alone is not evidence of a
+// mismatch, so nothing is ever inferred beyond what the engine stated.
+function diffMarks(ev) {
+  const claimText = str(ev.text);
+  const claim = figuresIn(claimText);
+  const claimMarks = [];
+  const quoteMarks = new Map();
+  arr(ev.facts).forEach((f, i) => {
+    if (!f || typeof f !== "object" || str(f.status) !== "contradicted") return;
+    const quote = str(f.quote);
+    if (!quote) return;
+    const fact = figuresIn(str(f.fact));
+    const mine = claim.filter((c) => fact.some((g) => g.unit === c.unit && g.value === c.value));
+    const theirs = figuresIn(quote).filter((q) =>
+      mine.some((c) => c.unit === q.unit) &&   // only the unit the report's figure is in
+      !claim.some((c) => c.unit === q.unit && c.value === q.value) &&
+      !fact.some((g) => g.unit === q.unit && g.value === q.value));
+    if (!mine.length || !theirs.length) return;
+    for (const m of mine) claimMarks.push({ ...m, title: "The figure the page contradicts" });
+    quoteMarks.set(i, theirs.map((q) => ({ ...q, title: "The page's figure" })));
+  });
+  return { claimMarks, quoteMarks };
+}
+
+// Text as text nodes, the marks as inline spans — never innerHTML.
+function appendMarked(node, text, marks) {
+  const sorted = [...marks].filter((m) => m.start >= 0 && m.end > m.start && m.end <= text.length)
+    .sort((a, b) => a.start - b.start);
+  let pos = 0;
+  for (const m of sorted) {
+    if (m.start < pos) continue;   // two marks over one figure: the first wins
+    if (m.start > pos) node.append(document.createTextNode(text.slice(pos, m.start)));
+    const span = el("span", "diff", text.slice(m.start, m.end));
+    if (m.title) span.title = m.title;
+    node.append(span);
+    pos = m.end;
+  }
+  if (pos < text.length) node.append(document.createTextNode(text.slice(pos)));
+}
+
 function renderCard(ev) {
   const label = str(ev.label) || "UNKNOWN";
   const tone = TONES[label] || "grey";
   const card = el("article", `card tone-${tone}`);
+  card.dataset.label = label;   // what the verdict-strip chips filter on
+  // The enter animation is for arrival, not for chip toggles un-hiding the card.
+  card.addEventListener("animationend", () => { card.style.animation = "none"; }, { once: true });
 
   const head = el("div", "card-head");
   head.append(el("span", "badge", label));
@@ -120,13 +200,16 @@ function renderCard(ev) {
   if (n !== null) head.append(el("span", "num", `Claim ${n}`));
   card.append(head);
 
-  card.append(el("p", "claim", str(ev.text)));
+  const { claimMarks, quoteMarks } = diffMarks(ev);
+  const claim = el("p", "claim");
+  appendMarked(claim, str(ev.text), claimMarks);
+  card.append(claim);
   for (const note of arr(ev.notes)) if (str(note)) card.append(el("p", "note", str(note)));
 
   const sources = arr(ev.sources).filter((s) => s && typeof s === "object");
   const multi = sources.length > 1;
   const parts = el("ul", "parts");
-  for (const f of arr(ev.facts)) {
+  for (const [i, f] of arr(ev.facts).entries()) {
     if (!f || typeof f !== "object") continue;
     const status = str(f.status);
     const li = el("li");
@@ -136,12 +219,15 @@ function renderCard(ev) {
     // Where the quote is from: the PDF page, and the site when the claim cites several.
     const where = [multi && str(f.source) ? host(f.source) : "", int(f.page) ? `p. ${f.page}` : ""]
       .filter(Boolean).join(", ");
-    const quote = (text) => {
-      const q = el("blockquote", "", `“${text}”`);
+    const quote = (text, marks) => {
+      const q = el("blockquote");
+      q.append(document.createTextNode("“"));
+      appendMarked(q, text, marks || []);
+      q.append(document.createTextNode("”"));
       if (where) q.append(el("span", "where", ` (${where})`));
       return q;
     };
-    if (str(f.quote)) li.append(quote(str(f.quote)));
+    if (str(f.quote)) li.append(quote(str(f.quote), quoteMarks.get(i)));
     if (str(f.evidence)) {
       li.append(el("p", "rejected", "Not in the passages checked, but this line on the page has its figures. Check it:"));
       li.append(quote(str(f.evidence)));
@@ -231,16 +317,76 @@ function addSkipped(ev, reason) {
     `Not checked${why ? ` (${why})` : ""}: ${n} claim${n === 1 ? "" : "s"}`;
 }
 
+// The labels that have a count, in summary order, unknown labels last — shared by
+// the summary line and the strip so the two cannot drift apart.
+function orderedLabels(counts) {
+  const labels = SUMMARY.map(([k]) => k).filter((k) => counts[k]);
+  for (const k of Object.keys(counts)) if (!SUMMARY_WORDS.has(k)) labels.push(k);
+  return labels;
+}
+
+function labelText(k, counts) {
+  return `${counts[k]} ${SUMMARY_WORDS.get(k) || k.toLowerCase()}`;
+}
+
 // "Checked 10 of 11 claims: ..." whenever some cited claims were left out.
 function summaryLine(counts, checked, cited) {
-  const bits = SUMMARY.filter(([k]) => counts[k]).map(([k, w]) => `${counts[k]} ${w}`);
-  for (const [k, v] of Object.entries(counts)) {
-    if (!SUMMARY.some(([s]) => s === k)) bits.push(`${v} ${k.toLowerCase()}`);
-  }
+  const bits = orderedLabels(counts).map((k) => labelText(k, counts));
   const head = cited > checked
     ? `Checked ${checked} of ${cited} claims`
     : `${checked} claim${checked === 1 ? "" : "s"} checked`;
   return bits.length ? `${head}: ${bits.join(", ")}` : head;
+}
+
+// --- Verdict strip + filter chips -------------------------------------------
+// The summary line, drawn: a proportional bar with one chip per label. Clicking a
+// chip filters the cards below to that label; "All" brings every card back.
+let filterChips = [];
+let filterLabel = null;
+
+function applyFilter(label) {
+  filterLabel = label;
+  for (const { btn, label: own } of filterChips) btn.setAttribute("aria-pressed", String(own === label));
+  // Cards with no label (the fix-it and one-line error cards) are never filtered away.
+  for (const card of $("cards").children) {
+    card.hidden = label !== null && !!card.dataset.label && card.dataset.label !== label;
+  }
+}
+
+function chipButton(text, tone, label) {
+  const btn = el("button", `chip tone-${tone}`, text);
+  btn.type = "button";
+  btn.setAttribute("aria-pressed", String(label === null));
+  if (label !== null) btn.dataset.label = label;
+  btn.addEventListener("click", () => applyFilter(filterLabel === label ? null : label));
+  filterChips.push({ btn, label });
+  return btn;
+}
+
+function renderSummary(counts, checked, cited) {
+  const box = $("summary");
+  box.replaceChildren();
+  filterChips = [];
+  filterLabel = null;
+  const labels = orderedLabels(counts);
+  if (!labels.length) return;   // defensive: call sites guard on done > 0
+  // The bar repeats the chips; named once as a whole for screen readers.
+  const strip = el("div", "strip");
+  strip.setAttribute("role", "img");
+  strip.setAttribute("aria-label", summaryLine(counts, checked, cited));
+  for (const k of labels) {
+    const seg = el("span", `strip-seg tone-${TONES[k] || "grey"}`);
+    seg.style.flexGrow = String(counts[k]);
+    seg.title = labelText(k, counts);
+    strip.append(seg);
+  }
+  const row = el("div", "chips");
+  row.setAttribute("role", "group");
+  row.setAttribute("aria-label", "Filter claims by result");
+  row.append(chipButton("All", "grey", null));
+  for (const k of labels) row.append(chipButton(labelText(k, counts), TONES[k] || "grey", k));
+  box.append(strip, row);
+  applyFilter(null);
 }
 
 // The last finished run, for "Download results": built from the events already received,
@@ -270,6 +416,8 @@ function reset() {
   $("download").hidden = true;
   $("cards").replaceChildren();
   $("summary").textContent = "";
+  filterChips = [];
+  filterLabel = null;
   $("scope").textContent = "";
   const box = $("uncited");
   box.hidden = true;
@@ -383,11 +531,11 @@ function resultsView(report) {
       if (done) offerDownload(run);
       if (stopped) {
         setStatus(stopped, true);
-        if (done) $("summary").textContent = summaryLine(counts, done, cited);
+        if (done) renderSummary(counts, done, cited);
         return;
       }
       if (total) setStatus(`Done. Claim ${done}/${total}.`);
-      if (done) $("summary").textContent = summaryLine(counts, done, cited);
+      if (done) renderSummary(counts, done, cited);
     } else if (ev.type === "error") {
       setStatus(str(ev.error) || "The audit failed.", true);
     }
@@ -406,7 +554,7 @@ function resultsView(report) {
   const endedEarly = () => {
     if (finished || $("status").classList.contains("error")) return;
     setStatus(`The connection ended early. Claim ${done}/${total} done.`, true);
-    if (done) $("summary").textContent = summaryLine(counts, done, cited);
+    if (done) renderSummary(counts, done, cited);
     if (done) { run.stopped = "The connection ended early."; offerDownload(run); }
   };
 
