@@ -181,7 +181,7 @@ class SharePacer:
         self.pacer.record(tokens)
 
 
-INVISIBLE = re.compile("[\x00-\x1f\x7f-\x9f​-‏‪-‮⁠-⁤⁦-⁩﻿"
+INVISIBLE = re.compile("[\x00-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff"
                        "\U000e0000-\U000e007f]")
 
 
@@ -190,7 +190,7 @@ def clean(text, limit=UNTRUSTED_CHARS):
     characters removed (invisible "ASCII smuggling"); whitespace collapsed; cut to `limit`."""
     text = INVISIBLE.sub("", re.sub(r"[\r\n\t]", " ", str(text or "")))
     text = " ".join(text.split())
-    return text if len(text) <= limit else text[:limit - 1].rstrip() + "…"
+    return text if len(text) <= limit else text[:limit - 1].rstrip() + "\u2026"
 
 
 def not_checked(index, url, reason, retryable):
