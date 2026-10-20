@@ -156,6 +156,8 @@ async def guard(request: Request, call_next):
         response.headers["Cache-Control"] = "public, max-age=31536000, immutable"   # hash in URL
     elif path == "/" or path.startswith("/static/"):
         response.headers["Cache-Control"] = "no-cache"   # revalidate: users get updates at once
+    elif path == "/mcp":
+        response.headers["Cache-Control"] = "no-store, no-transform"   # no cached results, no buffered stream
     return response
 
 
@@ -240,8 +242,9 @@ class CountingClient:
     though the provider may have spent them. Groq: chat.completions.create; Gemini:
     models.generate_content."""
 
-    def __init__(self, inner):
+    def __init__(self, inner, count=None):
         self.counted = False
+        self.count = count     # None: the website's daily cap; MCP passes its own counter
         self.chat = types.SimpleNamespace(completions=types.SimpleNamespace(
             create=lambda **k: self._call(lambda: inner.chat.completions.create(**k))))
         self.models = types.SimpleNamespace(
@@ -250,7 +253,7 @@ class CountingClient:
     def _call(self, send):
         if not self.counted:
             self.counted = True
-            count_daily_audit()
+            (self.count or count_daily_audit)()
         return send()
 
 
@@ -428,3 +431,18 @@ async def run_audit(request: Request):
     threading.Thread(target=work, daemon=True).start()
     return StreamingResponse(stream(), media_type="application/x-ndjson",
                              headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
+
+
+# Remote MCP server (mcp_server.py): POST /mcp, only with MCP_ENABLED=1. Read before importing
+# mcp, so MCP_ENABLED=0 never loads it; a failed import or build only logs: the website starts
+# either way.
+MCP_ENABLED = os.environ.get("MCP_ENABLED", "").strip() == "1"
+if MCP_ENABLED:
+    try:
+        import mcp_server
+        mcp_routes, mcp_lifespan = mcp_server.build(mcp_server.Shared(
+            busy=busy, pacer=PACER, client=client, provider=PROVIDER, counting=CountingClient))
+        app.router.routes.extend(mcp_routes)         # POST /mcp; /mcp/ -> 404, never a redirect
+        app.router.lifespan_context = mcp_lifespan   # a fresh session manager per start
+    except Exception as e:
+        log.error("MCP disabled: %s", type(e).__name__)
