@@ -46,11 +46,25 @@ Code alone never accuses: a red label needs the model's judgement plus a conflic
 
 Editorial framing ("dramatic", "robust") is noted, not penalized: verdicts judge factual parts only.
 
+## Use it from an AI agent
+
+Touchstone is also a remote MCP server with one tool, `check_claims`: an agent sends the claims it is about to make, each with the URLs it cites, and gets a label per claim before it answers. The server is at `https://touchstone.aynx.dev/mcp`. It needs no sign-in or API key.
+
+- **claude.ai:** Customize → Connectors → Add custom connector, URL `https://touchstone.aynx.dev/mcp`, no sign-in.
+- **Claude Code:** `claude mcp add --transport http touchstone https://touchstone.aynx.dev/mcp`
+- **ChatGPT, Cursor:** untested. Any client that supports remote MCP servers over Streamable HTTP should work.
+
+Limits: 5 claims per call (1 to 3 URLs each, 5 distinct URLs), about 90 seconds per call, one call at a time, and 15 checks a day shared by everyone (separate from the website's limits). Labels are the same as on the website. Text copied from the pages or written by the checking model comes only in fields named `untrusted_*`, so the agent can treat it as data.
+
+Claims and the text of the cited pages are processed by Google Gemini's free tier, which may use them to improve Google's products. Don't send anything private.
+
 ## Accuracy, honestly
 
 Held-out test on 2 reports we had never tuned on, with labels written before running: with Gemini, 10 of 11 checkable claims were labelled correctly in both runs, with zero false greens and zero false reds. This is a small sample.
 
 Later tests (ChatGPT, Perplexity and Gemini reports on 14 Oct 2026) were development checks used to find and fix bugs, not held-out results.
+
+Testing the MCP server surfaced a false-green path in claims with several sources: when one cited page contradicted a claim that another cited page supported, the claim could come out SOURCED. That is now fixed and covered by tests.
 
 Touchstone checks whether the cited source says what the report claims, not whether the source itself is right.
 
@@ -106,6 +120,7 @@ The optional second argument re-runs only those claim numbers. `--cache` stores 
 ## Architecture
 
 - `app.py`: FastAPI app: serves the page, streams audit events, rate limits, proxy-secret check.
+- `mcp_server.py`: the remote MCP server (`check_claims` at `POST /mcp`), on only with `MCP_ENABLED=1`.
 - `touchstone.py`: the audit pipeline: claim selection, fetching, model calls, deadlines, multi-source merge.
 - `check_numbers.py`: report parsing: claims, links, footnotes, Source lines, tables, stat blocks.
 - `fetch_links.py`: SSRF-safe page fetching and text extraction, bot-block detection.
@@ -125,8 +140,10 @@ Deployment: the app runs on Railway (EU region) behind a Cloudflare Worker. The 
 
 - "Find a source": for claims with no source or a failed one, search the web neutrally, check what's found with the same strict rules, and show whether other pages support it, contradict it, or say nothing.
 - A second opinion from a stronger model on amber claims, with the code still deciding the label.
-- A citation-checking tool that AI agents can call before they answer (MCP).
-- Bring your own Gemini key, kept in the browser for one session and never stored.
+- Done: a hosted MCP connector that AI agents can call before they answer (see "Use it from an AI agent").
+- MCP: bring your own Gemini key, sent in a request header and never stored, so heavy users don't share the daily 15.
+- MCP: a quote-supplied mode, where the agent sends the quote it relies on with each claim and Touchstone verifies it on the page.
+- Bring your own Gemini key on the website, kept in the browser for one session and never stored.
 - Arabic support.
 
 ## AI use
