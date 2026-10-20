@@ -502,10 +502,14 @@ function layout() {
   const scrollable = sh > ch + 4 && h > 0;
   win.style.display = scrollable ? "block" : "none";
   if (scrollable) {
-    const winH = Math.max(16, Math.round((ch / sh) * h));
-    const winTop = Math.round((pane.scrollTop / sh) * h);
+    // Match a code editor's viewport slider: the thumb travels over the track
+    // that remains after its own height is removed.
+    const winH = Math.max(28, Math.round((ch / sh) * h));
+    const trackH = Math.max(0, h - winH);
+    const maxScroll = Math.max(1, sh - ch);
+    const winTop = Math.round((pane.scrollTop / maxScroll) * trackH);
     win.style.height = `${winH}px`;
-    win.style.top = `${Math.max(0, Math.min(h - winH, winTop))}px`;
+    win.style.top = `${Math.max(0, Math.min(trackH, winTop))}px`;
   }
   for (const c of doc.claims) {
     if (!c.mark || !c.unit) continue;
@@ -594,13 +598,19 @@ function stepProblem(dir) {
 }
 
 let rulerDrag = false;
+let rulerGrab = 0;
 
 function scrollFromRuler(y) {
   const pane = $("docpane");
-  const rect = $("ovr").getBoundingClientRect();
-  const frac = Math.min(1, Math.max(0, (y - rect.top) / rect.height));
+  const ovr = $("ovr");
+  const win = $("ovrwin");
+  const rect = ovr.getBoundingClientRect();
   const max = pane.scrollHeight - pane.clientHeight;
-  if (max > 0) pane.scrollTop = frac * max;
+  const winH = win.offsetHeight;
+  const track = rect.height - winH;
+  if (max <= 0 || track <= 0) return;
+  const top = Math.max(0, Math.min(track, y - rect.top - rulerGrab));
+  pane.scrollTop = (top / track) * max;
 }
 
 /* ---------------- card rendering ---------------- */
@@ -1404,7 +1414,7 @@ function replayProvenance(run, example) {
 }
 
 function setBusy(busy) {
-  for (const id of ["run", "rerun", "example", "run-live", "playback", "import", "import2", "new", "file", "check"]) {
+  for (const id of ["run", "rerun", "example", "run-live", "playback", "import", "import2", "new", "file", "check", "edit"]) {
     const node = $(id);
     if (node) node.disabled = busy;
   }
@@ -1931,6 +1941,7 @@ function loadReport(text, name) {
     return false;
   }
 
+  document.body.classList.add("has-report");
   resetRunView();
   state.report = clean;
   state.name = name || reportName(clean);
@@ -1961,6 +1972,7 @@ function loadReport(text, name) {
   $("docname").title = state.name;
   $("docname").hidden = false;
   $("new").hidden = false;
+  $("edit").hidden = false;
   $("showmatched").hidden = false;
   $("docwrap").classList.add("has-doc");
   $("docpane").scrollTop = 0;
@@ -1976,10 +1988,203 @@ function loadReport(text, name) {
   return true;
 }
 
+/* ---------------- markdown editor ---------------- */
+
+function updateEditCount() {
+  const n = $("markdown").value.length;
+  $("editcount").textContent = `${n.toLocaleString()} / ${MAX_CHARS.toLocaleString()}`;
+  $("editcount").classList.toggle("over", n > MAX_CHARS);
+  layoutEditorScroll();
+}
+
+let editorDrag = false;
+let editorGrab = 0;
+
+function layoutEditorScroll() {
+  const area = $("markdown");
+  const bar = $("mdeditbar");
+  const win = $("mdeditwin");
+  if (!area || !bar || !win) return;
+  const sh = area.scrollHeight;
+  const ch = area.clientHeight;
+  const h = bar.clientHeight;
+  const scrollable = sh > ch + 2 && h > 0;
+  win.style.display = scrollable ? "block" : "none";
+  if (!scrollable) return;
+  const winH = Math.max(30, Math.round((ch / sh) * h));
+  const track = Math.max(0, h - winH);
+  const max = Math.max(1, sh - ch);
+  const top = Math.round((area.scrollTop / max) * track);
+  win.style.height = `${winH}px`;
+  win.style.top = `${Math.max(0, Math.min(track, top))}px`;
+}
+
+function scrollEditorFromBar(y) {
+  const area = $("markdown");
+  const bar = $("mdeditbar");
+  const win = $("mdeditwin");
+  const rect = bar.getBoundingClientRect();
+  const winH = win.offsetHeight;
+  const track = rect.height - winH;
+  const max = area.scrollHeight - area.clientHeight;
+  if (max <= 0 || track <= 0) return;
+  const top = Math.max(0, Math.min(track, y - rect.top - editorGrab));
+  area.scrollTop = (top / track) * max;
+}
+
+function openEditor() {
+  if (!state.report || state.running) return;
+  $("edit-err").textContent = "";
+  const area = $("markdown");
+  area.value = state.report;
+  area.scrollTop = 0;
+  area.scrollLeft = 0;
+  updateEditCount();
+  const dlg = $("editor");
+  if (!dlg.open) dlg.showModal();
+  area.focus();
+  area.setSelectionRange(0, 0);
+  // Focus can restore a stale scroll offset in some browsers; put the writer
+  // at the top of the source, not halfway through the previous document.
+  requestAnimationFrame(() => {
+    area.scrollTop = 0;
+    area.scrollLeft = 0;
+    area.setSelectionRange(0, 0);
+    layoutEditorScroll();
+  });
+  announce("Markdown editor open.");
+}
+
+function closeEditor() {
+  const dlg = $("editor");
+  if (dlg.open) dlg.close();
+  $("edit-err").textContent = "";
+}
+
+function saveEditor() {
+  const text = $("markdown").value.replace(/^\uFEFF/, "");
+  if (!text.trim()) {
+    $("edit-err").textContent = "Add a report before saving.";
+    $("markdown").focus();
+    return;
+  }
+  if (text.length > MAX_CHARS) {
+    $("edit-err").textContent = `Reports are limited to ${MAX_CHARS.toLocaleString()} characters.`;
+    return;
+  }
+  if (text === state.report) {
+    closeEditor();
+    return;
+  }
+  const name = state.name || reportName(text);
+  closeEditor();
+  if (loadReport(text, name)) {
+    setProvenance("Edited · previous assay cleared.");
+    announce("Markdown saved. Run the assay to check the new text.");
+  }
+}
+
+function wrapMarkdown(before, after, placeholder) {
+  const area = $("markdown");
+  const start = area.selectionStart;
+  const end = area.selectionEnd;
+  const selected = area.value.slice(start, end);
+  const text = selected || placeholder;
+  area.setRangeText(before + text + after, start, end, "end");
+  if (!selected) {
+    area.setSelectionRange(start + before.length, start + before.length + text.length);
+  }
+  area.dispatchEvent(new Event("input", { bubbles: true }));
+  area.focus();
+}
+
+function formatMarkdown(kind) {
+  if (kind === "bold") wrapMarkdown("**", "**", "bold text");
+  else if (kind === "italic") wrapMarkdown("*", "*", "italic text");
+  else if (kind === "link") wrapMarkdown("[", "](https://)", "link text");
+  else if (kind === "h2") {
+    const area = $("markdown");
+    const start = area.selectionStart;
+    const line = area.value.lastIndexOf("\n", start - 1) + 1;
+    area.setRangeText("## ", line, line, "end");
+    area.dispatchEvent(new Event("input", { bubbles: true }));
+    area.focus();
+  }
+}
+
+function bindEditorEvents() {
+  $("edit").addEventListener("click", openEditor);
+  $("close-edit").addEventListener("click", closeEditor);
+  $("cancel-edit").addEventListener("click", closeEditor);
+  $("save-edit").addEventListener("click", saveEditor);
+  $("markdown").addEventListener("input", () => {
+    updateEditCount();
+    if ($("edit-err").textContent) $("edit-err").textContent = "";
+  });
+  $("markdown").addEventListener("scroll", layoutEditorScroll);
+  const edbar = $("mdeditbar");
+  edbar.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    const win = $("mdeditwin");
+    if (win.style.display === "none") return;
+    const onThumb = e.target === win;
+    editorGrab = onThumb ? e.clientY - win.getBoundingClientRect().top : win.offsetHeight / 2;
+    editorDrag = true;
+    try { edbar.setPointerCapture(e.pointerId); } catch { /* no pointer capture */ }
+    editorGrab = Math.max(0, Math.min(win.offsetHeight || 0, editorGrab));
+    if (!onThumb) scrollEditorFromBar(e.clientY);
+    e.preventDefault();
+  });
+  edbar.addEventListener("pointermove", (e) => { if (editorDrag) scrollEditorFromBar(e.clientY); });
+  edbar.addEventListener("pointerup", (e) => {
+    editorDrag = false;
+    try { edbar.releasePointerCapture(e.pointerId); } catch { /* already released */ }
+  });
+  edbar.addEventListener("pointercancel", () => { editorDrag = false; });
+  edbar.addEventListener("wheel", (e) => {
+    $("markdown").scrollTop += e.deltaY;
+    e.preventDefault();
+  }, { passive: false });
+  window.addEventListener("resize", layoutEditorScroll);
+  for (const btn of document.querySelectorAll("[data-md]")) {
+    btn.addEventListener("click", () => formatMarkdown(btn.dataset.md));
+  }
+  $("markdown").addEventListener("keydown", (e) => {
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      saveEditor();
+    } else if (mod && e.key === "Enter") {
+      e.preventDefault();
+      saveEditor();
+    } else if (mod && e.key.toLowerCase() === "b") {
+      e.preventDefault();
+      formatMarkdown("bold");
+    } else if (mod && e.key.toLowerCase() === "i") {
+      e.preventDefault();
+      formatMarkdown("italic");
+    } else if (mod && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      formatMarkdown("link");
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      const area = e.currentTarget;
+      const at = area.selectionStart;
+      area.setRangeText("  ", at, area.selectionEnd, "end");
+      area.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  });
+  $("editor").addEventListener("close", () => {
+    editorDrag = false;
+    $("edit-err").textContent = "";
+  });
+}
+
 function showFront(focus) {
   state.report = "";
   state.name = "";
   state.running = false;
+  document.body.classList.remove("has-report");
   state.replay = false;
   state.selected = null;
   state.pager = [];
@@ -1997,6 +2202,7 @@ function showFront(focus) {
   $("docwrap").classList.remove("has-doc");
   $("docname").hidden = true;
   $("new").hidden = true;
+  $("edit").hidden = true;
   $("showmatched").hidden = true;
   $("ovr").hidden = true;
   for (const old of $("ovr").querySelectorAll(".ovr-mark")) old.remove();
@@ -2075,6 +2281,7 @@ function stepCard(dir) {
 }
 
 function bindEvents() {
+  bindEditorEvents();
   $("theme").addEventListener("click", toggleTheme);
   $("import").addEventListener("click", () => { if (!state.running) $("file").click(); });
   $("import2").addEventListener("click", () => { if (!state.running) $("file").click(); });
@@ -2132,9 +2339,13 @@ function bindEvents() {
   const ovr = $("ovr");
   ovr.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || e.target.closest(".ovr-mark") || !state.report) return;
+    const win = $("ovrwin");
+    const onThumb = e.target === win;
+    rulerGrab = onThumb ? e.clientY - win.getBoundingClientRect().top : win.offsetHeight / 2;
     rulerDrag = true;
     try { ovr.setPointerCapture(e.pointerId); } catch { /* no capture */ }
-    scrollFromRuler(e.clientY);
+    rulerGrab = Math.max(0, Math.min(win.offsetHeight || 0, rulerGrab));
+    if (!onThumb) scrollFromRuler(e.clientY);
     e.preventDefault();
   });
   ovr.addEventListener("pointermove", (e) => { if (rulerDrag) scrollFromRuler(e.clientY); });
@@ -2143,6 +2354,11 @@ function bindEvents() {
     try { ovr.releasePointerCapture(e.pointerId); } catch { /* already released */ }
   });
   ovr.addEventListener("pointercancel", () => { rulerDrag = false; });
+  ovr.addEventListener("wheel", (e) => {
+    if (!state.report) return;
+    $("docpane").scrollTop += e.deltaY;
+    e.preventDefault();
+  }, { passive: false });
 
   let pending = false;
   $("docpane").addEventListener("scroll", () => {
@@ -2156,17 +2372,30 @@ function bindEvents() {
   document.addEventListener("keydown", (e) => {
     const typing = e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement ||
       (e.target instanceof HTMLElement && e.target.isContentEditable);
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "o") {
+    const mod = e.ctrlKey || e.metaKey;
+    if ($("editor").open) {
+      if (!e.defaultPrevented && mod && (e.key.toLowerCase() === "s" || e.key === "Enter")) {
+        e.preventDefault();
+        saveEditor();
+      }
+      return;
+    }
+    if (mod && e.key.toLowerCase() === "o") {
       e.preventDefault();
       if (!state.running) $("file").click();
       return;
     }
     if (typing) {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !state.running) {
+      if (mod && e.key === "Enter" && !state.running) {
         e.preventDefault();
         if (state.report) runAudit();
         else openFromFront();
       }
+      return;
+    }
+    if (mod && e.key.toLowerCase() === "e") {
+      e.preventDefault();
+      if (state.report && !state.running) openEditor();
       return;
     }
     if ($("shortcuts").open) return;

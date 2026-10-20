@@ -16,6 +16,7 @@
     <span class="docname" id="docname" hidden></span>
     <div class="top-actions">
       <button id="new" class="tbtn" type="button" hidden>New</button>
+      <button id="edit" class="tbtn" type="button" hidden>Edit</button>
       <button id="import" class="tbtn" type="button">Import</button>
       <input id="file" type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" hidden>
       <button id="export" class="tbtn" type="button" disabled>Export</button>
@@ -32,12 +33,15 @@
             <p class="kicker">Assay a report <span class="demo-tag">design demo</span></p>
             <h1>Does the source say it?</h1>
             <p class="lede">Paste an AI research report with its links. Touchstone checks each claim against the page it cites.</p>
+            <div class="example-row">
+              <button id="example" class="secondary" type="button">Try the example</button>
+              <span class="example-note">A saved report; no tokens.</span>
+            </div>
             <label class="sr-only" for="report">Report to check</label>
             <textarea id="report" spellcheck="false" placeholder="Paste the report here, links included."></textarea>
             <div class="front-row">
               <button id="check" class="primary" type="button">Open report</button>
               <button id="import2" class="secondary" type="button">Import .md</button>
-              <button id="example" class="secondary" type="button">Try the example</button>
               <span id="count" class="count"></span>
             </div>
             <p id="fronterr" class="fronterr" role="status"></p>
@@ -147,12 +151,46 @@
   </div>
 </dialog>
 
+<dialog id="editor" class="editdlg" aria-labelledby="edit-title">
+  <div class="edit-head">
+    <div>
+      <p class="ev-kicker">Report source</p>
+      <h2 class="edit-title" id="edit-title">Edit markdown</h2>
+    </div>
+    <button id="close-edit" class="dlgx" type="button" aria-label="Close editor">×</button>
+  </div>
+  <div class="edit-bar">
+    <div class="md-tools" role="group" aria-label="Markdown formatting">
+      <button type="button" data-md="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+      <button type="button" data-md="italic" title="Italic (Ctrl+I)"><i>I</i></button>
+      <button type="button" data-md="h2" title="Heading">H2</button>
+      <button type="button" data-md="link" title="Link (Ctrl+K)">Link</button>
+    </div>
+    <span class="edit-hint">Saving clears the last assay; run it again to check the new text.</span>
+  </div>
+  <div class="md-wrap">
+    <textarea id="markdown" class="md-editor" spellcheck="false" aria-label="Markdown source"></textarea>
+    <div id="mdeditbar" class="md-scroll" aria-hidden="true">
+      <div id="mdeditwin" class="md-scroll-win"></div>
+    </div>
+  </div>
+  <p id="edit-err" class="fronterr" role="status"></p>
+  <div class="edit-foot">
+    <span class="count" id="editcount"></span>
+    <span class="edit-keys">Ctrl / ⌘ S to save</span>
+    <button id="cancel-edit" class="secondary" type="button">Cancel</button>
+    <button id="save-edit" class="primary" type="button">Save changes</button>
+  </div>
+</dialog>
+
 <dialog id="shortcuts" class="dlg">
   <form method="dialog"><button class="dlgx" type="submit" aria-label="Close">×</button></form>
   <h2>Keys</h2>
   <dl>
     <div><dt>Ctrl / ⌘ O</dt><dd>Import a report</dd></div>
-    <div><dt>Ctrl / ⌘ Enter</dt><dd>Run the assay</dd></div>
+    <div><dt>Ctrl / ⌘ Enter</dt><dd>Run the assay / save edits</dd></div>
+    <div><dt>Ctrl / ⌘ E</dt><dd>Edit the markdown</dd></div>
+    <div><dt>Ctrl / ⌘ S</dt><dd>Save markdown edits</dd></div>
     <div><dt>J / K</dt><dd>Next / previous card</dd></div>
     <div><dt>[ / ]</dt><dd>Previous / next problem</dd></div>
     <div><dt>G</dt><dd>Back to top</dd></div>
