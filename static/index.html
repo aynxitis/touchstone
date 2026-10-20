@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Touchstone</title>
+<link rel="icon" type="image/svg+xml" href="static/favicon.svg">
 <link rel="stylesheet" href="/static/style.css">
 <script src="/static/app.js" defer></script>
 </head>
@@ -11,6 +12,7 @@
 <div class="app">
   <header class="topbar">
     <a class="wordmark" href="/">Touchstone</a>
+    <span class="demo-tag" title="Design demo — not the shipped build">design demo</span>
     <span class="docname" id="docname" hidden></span>
     <div class="top-actions">
       <button id="new" class="tbtn" type="button" hidden>New</button>
@@ -23,11 +25,11 @@
   </header>
 
   <div class="body">
-    <div class="docwrap" id="docwrap">
+    <div class="docwrap hide-ok" id="docwrap">
       <main class="docpane" id="docpane">
         <section class="front" id="front">
           <div class="front-inner">
-            <p class="kicker">Assay a report</p>
+            <p class="kicker">Assay a report <span class="demo-tag">design demo</span></p>
             <h1>Does the source say it?</h1>
             <p class="lede">Paste an AI research report with its links. Touchstone checks each claim against the page it cites.</p>
             <label class="sr-only" for="report">Report to check</label>
@@ -76,12 +78,15 @@
         <div class="progress" id="progress" hidden><span id="bar"></span></div>
       </div>
 
-      <div class="railbody" id="railbody">
-        <div id="replay" class="replay" hidden>
-          <p id="replay-msg"></p>
+      <div id="replay" class="replay" hidden>
+        <p id="replay-msg"></p>
+        <div class="replay-actions">
           <button id="run-live" class="linkish" type="button">Run it live</button>
+          <button id="playback" class="linkish" type="button">Play it back</button>
         </div>
+      </div>
 
+      <div class="railbody" id="railbody">
         <div id="nolinks" class="nolinks" hidden>
           <p id="nolinks-msg" class="nolinks-msg"></p>
           <p>Use your AI tool's copy button, not download (downloads often drop the links).</p>
@@ -100,9 +105,14 @@
             <div><dt><span class="dot dot-yellow"></span>Unsupported</dt><dd>no line backs it</dd></div>
             <div><dt><span class="dot dot-red"></span>Contradicted</dt><dd>the source says otherwise</dd></div>
           </dl>
+          <div id="recent" class="recent" hidden>
+            <p class="empty-k">Recent assays</p>
+            <ul id="recentlist" class="recentlist"></ul>
+          </div>
         </div>
 
         <div id="cards" class="cards"></div>
+        <div id="skeletons" class="skeletons" aria-hidden="true" hidden></div>
         <div id="matched" class="matched" hidden></div>
         <div id="tray" class="tray" hidden></div>
 
@@ -118,11 +128,24 @@
 
       <div class="railfoot" id="railfoot">
         <span id="provenance">Zero tokens until you run.</span>
-        <button id="showmatched" class="linkish" type="button" aria-pressed="true">Matched marks</button>
+        <button id="showmatched" class="linkish" type="button" aria-pressed="false" hidden>Show matched</button>
       </div>
     </aside>
   </div>
 </div>
+
+<dialog id="evidence" class="evdlg" aria-labelledby="ev-title">
+  <form method="dialog"><button class="dlgx" type="submit" aria-label="Close evidence">×</button></form>
+  <p class="ev-kicker" id="ev-kicker">Evidence</p>
+  <h2 class="ev-title" id="ev-title">Claim</h2>
+  <p class="ev-claim" id="ev-claim"></p>
+  <div class="ev-facts" id="ev-facts"></div>
+  <div class="ev-links" id="ev-links"></div>
+  <div class="ev-foot">
+    <button id="ev-show" class="secondary" type="button">Show in document</button>
+    <span class="ev-note">Quotes are the passages the checker read.</span>
+  </div>
+</dialog>
 
 <dialog id="shortcuts" class="dlg">
   <form method="dialog"><button class="dlgx" type="submit" aria-label="Close">×</button></form>

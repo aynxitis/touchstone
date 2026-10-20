@@ -25,6 +25,8 @@ const STATUS_TEXT = {
 };
 
 const $ = (id) => document.getElementById(id);
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+const motion = () => (reduceMotion.matches ? "auto" : "smooth");
 const str = (v) => (typeof v === "string" ? v : "");
 const arr = (v) => (Array.isArray(v) ? v : []);
 const int = (v) => {
@@ -93,8 +95,8 @@ function toggleTheme() {
 // ---------------- state ----------------
 const state = {
   report: "", name: "", running: false, startedAt: 0, elapsed: 0, tokens: null,
-  lastRun: null, replay: false, selected: null, pager: [], pagerIdx: 0,
-  filter: null, matchedOpen: false, hideOk: false,
+  lastRun: null, lastRunExample: false, retryPlayback: false, replay: false, selected: null, pager: [], pagerIdx: 0,
+  filter: null, matchedOpen: false, hideOk: true, abort: null, replaying: false,
   total: 0, done: 0, cited: 0, counts: {},
 };
 const doc = { units: [], claims: [], byNo: new Map(), unplaced: [] };
@@ -462,7 +464,7 @@ function attachClaim(ev) {
   const label = str(ev.label).toUpperCase() || "UNKNOWN";
   const unit = matchUnit(str(ev.text));
   const claim = { no, label, text: str(ev.text), kind: signalOf(label), unit,
-                  offset: 0, card: null, row: null, mark: null };
+                  ev, offset: 0, card: null, row: null, mark: null };
   doc.byNo.set(no, claim);
   doc.claims.push(claim);
   if (unit) {
@@ -491,6 +493,9 @@ function layout() {
     return;
   }
   ovr.hidden = false;
+  const stone = $("stone");
+  const strip = narrow.matches && stone.classList.contains("in-doc") ? stone.offsetHeight : 0;
+  ovr.style.top = strip ? `${strip}px` : "";
   const sh = pane.scrollHeight;
   const ch = pane.clientHeight;
   const h = ovr.clientHeight;
@@ -547,11 +552,11 @@ function selectClaim(no, scroll) {
   if (claim.card) claim.card.classList.add("is-sel");
   if (claim.row) claim.row.classList.add("is-sel");
   if (scroll && claim.unit) {
-    claim.unit.el.scrollIntoView({ block: "center", behavior: "smooth" });
-    if (claim.card) claim.card.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    claim.unit.el.scrollIntoView({ block: "center", behavior: motion() });
+    if (claim.card) claim.card.scrollIntoView({ block: "nearest", behavior: motion() });
     if (claim.row && !$("matched").hidden) {
       setMatchedOpen(true);
-      claim.row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      claim.row.scrollIntoView({ block: "nearest", behavior: motion() });
     }
   }
   const at = state.pager.indexOf(claim);
@@ -652,6 +657,52 @@ function diffMarks(ev) {
   return { claimMarks, quoteMarks };
 }
 
+function correctedClaim(ev) {
+  const claimText = str(ev.text);
+  const claimFigs = figuresIn(claimText);
+  const reps = [];
+  for (const f of arr(ev.facts)) {
+    if (!f || typeof f !== "object" || str(f.status) !== "contradicted") continue;
+    const quote = str(f.quote);
+    if (!quote) continue;
+    const factFigs = figuresIn(str(f.fact));
+    const mine = claimFigs.filter((c) =>
+      factFigs.some((g) => g.unit === c.unit && g.value === c.value));
+    const theirs = figuresIn(quote).filter((q) =>
+      mine.some((c) => c.unit === q.unit) &&
+      !claimFigs.some((c) => c.unit === q.unit && c.value === q.value) &&
+      !factFigs.some((g) => g.unit === q.unit && g.value === q.value));
+    if (mine.length !== 1 || theirs.length !== 1) continue;
+    reps.push({ start: mine[0].start, end: mine[0].end,
+                replacement: quote.slice(theirs[0].start, theirs[0].end) });
+  }
+  if (!reps.length) return null;
+  const unique = [...new Map(reps.map((r) => [`${r.start}:${r.end}`, r])).values()]
+    .sort((a, b) => b.start - a.start);
+  let out = claimText;
+  for (const r of unique) out = out.slice(0, r.start) + r.replacement + out.slice(r.end);
+  return out === claimText ? null : out;
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch { /* fall through */ }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.append(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    return ok;
+  } catch { return false; }
+}
+
 function appendMarked(node, text, marks) {
   const sorted = [...marks].filter((m) => m.start >= 0 && m.end > m.start && m.end <= text.length)
     .sort((a, b) => a.start - b.start);
@@ -674,6 +725,16 @@ function renderCard(ev) {
   card.dataset.label = label;
   const n = int(ev.claim);
   if (n !== null) card.dataset.claim = String(n);
+  card.tabIndex = 0;
+  card.setAttribute("role", "group");
+  card.setAttribute("aria-label", `${label}${n !== null ? ` claim ${n}` : ""}. Press Enter to show in document.`);
+  card.addEventListener("keydown", (e) => {
+    if (e.target !== card) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (n !== null) selectClaim(n, true);
+    }
+  });
 
   const head = el("div", "card-head");
   head.append(el("span", `badge tone-${tone}`, label));
@@ -784,6 +845,21 @@ function appendFailure(ev) {
   if (claim) {
     claim.card = card;
     const head = card.querySelector(".card-head");
+    const fix = correctedClaim(ev);
+    if (fix) {
+      const copy = el("button", "cardlink copyfix", "Copy fix");
+      copy.type = "button";
+      copy.dataset.fix = fix;
+      copy.title = "Copy this claim with the page's figure";
+      copy.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const ok = await copyText(fix);
+        copy.textContent = ok ? "Copied" : "Copy failed";
+        if (ok) announce("Corrected claim copied.");
+        setTimeout(() => { copy.textContent = "Copy fix"; }, 1600);
+      });
+      head.append(copy);
+    }
     if (claim.unit) {
       const show = el("button", "cardlink", "Show in document");
       show.type = "button";
@@ -867,7 +943,9 @@ function appendSourced(ev) {
     row.append(el("span", "mnote", "not located"));
     addTray(claim);
   }
-  row.addEventListener("click", () => selectClaim(claim.no, true));
+  row.addEventListener("click", () => showEvidence(claim));
+  row.title = "Read the evidence";
+  row.setAttribute("aria-haspopup", "dialog");
   claim.row = row;
   $("mlist").append(row);
   state.matchedCount = (state.matchedCount || 0) + 1;
@@ -877,6 +955,80 @@ function appendSourced(ev) {
   $("matched").hidden = false;
   applyFilter(state.filter);
 }
+
+let evidenceNo = null;
+
+function showEvidence(claim) {
+  if (!claim) return;
+  const ev = claim.ev && typeof claim.ev === "object" ? claim.ev : {};
+  evidenceNo = claim.no;
+  $("ev-kicker").textContent = `${claim.label} · CLAIM ${claim.no}`;
+  $("ev-title").textContent = `Claim ${claim.no}`;
+  $("ev-claim").textContent = claim.text;
+
+  const factBox = $("ev-facts");
+  factBox.replaceChildren();
+  const facts = arr(ev.facts).filter((f) => f && typeof f === "object")
+    .sort((a, b) => {
+      const ra = str(a.status) === "contradicted" ? 0 : 1;
+      const rb = str(b.status) === "contradicted" ? 0 : 1;
+      return ra - rb;
+    });
+  for (const f of facts) {
+    const box = el("div", "ev-fact");
+    const head = el("div", "ev-fact-head");
+    const status = str(f.status);
+    const tag = el("span", "tag", STATUS_TEXT[status] || "unclear");
+    tag.dataset.status = status || "unknown";
+    head.append(tag);
+    head.append(el("span", "part-text", str(f.fact)));
+    box.append(head);
+    if (str(f.quote)) {
+      const q = el("blockquote", "quote");
+      q.append(document.createTextNode("“" + str(f.quote) + "”"));
+      box.append(q);
+    }
+    if (str(f.evidence)) {
+      box.append(el("p", "part-note", "Not in the passages checked, but this line on the page has its figures:"));
+      box.append(el("blockquote", "quote", "“" + str(f.evidence) + "”"));
+    }
+    if (str(f.rejected_quote)) {
+      box.append(el("p", "part-note",
+        `Quote given by the model, not found on the page: “${str(f.rejected_quote)}”`));
+    }
+    if (str(f.note)) box.append(el("p", "part-note", str(f.note)));
+    factBox.append(box);
+  }
+  if (!facts.length) {
+    factBox.append(el("p", "ev-note", "No per-fact evidence was recorded for this claim."));
+  }
+
+  const links = $("ev-links");
+  links.replaceChildren();
+  const sources = arr(ev.sources).filter((s) => s && typeof s === "object");
+  if (sources.length) {
+    links.append(el("p", "ev-kicker", sources.length === 1 ? "Source" : "Sources"));
+    for (const s of sources) {
+      const line = el("div", "ev-source");
+      const href = safeUrl(str(s.url));
+      if (href) {
+        const a = el("a", "", href);
+        a.href = href;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        line.append(a);
+      } else if (str(s.url)) {
+        line.append(el("span", "", str(s.url)));
+      }
+      if (str(s.label)) line.append(el("span", "ev-outcome", ` — ${str(s.label)}`));
+      links.append(line);
+    }
+  }
+  $("ev-show").disabled = !claim.unit;
+  const dlg = $("evidence");
+  if (!dlg.open) dlg.showModal();
+}
+
 
 function orderedLabels(counts) {
   const labels = SUMMARY.map(([k]) => k).filter((k) => counts[k]);
@@ -937,7 +1089,84 @@ function applyFilter(label) {
 function offerDownload(run) {
   run.created ||= new Date().toISOString();
   state.lastRun = run;
+  state.lastRunExample = false;
   $("export").disabled = false;
+  if (!state.replaying) saveHistory(run, false);
+}
+
+const HISTORY_KEY = "touchstone.history.v1";
+
+function historyEntries() {
+  try {
+    const list = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+    return Array.isArray(list)
+      ? list.filter((x) => x && typeof x === "object" && x.run && typeof x.run === "object"
+          && str(x.created) && str(x.run.report)).slice(0, 3)
+      : [];
+  } catch { return []; }
+}
+
+function historyCounts(run) {
+  const counts = {};
+  for (const c of arr(run && run.claims)) {
+    if (c && typeof c === "object" && str(c.label)) {
+      counts[str(c.label)] = (counts[str(c.label)] || 0) + 1;
+    }
+  }
+  return counts;
+}
+
+function saveHistory(run, example) {
+  if (!run || typeof run !== "object" || !state.report) return;
+  const created = str(run.created) || new Date().toISOString();
+  const name = state.name || "Pasted report";
+  const entry = { name, created, example: Boolean(example), run };
+  let list = historyEntries().filter((x) => !(x.created === created && x.name === name));
+  list.unshift(entry);
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, 3))); } catch { /* full or private */ }
+  renderHistory();
+}
+
+function renderHistory() {
+  const box = $("recent");
+  const list = $("recentlist");
+  if (!box || !list) return;
+  const entries = historyEntries();
+  box.hidden = !entries.length;
+  list.replaceChildren();
+  for (const entry of entries) {
+    const run = entry.run;
+    const counts = historyCounts(run);
+    const checked = int(run.checked) ?? arr(run.claims).length;
+    const cited = int(run.cited) ?? checked;
+    const verdict = checked ? summaryLine(counts, checked, cited) : "Saved assay";
+    const d = new Date(str(entry.created));
+    const dateText = Number.isNaN(d.getTime())
+      ? "" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+    const li = el("li");
+    const btn = el("button", "recentitem");
+    btn.type = "button";
+    btn.append(el("span", "rname", str(entry.name) || "Pasted report"));
+    btn.append(el("span", "rmeta",
+      [dateText, `${checked} claim${checked === 1 ? "" : "s"}`].filter(Boolean).join(" · ")));
+    btn.append(el("span", "rverdict", verdict));
+    btn.title = `${str(entry.name) || "Pasted report"} — ${verdict}`;
+    btn.setAttribute("aria-label",
+      [str(entry.name) || "Pasted report", dateText, verdict].filter(Boolean).join(". "));
+    btn.addEventListener("click", () => {
+      if (state.running) return;
+      const saved = entry.run;
+      if (!validRun(saved, str(saved.report))) {
+        setProvenance("That saved assay can no longer be read.");
+        return;
+      }
+      if (loadReport(str(saved.report), str(entry.name))) {
+        replay(saved, { example: Boolean(entry.example) });
+      }
+    });
+    li.append(btn);
+    list.append(li);
+  }
 }
 
 function downloadRun() {
@@ -990,6 +1219,33 @@ function stopWaiting() {
   $("stone").classList.remove("is-wait");
 }
 
+function clearSkeletons() {
+  const box = $("skeletons");
+  if (!box) return;
+  box.replaceChildren();
+  box.hidden = true;
+}
+
+function showSkeletons(count) {
+  clearSkeletons();
+  const box = $("skeletons");
+  if (!box) return;
+  for (let i = 0; i < count; i += 1) {
+    const s = el("div", "skel");
+    for (let j = 0; j < 4; j += 1) s.append(el("i"));
+    box.append(s);
+  }
+  box.hidden = false;
+}
+
+function dropSkeleton() {
+  const box = $("skeletons");
+  if (!box) return;
+  const s = box.querySelector(".skel");
+  if (s) s.remove();
+  if (!box.childElementCount) box.hidden = true;
+}
+
 function setStone(assay, verdict, mode) {
   $("assay").textContent = assay;
   $("verdict").textContent = verdict;
@@ -1001,6 +1257,8 @@ function setStone(assay, verdict, mode) {
 
 function stoneEmpty() {
   stopWaiting();
+  clearSkeletons();
+  state.retryPlayback = false;
   setStone("NO ASSAY", "Paste a report on the left to check it.", "empty");
   $("counts").hidden = true;
   $("runrow").hidden = true;
@@ -1008,10 +1266,13 @@ function stoneEmpty() {
   $("rerun").hidden = true;
   $("cancel").hidden = true;
   $("empty").hidden = false;
+  renderHistory();
 }
 
 function stoneReady() {
   stopWaiting();
+  clearSkeletons();
+  state.retryPlayback = false;
   $("empty").hidden = true;
   setStone("READY", "Nothing checked yet. Run the assay when you're ready.", "");
   $("counts").replaceChildren();
@@ -1029,6 +1290,7 @@ function stoneReady() {
 function stoneRunning(total) {
   stopWaiting();
   setStone("RUNNING", total ? `Fetching ${total} source${total === 1 ? "" : "s"}…` : "Fetching sources…", "");
+  showSkeletons(3);
   $("counts").hidden = true;
   $("runrow").hidden = true;
   $("rerun").hidden = true;
@@ -1044,20 +1306,26 @@ function stoneProgress(done, total) {
 
 function stoneDone(counts, done, cited) {
   stopWaiting();
+  clearSkeletons();
   setStone(done ? `ASSAY · ${done} CLAIM${done === 1 ? "" : "S"}` : "ASSAY", summaryLine(counts, done, cited), "");
+  state.retryPlayback = false;
   $("counts").hidden = false;
   $("runrow").hidden = true;
   $("progress").hidden = true;
-  $("rerun").hidden = false;
+  // In a replay the notice above already carries the explicit "Run it live"
+  // path; a live re-run must never sit one click away from a zero-token view.
+  $("rerun").hidden = state.replay;
   $("cancel").hidden = true;
 }
 
-function stoneStopped(message, counts, done, cited) {
+function stoneStopped(message, counts, done, cited, playback = false) {
   stopWaiting();
+  clearSkeletons();
   setStone("STOPPED", message, "error");
+  state.retryPlayback = Boolean(playback);
   $("counts").hidden = !done;
   $("runrow").hidden = false;
-  $("run").textContent = "Try again";
+  $("run").textContent = playback ? "Replay" : "Try again";
   $("run").disabled = false;
   $("progress").hidden = true;
   $("rerun").hidden = true;
@@ -1066,6 +1334,8 @@ function stoneStopped(message, counts, done, cited) {
 
 function stoneError(message) {
   stopWaiting();
+  clearSkeletons();
+  state.retryPlayback = false;
   setStone("ERROR", message, "error");
   $("counts").hidden = true;
   $("runrow").hidden = false;
@@ -1078,6 +1348,8 @@ function stoneError(message) {
 
 function stoneNoLinks(claims) {
   stopWaiting();
+  clearSkeletons();
+  state.retryPlayback = false;
   setStone("NO LINKS", claims === 1
     ? "This report cites no sources, so its one claim can't be checked."
     : `This report cites no sources, so none of its ${claims} claims can be checked.`, "error");
@@ -1124,8 +1396,15 @@ function provenanceFor(run, elapsed) {
   return bits.join(" · ");
 }
 
+// A replay never re-bills the saved run's token count. Showing the original
+// number in the footer makes a zero-token path look expensive.
+function replayProvenance(run, example) {
+  const copy = { ...run, tokens: 0 };
+  return `${example ? "replayed example" : "replayed"} · ${provenanceFor(copy, 0)}`;
+}
+
 function setBusy(busy) {
-  for (const id of ["run", "rerun", "example", "run-live", "import", "import2", "new", "file", "check"]) {
+  for (const id of ["run", "rerun", "example", "run-live", "playback", "import", "import2", "new", "file", "check"]) {
     const node = $(id);
     if (node) node.disabled = busy;
   }
@@ -1134,8 +1413,11 @@ function setBusy(busy) {
 function resetRunView() {
   stopWaiting();
   state.lastRun = null;
+  state.lastRunExample = false;
+  state.retryPlayback = false;
   $("export").disabled = true;
   $("cards").replaceChildren();
+  clearSkeletons();
   $("matched").replaceChildren();
   $("matched").hidden = true;
   state.matchedCount = 0;
@@ -1261,6 +1543,7 @@ function resultsView(report) {
       const label = str(ev.label) || "UNKNOWN";
       counts[label] = (counts[label] || 0) + 1;
       state.counts = counts;
+      dropSkeleton();
       if (label === "SOURCED") appendSourced(ev);
       else appendFailure(ev);
       stoneProgress(done, total);
@@ -1390,10 +1673,14 @@ async function runAudit() {
   resetRunView();
   state.running = true;
   state.replay = false;
+  state.retryPlayback = false;
   state.startedAt = Date.now();
+  const controller = new AbortController();
+  state.abort = controller;
   $("empty").hidden = true;
   $("replay").hidden = true;
   $("nolinks").hidden = true;
+  $("cancel").hidden = false;
   setBusy(true);
   stoneRunning(0);
   setProvenance("Fetching sources…");
@@ -1407,6 +1694,7 @@ async function runAudit() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ report }),
+        signal: controller.signal,
       }));
       if (isWakePage(resp, "application/x-ndjson")) { stoneError(WAKE_RETRY); return; }
       if (resp.ok && resp.body) break;
@@ -1446,12 +1734,27 @@ async function runAudit() {
       if (eof) break;
     }
     view.endedEarly();
-  } catch {
-    stoneError("Could not reach the server.");
+  } catch (e) {
+    if (e && e.name === "AbortError") {
+      clearSkeletons();
+      if (state.done) {
+        renderCounts(state.counts);
+        stoneStopped(`Cancelled after ${state.done} of ${state.total} claims.`,
+          state.counts, state.done, state.cited);
+      } else {
+        stoneReady();
+        setProvenance("Cancelled.");
+      }
+      announce("Run cancelled.");
+    } else {
+      stoneError("Could not reach the server.");
+    }
   } finally {
     stopWaiting();
     if (cancelBusy) cancelBusy();
+    state.abort = null;
     state.running = false;
+    $("cancel").hidden = true;
     setBusy(false);
     if ($("stone").classList.contains("is-wait")) stoneReady();
   }
@@ -1500,20 +1803,76 @@ function runEvents(run) {
   ];
 }
 
-function replay(run) {
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function replay(run, opts = {}) {
+  const slow = Boolean(opts.slow);
   resetRunView();
   state.replay = true;
+  state.replaying = true;
+  state.retryPlayback = false;
   state.startedAt = 0;
-  const view = resultsView(run.report);
-  for (const ev of runEvents(run)) view.feed(ev);
-  state.lastRun = run;   // the saved file exactly as it is
+  state.lastRun = run;
+  state.lastRunExample = Boolean(opts.example);
   $("export").disabled = false;
+  const view = resultsView(run.report);
+  const events = runEvents(run);
   const date = new Date(run.created).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-  $("replay-msg").textContent = `Saved example run from ${date}. This is a real Perplexity answer; `
-    + "we changed one figure (Samsung 18% → 19%) to show a catch.";
+  $("replay-msg").textContent = opts.example
+    ? `Saved example run from ${date}. This is a real Perplexity answer; `
+      + "we changed one figure (Samsung 18% → 19%) to show a catch."
+    : `Saved run from ${date}. Replayed from this browser; no tokens spent.`;
   $("replay").hidden = false;
-  setProvenance(`saved run · ${provenanceFor(run, 0)}`);
+  setProvenance("replaying · 0 tokens");
   $("docpane").scrollTop = 0;
+
+  if (!slow) {
+    for (const ev of events) view.feed(ev);
+    state.replaying = false;
+    state.lastRun = run;
+    state.lastRunExample = Boolean(opts.example);
+    saveHistory(run, opts.example);
+    setProvenance(replayProvenance(run, opts.example));
+    requestAnimationFrame(layout);
+    return;
+  }
+
+  const playback = { cancelled: false };
+  state.playback = playback;
+  state.running = true;
+  setBusy(true);
+  $("cancel").hidden = false;
+  announce("Playing back the saved run.");
+  const start = events.shift();
+  if (start) view.feed(start);
+  for (const ev of events) {
+    if (playback.cancelled) break;
+    if (ev.type === "claim") await sleep(420);
+    if (playback.cancelled) break;
+    view.feed(ev);
+    if (ev.type === "done") break;
+  }
+  if (playback.cancelled) {
+    clearSkeletons();
+    if (state.done) {
+      renderCounts(state.counts);
+      stoneStopped(`Playback stopped at claim ${state.done} of ${state.total}.`,
+        state.counts, state.done, state.cited, true);
+    } else {
+      stoneReady();
+    }
+    setProvenance("Playback stopped · 0 tokens spent.");
+  } else {
+    state.lastRun = run;
+    state.lastRunExample = Boolean(opts.example);
+    saveHistory(run, opts.example);
+    setProvenance(replayProvenance(run, opts.example));
+  }
+  state.playback = null;
+  state.running = false;
+  state.replaying = false;
+  $("cancel").hidden = true;
+  setBusy(false);
   requestAnimationFrame(layout);
 }
 
@@ -1540,7 +1899,7 @@ async function loadExample() {
     const resp = await fetch("/api/example-run");
     if (resp.ok && !isWakePage(resp, "application/json")) run = await resp.json();
   } catch { /* fall back to the text alone */ }
-  if (validRun(run, text)) replay(run);
+  if (validRun(run, text)) replay(run, { example: true });
   else { stoneReady(); announce(EXAMPLE_LOADED); }
 }
 
@@ -1582,6 +1941,7 @@ function loadReport(text, name) {
   state.selected = null;
   state.pager = [];
   state.pagerIdx = 0;
+  document.title = `${state.name} · Touchstone`;
 
   $("report").value = clean;
   updateCount();
@@ -1601,6 +1961,7 @@ function loadReport(text, name) {
   $("docname").title = state.name;
   $("docname").hidden = false;
   $("new").hidden = false;
+  $("showmatched").hidden = false;
   $("docwrap").classList.add("has-doc");
   $("docpane").scrollTop = 0;
 
@@ -1623,6 +1984,7 @@ function showFront(focus) {
   state.selected = null;
   state.pager = [];
   state.pagerIdx = 0;
+  document.title = "Touchstone";
   resetRunView();
   doc.units = [];
   doc.claims = [];
@@ -1635,6 +1997,7 @@ function showFront(focus) {
   $("docwrap").classList.remove("has-doc");
   $("docname").hidden = true;
   $("new").hidden = true;
+  $("showmatched").hidden = true;
   $("ovr").hidden = true;
   for (const old of $("ovr").querySelectorAll(".ovr-mark")) old.remove();
   $("totop").hidden = true;
@@ -1695,18 +2058,20 @@ function placeStone() {
 function setMatchedVisible(on) {
   state.hideOk = !on;
   $("docwrap").classList.toggle("hide-ok", !on);
-  $("showmatched").setAttribute("aria-pressed", String(on));
+  const btn = $("showmatched");
+  btn.setAttribute("aria-pressed", String(on));
+  btn.textContent = on ? "Hide matched" : "Show matched";
 }
 
 function stepCard(dir) {
-  const cards = [...$("cards").children].filter((card) => !card.hidden);
+  const cards = [...$("cards").querySelectorAll(":scope > .card")].filter((card) => !card.hidden);
   if (!cards.length) return;
   const at = cards.findIndex((card) => card.classList.contains("is-sel"));
   let next = at < 0 ? 0 : at + dir;
   next = Math.max(0, Math.min(cards.length - 1, next));
   const no = int(cards[next].dataset.claim);
   if (no !== null) selectClaim(no, true);
-  else cards[next].scrollIntoView({ block: "nearest", behavior: "smooth" });
+  else cards[next].scrollIntoView({ block: "nearest", behavior: motion() });
 }
 
 function bindEvents() {
@@ -1723,14 +2088,37 @@ function bindEvents() {
   $("help").addEventListener("click", () => $("shortcuts").showModal());
   $("check").addEventListener("click", openFromFront);
   $("example").addEventListener("click", loadExample);
-  $("run").addEventListener("click", runAudit);
+  $("run").addEventListener("click", () => {
+    if (state.retryPlayback && state.lastRun) {
+      replay(state.lastRun, { slow: true, example: state.lastRunExample });
+      return;
+    }
+    runAudit();
+  });
   $("rerun").addEventListener("click", runAudit);
   $("run-live").addEventListener("click", runAudit);
-  $("cancel").addEventListener("click", () => { if (cancelBusy) cancelBusy(); });
+  $("playback").addEventListener("click", () => {
+    if (!state.running && state.lastRun) {
+      replay(state.lastRun, { slow: true, example: state.lastRunExample });
+    }
+  });
+  $("cancel").addEventListener("click", () => {
+    if (state.playback) { state.playback.cancelled = true; return; }
+    if (cancelBusy) { cancelBusy(); return; }
+    if (state.abort) state.abort.abort();
+  });
+  $("ev-show").addEventListener("click", () => {
+    const no = evidenceNo;
+    $("evidence").close();
+    if (no !== null) selectClaim(no, true);
+  });
+  $("evidence").addEventListener("click", (e) => {
+    if (e.target === $("evidence")) $("evidence").close();
+  });
   $("copy-prompt").addEventListener("click", copyPrompt);
   $("prev").addEventListener("click", () => stepProblem(-1));
   $("next").addEventListener("click", () => stepProblem(1));
-  $("totop").addEventListener("click", () => $("docpane").scrollTo({ top: 0, behavior: "smooth" }));
+  $("totop").addEventListener("click", () => $("docpane").scrollTo({ top: 0, behavior: motion() }));
   $("showmatched").addEventListener("click", () =>
     setMatchedVisible($("showmatched").getAttribute("aria-pressed") !== "true"));
   $("report").addEventListener("input", () => {
@@ -1787,7 +2175,7 @@ function bindEvents() {
     if (e.key === "]") { e.preventDefault(); stepProblem(1); return; }
     if (e.key.toLowerCase() === "j") { e.preventDefault(); stepCard(1); return; }
     if (e.key.toLowerCase() === "k") { e.preventDefault(); stepCard(-1); return; }
-    if (e.key.toLowerCase() === "g") { e.preventDefault(); $("docpane").scrollTo({ top: 0, behavior: "smooth" }); }
+    if (e.key.toLowerCase() === "g") { e.preventDefault(); $("docpane").scrollTo({ top: 0, behavior: motion() }); }
   });
 
   // Drag a report anywhere onto the bench.
@@ -1821,6 +2209,7 @@ function init() {
   initTheme();
   bindEvents();
   updateCount();
+  setMatchedVisible(!state.hideOk);
   showFront(false);
   placeStone();
   layout();
