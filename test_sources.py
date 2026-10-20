@@ -348,4 +348,38 @@ assert out["label"] == "SOURCED"
 out = combine("Algeria has 50 million lines", [("https://www.worldbank.org/en/country/algeria", {"label": "UNSUPPORTED", "quote": "", "reason": "x", "facts": [], "tokens": 0})], {})
 assert out["label"] == "UNSUPPORTED"
 
+# A source's verified contradiction that same_fact() doesn't match to the base source's facts
+# (other numbers, other wording) was dropped by merge(): never SOURCED then (2026-10-20).
+from quote_check import claim_names
+cx = "Exports rose to 10.15 million bags in December 2025"
+assert claim_names(cx, page=PAGE_A + "\n" + PAGE_B) == []                 # (a) no names: the guard can't fire
+rx_a = judge({"parts": [P(cx, "stated", Q_A1)]}, cx, PAGE_A, A)
+rx_b = judge({"parts": [P("Exports rose to 10.15 million bags", "contradicted", Q_B1)]}, cx, PAGE_B, B)
+assert rx_a["label"] == "SOURCED" and rx_b["label"] == "CONTRADICTED", (rx_a, rx_b)
+assert not same_fact(cx, "Exports rose to 10.15 million bags")
+m = merge(cx, [(A, rx_a), (B, rx_b)], [PAGE_A, PAGE_B])
+assert m["label"] == "COULDN'T CONFIRM", m
+assert 'Sources disagree on "Exports rose to 10.15 million bags": a.example states it, b.example contradicts it.' in m["reason"], m
+out = combine(cx, [(A, dict(rx_a)), (B, dict(rx_b))], {A: {"text": PAGE_A}, B: {"text": PAGE_B}})
+assert out["label"] == "COULDN'T CONFIRM" and out["notes"][0] == "Sources disagree", out
+# (b) with names: the Samsung case (A's table row contradicts, B states the share unnamed).
+cs = "In Q2 2025, Samsung held a 19% share of Africa's smartphone shipments."
+row = "| Samsung | 18% | 19% |"
+ps_a = ("Africa smartphone market, Q2 2025\nIn Africa, Transsion leads while Samsung is second.\n"
+        "| Brand | Q2 2025 share | Q2 2024 share |\n|---|---|---|\n" + row + "\n| Transsion | 51% | 47% |")
+qs_b = "The number two vendor held a 19% share of Africa's smartphone shipments."
+ps_b = "Africa smartphones Q2 2025\n" + qs_b
+rs_a = judge({"parts": [P(cs.rstrip("."), "contradicted", row)]}, cs, ps_a, A)
+rs_b = judge({"parts": [P("The second vendor held a 19% share of Africa's smartphone shipments", "stated", qs_b)]},
+             cs, ps_b, B, meta={"title": "Africa smartphones Q2 2025"})
+assert rs_a["label"] == "CONTRADICTED", rs_a
+assert merge(cs, [(A, rs_a), (B, rs_b)], [ps_a, ps_b])["label"] != "SOURCED"
+# (c) control: both sources state it, nothing contradicted: still SOURCED.
+rx_b2 = judge({"parts": [P("Exports rose to 10.15 million bags", "stated", Q_A1)]}, cx, PAGE_A, B)
+m = merge(cx, [(A, rx_a), (B, rx_b2)], [PAGE_A, PAGE_A])
+assert m["label"] == "SOURCED" and "disagree" not in m, m
+# (d) control: one source contradicting it stays CONTRADICTED (combine() returns it unchanged).
+out = combine(cx, [(B, dict(rx_b))], {B: {"text": PAGE_B}})
+assert out["label"] == "CONTRADICTED", out
+
 print("source checks passed")
