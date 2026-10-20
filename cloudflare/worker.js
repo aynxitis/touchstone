@@ -33,8 +33,13 @@ export default {
     }
 
     const incoming = new URL(request.url);
-    if (env.MCP_OFF === "1" && incoming.pathname.startsWith("/mcp")) {
-      return new Response("Not found", { status: 404 });   // MCP off without touching Railway
+    if (env.MCP_OFF === "1") {      // MCP off without touching Railway
+      // Compare the decoded path: the origin routes on it, so "/%6dcp" is /mcp there.
+      let path = null;
+      try { path = decodeURIComponent(incoming.pathname); } catch {}
+      if (path === null || path.startsWith("/mcp")) {
+        return new Response("Not found", { status: 404 });
+      }
     }
     // Pin the host and set path/query separately: resolving the path as a relative URL would
     // turn "//evil.example/x" into https://evil.example/x and send it the secret.
