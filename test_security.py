@@ -660,7 +660,7 @@ with tempfile.TemporaryDirectory() as d:
     (d / "index.html").write_text("<!--limits-->"); v = A.asset_versions(d)
     assert "8 distinct source links" in A.versioned_index(d, v, "gemini")
     assert "Up to 10 cited claims" in A.versioned_index(d, v, "groq") and "limits" not in A.versioned_index(d, v, "groq")
-assert "<!--limits-->" in open("static/index.html").read() and "Up to 10" not in open("static/index.html").read()
+assert "<!--limits-->" in open("static/index.html", encoding="utf-8").read() and "Up to 10" not in open("static/index.html", encoding="utf-8").read()
 
 # S3: a private address never reaches the browser, only "private address".
 r = F.fetch("http://10.0.0.1/x")
