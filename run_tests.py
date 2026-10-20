@@ -11,7 +11,7 @@ import sys
 import time
 
 TESTS = ["test_parsing.py", "test_pdf.py", "test_sources.py", "test_checks.py", "test_security.py",
-         "test_engine_golden.py"]
+         "test_engine_golden.py", "test_mcp.py"]
 
 here = os.path.dirname(os.path.abspath(__file__))
 failed = []
