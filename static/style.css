@@ -13,7 +13,7 @@
   --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --serif:"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif;
   --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
-  --bar:34px; --ruler:16px;
+  --bar:34px; --ruler:16px; --mm-w:84px;
   color-scheme:light;
 }
 html[data-theme="dark"]{
@@ -174,6 +174,40 @@ textarea:focus{outline:none;border-color:var(--ink)}
 .ovr-mark.m-info::before{height:2px;background:var(--info);opacity:.55}
 .ovr-mark:hover::before,.ovr-mark:focus-visible::before{opacity:1}
 .ovr-mark::after{content:"";position:absolute;left:-2px;width:10px;top:-5px;bottom:-5px}
+
+/* ---------------- minimap: the document rendered tiny, like a code editor ---------------- */
+.minimap{position:absolute;top:0;right:var(--ruler);bottom:var(--bar);width:var(--mm-w);
+  overflow:hidden;z-index:6;cursor:default;touch-action:none}
+.docwrap:not(.has-doc) .minimap{bottom:0}
+.minimap[hidden]{display:none}
+.mm-body{position:absolute;top:0;left:0}
+.mm-body *{pointer-events:none !important}
+.mm-page{width:100% !important;max-width:none !important;margin:0 !important;padding:0 !important;
+  background:transparent !important;border:0 !important;box-shadow:none !important;
+  font-size:calc(3px * var(--mm-k,1)) !important;line-height:calc(4.8px * var(--mm-k,1)) !important;
+  letter-spacing:0 !important;opacity:.6}
+html[data-theme="dark"] .mm-page{opacity:.5}
+.mm-page *{font-size:calc(3px * var(--mm-k,1)) !important;
+  line-height:calc(4.8px * var(--mm-k,1)) !important;margin:0 !important;padding:0 !important;
+  border:0 !important;border-radius:0 !important;box-shadow:none !important;background:transparent !important;
+  text-indent:0 !important;min-height:0 !important;max-width:none !important}
+.mm-page h1,.mm-page h2,.mm-page h3,.mm-page h4,.mm-page h5,.mm-page h6{
+  font-size:calc(4.8px * var(--mm-k,1)) !important;
+  line-height:calc(6.6px * var(--mm-k,1)) !important;
+  margin-top:calc(2px * var(--mm-k,1)) !important}
+.mm-page table,.mm-page thead,.mm-page tbody,.mm-page tr,.mm-page th,.mm-page td{
+  display:block !important;width:auto !important}
+.mm-page ul,.mm-page ol{padding-left:6px !important}
+.mm-page li{list-style-position:inside !important}
+.mm-page p{margin-bottom:.8px !important}
+.mm-page a{color:var(--brass) !important;text-decoration:none !important}
+.mm-slider{position:absolute;left:0;right:0;top:0;height:0;border-radius:3px;
+  background:rgba(20,18,13,.10);border:0;cursor:grab;
+  transition:background .12s ease}
+.mm-slider[hidden]{display:none}
+.minimap:hover .mm-slider{background:rgba(20,18,13,.16)}
+html[data-theme="dark"] .mm-slider{background:rgba(236,231,217,.12)}
+html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,231,217,.18)}
 
 /* ---------------- floating controls ---------------- */
 .totop{position:absolute;right:34px;top:12px;z-index:5;width:30px;height:30px;
@@ -584,7 +618,7 @@ body{font-size:15.5px}
 .tbtn{font-size:13px;min-height:32px;padding:7px 10px}
 .icon{width:32px;height:32px;font-size:15px}
 .body{grid-template-columns:minmax(0,1fr) var(--rail-w)}
-.docpane{padding:48px calc(var(--ruler) + 44px) 72px 52px}
+.docpane{padding:48px calc(var(--ruler) + var(--mm-w) + 28px) 72px 52px}
 /* The front door can overflow at phone sizes once the type scale is honest.
    It gets a real scrollbar instead of hiding the controls below the fold. */
 .docwrap:not(.has-doc) .docpane::-webkit-scrollbar{width:12px;height:12px}
@@ -695,7 +729,7 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
 .ev-links .ev-outcome,.ev-note{font-size:12px}
 
 /* the claim map now reads as a scrollbar: ticks left, slider right, no frame */
-.totop{right:calc(var(--ruler) + 10px)}
+.totop{right:calc(var(--ruler) + var(--mm-w) + 10px)}
 .pagerbar button{width:36px;height:36px}
 .pg-n{font-size:12px;line-height:36px;min-width:54px}
 
@@ -742,6 +776,7 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
 /* keep touch targets comfortable without changing the editorial rhythm */
 @media (max-width:1099px){
   .body{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) 44vh}
+  :root{--mm-w:56px}
   /* The landing page needs the form first; the empty rail can be shorter than
      the result rail and scroll its own recent assays. */
   body:not(.has-report) .body{grid-template-rows:minmax(0,1fr) 28vh}
@@ -752,7 +787,7 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
   body:not(.has-report) .legend dd{display:none}
   .topbar .demo-tag{display:none}
   .docname{max-width:220px}
-  .docpane{padding:38px 62px 60px 42px}
+  .docpane{padding:38px calc(var(--ruler) + var(--mm-w) + 24px) 60px 42px}
   .paper{padding-left:42px}
   .gmarks,.paper td .gmarks{left:-42px}
   .stone{padding:16px 20px 14px}
@@ -761,7 +796,7 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
   .runrow{margin-top:10px}
 }
 @media (max-width:899px){
-  .docpane{padding:32px 52px 54px 32px}
+  .docpane{padding:32px calc(var(--ruler) + var(--mm-w) + 24px) 54px 32px}
   .paper{padding-left:40px}
   .gmarks,.paper td .gmarks{left:-40px}
 }
@@ -773,7 +808,8 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
   .icon{width:30px;height:30px;font-size:14px}
   #export{display:none}
   .body{grid-template-rows:minmax(0,1fr) 44vh}
-  :root{--ruler:20px}
+  :root{--ruler:20px;--mm-w:0px}
+  .minimap{display:none}
   .ovr-win,.md-scroll-win{right:3px;width:9px}
   .ovr-mark{left:3px;width:5px}
   .docpane{padding:0 46px 54px 16px}

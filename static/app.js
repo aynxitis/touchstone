@@ -481,21 +481,77 @@ function attachClaim(ev) {
 
 /* ---------------- ruler, pager, selection ---------------- */
 
+/* ---------------- minimap ---------------- */
+
+let mmKey = "";
+
+/* A code-editor minimap: the rendered document cloned into the gutter and
+   reflowed at minimap size. The clone is inert (aria-hidden, no ids or links);
+   it is rebuilt only when the report or the pane size changes. */
+function drawMinimap() {
+  const mm = $("minimap");
+  const body = $("mmbody");
+  const paper = $("paper");
+  if (!mm || !body || !paper) return;
+  const src = state.report || "";
+  if (!src) {
+    mm.hidden = true;
+    mmKey = "";
+    return;
+  }
+  mm.hidden = false;
+  const w = mm.clientWidth;
+  const h = mm.clientHeight;
+  if (!w || !h) return;
+  const key = `${w}x${h}|${src.length}`;
+  if (key === mmKey) return;
+  mmKey = key;
+
+  const page = paper.cloneNode(true);
+  page.removeAttribute("id");
+  page.hidden = false;
+  page.classList.add("mm-page");
+  for (const n of page.querySelectorAll("[id]")) n.removeAttribute("id");
+  for (const n of page.querySelectorAll(".gmarks")) n.remove();
+  for (const a of page.querySelectorAll("a")) {
+    a.removeAttribute("href");
+    a.removeAttribute("target");
+  }
+  page.style.width = "100%";
+  body.style.width = `${w}px`;
+  body.replaceChildren(page);
+  // Reflow at gutter width, then grow the type until the preview fills most of
+  // the gutter. Growing the type re-wraps the text (it never clips it), so the
+  // minimap keeps reading as a tiny page rather than a column of cut lines.
+  const target = h * 0.92;
+  let k = 1;
+  let height = page.getBoundingClientRect().height;
+  for (let i = 0; i < 2 && height > 0; i++) {
+    k = Math.max(1, Math.min(2.4, k * Math.sqrt(target / Math.max(1, height))));
+    page.style.setProperty("--mm-k", k.toFixed(3));
+    height = page.getBoundingClientRect().height;
+  }
+}
+
 function layout() {
   const pane = $("docpane");
   const ovr = $("ovr");
   const win = $("ovrwin");
   const top = $("totop");
+  const mm = $("minimap");
+  const mmSlider = $("mmslider");
   if (!pane || !ovr) return;
   if (!state.report) {
     ovr.hidden = true;
     top.hidden = true;
+    if (mm) mm.hidden = true;
     return;
   }
   ovr.hidden = false;
   const stone = $("stone");
   const strip = narrow.matches && stone.classList.contains("in-doc") ? stone.offsetHeight : 0;
   ovr.style.top = strip ? `${strip}px` : "";
+  if (mm) mm.style.top = strip ? `${strip}px` : "";
   const sh = pane.scrollHeight;
   const ch = pane.clientHeight;
   const h = ovr.clientHeight;
@@ -510,7 +566,12 @@ function layout() {
     const winTop = Math.round((pane.scrollTop / maxScroll) * trackH);
     win.style.height = `${winH}px`;
     win.style.top = `${Math.max(0, Math.min(trackH, winTop))}px`;
+    if (mmSlider) {
+      mmSlider.style.height = win.style.height;
+      mmSlider.style.top = win.style.top;
+    }
   }
+  if (mmSlider) mmSlider.hidden = !scrollable;
   for (const c of doc.claims) {
     if (!c.mark || !c.unit) continue;
     const rect = c.unit.el.getBoundingClientRect();
@@ -520,6 +581,7 @@ function layout() {
   }
   top.hidden = !scrollable;
   top.classList.toggle("low", pane.scrollTop < ch * 0.5);
+  drawMinimap();
   paintPager();
 }
 
@@ -2359,6 +2421,34 @@ function bindEvents() {
     $("docpane").scrollTop += e.deltaY;
     e.preventDefault();
   }, { passive: false });
+
+  // The minimap is a second ruler: click or drag anywhere on it to move the
+  // viewport, exactly like an editor's minimap.
+  const mmEl = $("minimap");
+  if (mmEl) {
+    mmEl.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0 || !state.report) return;
+      const pane = $("docpane");
+      const win = $("ovrwin");
+      if (pane.scrollHeight - pane.clientHeight <= 0) return;
+      rulerGrab = (win.offsetHeight || 0) / 2;
+      rulerDrag = true;
+      try { mmEl.setPointerCapture(e.pointerId); } catch { /* no capture */ }
+      scrollFromRuler(e.clientY);
+      e.preventDefault();
+    });
+    mmEl.addEventListener("pointermove", (e) => { if (rulerDrag) scrollFromRuler(e.clientY); });
+    mmEl.addEventListener("pointerup", (e) => {
+      rulerDrag = false;
+      try { mmEl.releasePointerCapture(e.pointerId); } catch { /* already released */ }
+    });
+    mmEl.addEventListener("pointercancel", () => { rulerDrag = false; });
+    mmEl.addEventListener("wheel", (e) => {
+      if (!state.report) return;
+      $("docpane").scrollTop += e.deltaY;
+      e.preventDefault();
+    }, { passive: false });
+  }
 
   let pending = false;
   $("docpane").addEventListener("scroll", () => {
