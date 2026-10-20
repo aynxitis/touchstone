@@ -54,7 +54,7 @@ Touchstone is also a remote MCP server with one tool, `check_claims`: an agent s
 - **Claude Code:** `claude mcp add --transport http touchstone https://touchstone.aynx.dev/mcp`
 - **ChatGPT, Cursor:** untested. Any client that supports remote MCP servers over Streamable HTTP should work.
 
-Limits: 5 claims per call (1 to 3 URLs each, 5 distinct URLs), about 90 seconds per call, one call at a time, and 15 checks a day shared by everyone (separate from the website's limits). Labels are the same as on the website. Text copied from the pages or written by the checking model comes only in fields named `untrusted_*`, so the agent can treat it as data.
+Limits: 5 claims per call (1 to 3 URLs each, 5 distinct URLs), about 90 seconds per call, one call at a time, and 15 calls a day (up to 5 claims each) shared by everyone (separate from the website's limits). Labels are the same as on the website. Text copied from the pages or written by the checking model comes only in fields named `untrusted_*`, so the agent can treat it as data.
 
 Claims and the text of the cited pages are processed by Google Gemini's free tier, which may use them to improve Google's products. Don't send anything private.
 
@@ -140,9 +140,8 @@ Deployment: the app runs on Railway (EU region) behind a Cloudflare Worker. The 
 
 - "Find a source": for claims with no source or a failed one, search the web neutrally, check what's found with the same strict rules, and show whether other pages support it, contradict it, or say nothing.
 - A second opinion from a stronger model on amber claims, with the code still deciding the label.
-- Done: a hosted MCP connector that AI agents can call before they answer (see "Use it from an AI agent").
 - MCP: bring your own Gemini key, sent in a request header and never stored, so heavy users don't share the daily 15.
-- MCP: a quote-supplied mode, where the agent sends the quote it relies on with each claim and Touchstone verifies it on the page.
+- MCP: a quote-supplied mode, where the agent sends the quote it relies on with each claim and Touchstone verifies it on the page with code checks only, at no model cost.
 - Bring your own Gemini key on the website, kept in the browser for one session and never stored.
 - Arabic support.
 
