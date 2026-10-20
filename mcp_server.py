@@ -35,6 +35,7 @@ from starlette.routing import Route
 from check_numbers import checkable
 from pacing import DAY_FULL
 from providers import make_provider
+from quote_check import NAMES_CAP
 from touchstone import audit_segments
 
 log = logging.getLogger("touchstone")       # app.py's logger: counts and labels only, never text or URLs
@@ -210,8 +211,15 @@ def shape(index, ev):
         out.update(reason=URL_CAP if capped else TIME_UP, retryable=True)
     else:
         out["reason"] = TEMPLATES.get(label, TEMPLATES["ERROR"])
-        if label != "ERROR" and ev.get("reason"):
-            out["untrusted_detail"] = clean(ev["reason"])
+        reason = ev.get("reason") or ""
+        if label in ("CONTRADICTED", "UNSUPPORTED"):
+            # The names guard's "Not checked: X." only explains a COULDN'T CONFIRM; it reads
+            # stated quotes only, so on a red claim it lists the contradicting quote's names too.
+            for cap in ev.get("caps") or []:
+                if cap.startswith(NAMES_CAP):
+                    reason = reason.replace(cap, "")
+        if label != "ERROR" and reason.strip():
+            out["untrusted_detail"] = clean(reason)
     if ev.get("quote") and label not in ("SOURCE UNREACHABLE", "NOT CHECKED", "ERROR"):
         out["untrusted_page_quote"] = clean(ev["quote"])
     if len(ev.get("urls") or []) > 1:

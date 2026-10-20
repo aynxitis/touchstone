@@ -170,6 +170,21 @@ assert all(len(r.get(f, "")) <= 300 for r in rs for f in ("untrusted_page_quote"
 assert fake.calls == 2                                # one Gemini request per page (U1 with 3 claims, U2)
 print("ok  2 happy path, templates, untrusted_* sanitized")
 
+# 2b. The names guard's note ("Not checked: X.", quote_check.names_cap) is dropped from a red
+#     result (it reads stated quotes only, so it lists the contradicting row's name), kept on amber.
+from quote_check import names_cap
+red = {"label": "CONTRADICTED", "url": U1, "quote": "| Samsung | 18% | 19% |", "caps": names_cap(["Samsung"]),
+       "reason": "Contradicted by the page: Samsung held a 19% share. The page gives 18% for Q2 2025; "
+                 "19% is its Q2 2024 figure. Not checked: Samsung. Framing not checked: strong."}
+r = M.shape(1, red)
+assert r["untrusted_detail"] == ("Contradicted by the page: Samsung held a 19% share. The page gives 18% for "
+                                 "Q2 2025; 19% is its Q2 2024 figure. Framing not checked: strong."), r
+assert M.shape(1, {**red, "label": "UNSUPPORTED"})["untrusted_detail"] == r["untrusted_detail"]
+assert "untrusted_detail" not in M.shape(1, {**red, "reason": "Not checked: Samsung."})
+amber = {**red, "label": "COULDN'T CONFIRM", "reason": "Stated: Samsung held a 19% share. Not checked: Samsung."}
+assert M.shape(1, amber)["untrusted_detail"] == amber["reason"]
+print("ok  2b names-guard note dropped on red, kept on amber")
+
 # 3. Validation: the SDK's schema and the server's own checks; private addresses via the real fetcher.
 def rejected(items):
     _, res, _ = call(tc, items)
