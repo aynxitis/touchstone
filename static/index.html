@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,53 +8,138 @@
 <script src="/static/app.js" defer></script>
 </head>
 <body>
-<main>
-  <header class="top">
-    <h1>Touchstone</h1>
-    <p class="tagline">Touchstone checks whether each claim's cited source actually says it. It does not check whether the source itself is right.</p>
+<div class="app">
+  <header class="topbar">
+    <a class="wordmark" href="/">Touchstone</a>
+    <span class="docname" id="docname" hidden></span>
+    <div class="top-actions">
+      <button id="new" class="tbtn" type="button" hidden>New</button>
+      <button id="import" class="tbtn" type="button">Import</button>
+      <input id="file" type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" hidden>
+      <button id="export" class="tbtn" type="button" disabled>Export</button>
+      <button id="theme" class="icon" type="button" aria-label="Switch to dark theme" title="Switch theme">◐</button>
+      <button id="help" class="icon" type="button" aria-label="Keyboard shortcuts" aria-haspopup="dialog" title="Keys">?</button>
+    </div>
   </header>
 
-  <section class="input">
-    <label for="report">Paste an AI research report with its source links (Perplexity, ChatGPT, Gemini)</label>
-    <textarea id="report" spellcheck="false" placeholder="Paste the report here, links included."></textarea>
-    <div class="controls">
-      <button id="audit" type="button" class="primary">Audit</button>
-      <button id="example" type="button" class="secondary">Try an example</button>
-      <span id="count" class="meta"></span>
-    </div>
-    <!--limits-->
-    <!--provider-note-->
-  </section>
+  <div class="body">
+    <div class="docwrap" id="docwrap">
+      <main class="docpane" id="docpane">
+        <section class="front" id="front">
+          <div class="front-inner">
+            <p class="kicker">Assay a report</p>
+            <h1>Does the source say it?</h1>
+            <p class="lede">Paste an AI research report with its links. Touchstone checks each claim against the page it cites.</p>
+            <label class="sr-only" for="report">Report to check</label>
+            <textarea id="report" spellcheck="false" placeholder="Paste the report here, links included."></textarea>
+            <div class="front-row">
+              <button id="check" class="primary" type="button">Open report</button>
+              <button id="import2" class="secondary" type="button">Import .md</button>
+              <button id="example" class="secondary" type="button">Try the example</button>
+              <span id="count" class="count"></span>
+            </div>
+            <p id="fronterr" class="fronterr" role="status"></p>
+            <!--limits-->
+            <!--provider-note-->
+          </div>
+        </section>
+        <article class="paper" id="paper" hidden></article>
+      </main>
 
-  <section class="results" aria-live="polite">
-    <p id="status" class="status"></p>
-    <button id="cancel" type="button" class="secondary" hidden>Cancel</button>
-    <div id="replay" class="replay" hidden>
-      <p id="replay-msg"></p>
-      <button id="run-live" type="button" class="secondary">Run it live</button>
-    </div>
-    <div id="summary" class="summary"></div>
-    <p id="scope" class="meta"></p>
-    <button id="download" type="button" class="secondary download" hidden>Download results</button>
-    <div id="nolinks" class="nolinks" hidden>
-      <p id="nolinks-msg" class="nolinks-msg"></p>
-      <p>Use your AI tool's copy button, not download (downloads often drop the links).</p>
-      <p>Then send it this prompt and paste the new answer here:</p>
-      <div class="prompt-box">
-        <p id="fix-prompt" class="prompt-text">Rewrite your answer so every factual claim is followed by the full URL of its source, in markdown link format.</p>
-        <button id="copy-prompt" type="button" class="secondary">Copy</button>
+      <div class="ovr" id="ovr" role="group" aria-label="Claim map" hidden>
+        <div class="ovr-win" id="ovrwin" aria-hidden="true"></div>
+      </div>
+      <button id="totop" class="totop" type="button" aria-label="Back to top" title="Back to top" hidden>↑</button>
+      <div class="pagerbar" id="pagerbar">
+        <button id="prev" type="button" aria-label="Previous problem">‹</button>
+        <span class="pg-n" id="pgn">1 / 1</span>
+        <button id="next" type="button" aria-label="Next problem">›</button>
       </div>
     </div>
-    <div id="cards"></div>
-    <details id="skipped" hidden>
-      <summary></summary>
-      <ul></ul>
-    </details>
-    <details id="uncited" hidden>
-      <summary></summary>
-      <ul></ul>
-    </details>
-  </section>
-</main>
+
+    <aside class="rail" id="rail" aria-label="Assay results">
+      <div class="grip" id="grip" aria-hidden="true"><span></span></div>
+      <div class="stone" id="stone">
+        <div class="stone-top">
+          <span class="assay" id="assay">NO ASSAY</span>
+          <span class="stone-tools">
+            <button id="rerun" class="stonelink" type="button" hidden>Re-run</button>
+            <button id="cancel" class="stonelink" type="button" hidden>Cancel</button>
+          </span>
+        </div>
+        <p class="verdict" id="verdict">Paste a report on the left to check it.</p>
+        <div class="counts" id="counts" role="group" aria-label="Filter claims by result" hidden></div>
+        <div class="runrow" id="runrow" hidden>
+          <button id="run" class="runbtn" type="button">Run assay</button>
+          <span id="scope" class="scope"></span>
+        </div>
+        <div class="progress" id="progress" hidden><span id="bar"></span></div>
+      </div>
+
+      <div class="railbody" id="railbody">
+        <div id="replay" class="replay" hidden>
+          <p id="replay-msg"></p>
+          <button id="run-live" class="linkish" type="button">Run it live</button>
+        </div>
+
+        <div id="nolinks" class="nolinks" hidden>
+          <p id="nolinks-msg" class="nolinks-msg"></p>
+          <p>Use your AI tool's copy button, not download (downloads often drop the links).</p>
+          <p>Then send it this prompt and paste the new answer here:</p>
+          <div class="prompt-box">
+            <p id="fix-prompt" class="prompt-text">Rewrite your answer so every factual claim is followed by the full URL of its source, in markdown link format.</p>
+            <button id="copy-prompt" class="secondary" type="button">Copy</button>
+          </div>
+        </div>
+
+        <div id="empty" class="emptystate">
+          <p class="empty-k">The bench</p>
+          <p>Each claim lands here with the line the source actually wrote.</p>
+          <dl class="legend">
+            <div><dt><span class="dot dot-green"></span>Matched</dt><dd>the source says it</dd></div>
+            <div><dt><span class="dot dot-yellow"></span>Unsupported</dt><dd>no line backs it</dd></div>
+            <div><dt><span class="dot dot-red"></span>Contradicted</dt><dd>the source says otherwise</dd></div>
+          </dl>
+        </div>
+
+        <div id="cards" class="cards"></div>
+        <div id="matched" class="matched" hidden></div>
+        <div id="tray" class="tray" hidden></div>
+
+        <details id="skipped" class="more" hidden>
+          <summary></summary>
+          <ul></ul>
+        </details>
+        <details id="uncited" class="more" hidden>
+          <summary></summary>
+          <ul></ul>
+        </details>
+      </div>
+
+      <div class="railfoot" id="railfoot">
+        <span id="provenance">Zero tokens until you run.</span>
+        <button id="showmatched" class="linkish" type="button" aria-pressed="true">Matched marks</button>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<dialog id="shortcuts" class="dlg">
+  <form method="dialog"><button class="dlgx" type="submit" aria-label="Close">×</button></form>
+  <h2>Keys</h2>
+  <dl>
+    <div><dt>Ctrl / ⌘ O</dt><dd>Import a report</dd></div>
+    <div><dt>Ctrl / ⌘ Enter</dt><dd>Run the assay</dd></div>
+    <div><dt>J / K</dt><dd>Next / previous card</dd></div>
+    <div><dt>[ / ]</dt><dd>Previous / next problem</dd></div>
+    <div><dt>G</dt><dd>Back to top</dd></div>
+    <div><dt>?</dt><dd>This list</dd></div>
+    <div><dt>Esc</dt><dd>Close</dd></div>
+  </dl>
+  <p class="dlg-note">Click a mark on the ruler to jump to its claim.</p>
+</dialog>
+
+<div id="drop" class="drop" hidden><span>Drop a .md or .txt report</span></div>
+<p id="live" class="sr-only" aria-live="polite"></p>
 </body>
 </html>
