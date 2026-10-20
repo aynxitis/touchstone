@@ -4,14 +4,16 @@
   --ink:#1a1813; --muted:#6b6455; --faint:#756d5d;
   --rule:#d9d3c3; --rule-strong:#bcb4a0; --soft:#efe9db;
   --stone:#16140f; --on-stone:#f1ede0; --on-stone-muted:#b3ab96;
-  --brass:#8a6d33;
-  --ok:#46674f; --warn:#8a6100; --fail:#6e4a0b; --info:#3f6577; --grey:#6b6a67;
-  --ok-on:#8fae92; --warn-on:#c9a24a; --fail-on:#c49a3c; --info-on:#9fc0cd;
-  --ok-bg:#e6ede4; --warn-bg:#f4ecd7; --fail-bg:#f0e3c3; --info-bg:#e3edf1; --grey-bg:#efebe0;
+  --brass:#7d6029; --on-brass:#fbf9f2;
+  --ok:#46674f; --warn:#8a6100; --fail:#a63a26; --info:#3f6577; --grey:#6b6a67;
+  --ok-on:#8fae92; --warn-on:#c9a24a; --fail-on:#e09a86; --info-on:#9fc0cd;
+  --ok-bg:#e6ede4; --warn-bg:#f4ecd7; --fail-bg:#f6e4df; --info-bg:#e3edf1; --grey-bg:#efebe0;
+  --sb-thumb:rgba(26,24,19,.30); --sb-thumb-hover:rgba(26,24,19,.52);
+  --sel:rgba(138,109,51,.24);
   --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --serif:"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif;
   --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
-  --bar:34px;
+  --bar:34px; --ruler:16px;
   color-scheme:light;
 }
 html[data-theme="dark"]{
@@ -19,10 +21,12 @@ html[data-theme="dark"]{
   --ink:#ece7d9; --muted:#9a9281; --faint:#857d6b;
   --rule:#302b23; --rule-strong:#4a4438; --soft:#1e1a13;
   --stone:#1e1a13; --on-stone:#f4f0e3; --on-stone-muted:#b0a894;
-  --brass:#cdab68;
-  --ok:#8fae92; --warn:#c9a24a; --fail:#e0b85e; --info:#9fc0cd; --grey:#9a9281;
-  --ok-on:#8fae92; --warn-on:#c9a24a; --fail-on:#d9ae55; --info-on:#9fc0cd;
-  --ok-bg:#1d2721; --warn-bg:#2a2416; --fail-bg:#2c2416; --info-bg:#1b262b; --grey-bg:#211d16;
+  --brass:#cdab68; --on-brass:#16140f;
+  --ok:#8fae92; --warn:#c9a24a; --fail:#d4796a; --info:#9fc0cd; --grey:#9a9281;
+  --ok-on:#8fae92; --warn-on:#c9a24a; --fail-on:#e09a86; --info-on:#9fc0cd;
+  --ok-bg:#1d2721; --warn-bg:#2a2416; --fail-bg:#2c1e1a; --info-bg:#1b262b; --grey-bg:#211d16;
+  --sb-thumb:rgba(236,231,217,.24); --sb-thumb-hover:rgba(236,231,217,.46);
+  --sel:rgba(205,171,104,.30);
   color-scheme:dark;
 }
 
@@ -38,6 +42,8 @@ a:hover{text-decoration-color:var(--ink)}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
   clip:rect(0,0,0,0);white-space:nowrap;border:0}
 :focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+::selection{background:var(--sel);color:var(--ink)}
+textarea,input{caret-color:var(--brass)}
 
 /* ---------------- top bar ---------------- */
 .app{height:100vh;display:grid;grid-template-rows:48px minmax(0,1fr)}
@@ -147,25 +153,27 @@ textarea:focus{outline:none;border-color:var(--ink)}
 .paper tr.is-sel td{background:var(--soft)}
 .hide-ok .gmark.ok,.hide-ok .ovr-mark.m-ok{display:none}
 
-/* ---------------- overview ruler ---------------- */
-.ovr{position:absolute;top:0;right:0;bottom:var(--bar);width:24px;z-index:7;cursor:pointer;
-  border-left:1px solid var(--rule);
-  background:linear-gradient(to right,rgba(20,18,13,.025),rgba(20,18,13,0))}
+/* ---------------- overview ruler: a VS Code-style scrollbar ---------------- */
+.ovr{position:absolute;top:0;right:0;bottom:var(--bar);width:var(--ruler);z-index:7;
+  cursor:default;touch-action:none;background:transparent}
 .ovr[hidden]{display:none}
 .docwrap:not(.has-doc) .ovr{bottom:0}
-.ovr-win{position:absolute;left:5px;right:5px;background:rgba(20,18,13,.07);
-  border:1px solid rgba(20,18,13,.16);pointer-events:none;min-height:16px}
-html[data-theme="dark"] .ovr-win{background:rgba(236,231,217,.08);border-color:rgba(236,231,217,.18)}
-.ovr-mark{position:absolute;left:5px;right:5px;height:8px;padding:2px 0;border:0;
-  background:none;cursor:pointer}
-.ovr-mark::before{content:"";display:block;height:2px;background:var(--faint);opacity:.4}
-.ovr-mark.m-bad::before{height:4px;background:var(--fail);opacity:1}
+/* The thumb is the scrollbar: a slim translucent pill inset from the edge. */
+.ovr-win{position:absolute;right:2px;width:7px;min-height:24px;pointer-events:auto;
+  cursor:grab;border:0;border-radius:8px;background:var(--sb-thumb)}
+.ovr:hover .ovr-win{background:var(--sb-thumb-hover)}
+.ovr-win:active{cursor:grabbing;background:var(--sb-thumb-hover)}
+/* Claim marks are overview-ruler ticks beside the slider, not bars across it. */
+.ovr-mark{position:absolute;left:2px;width:4px;height:8px;padding:3px 0;border:0;
+  background:none;cursor:pointer;z-index:3}
+.ovr-mark::before{content:"";display:block;height:2px;border-radius:1px;
+  background:var(--faint);opacity:.45}
+.ovr-mark.m-bad::before{height:3px;background:var(--fail);opacity:1}
 .ovr-mark.m-unsup::before{height:3px;background:var(--warn);opacity:1}
-.ovr-mark.m-ok::before{height:2px;background:var(--ok);opacity:.65}
+.ovr-mark.m-ok::before{height:2px;background:var(--ok);opacity:.6}
 .ovr-mark.m-info::before{height:2px;background:var(--info);opacity:.55}
-.ovr-mark:hover,.ovr-mark:focus-visible{left:1px;right:1px}
-.ovr-mark:hover::before{opacity:1}
-.ovr-mark::after{content:"";position:absolute;left:-15px;right:0;top:-8px;bottom:-8px}
+.ovr-mark:hover::before,.ovr-mark:focus-visible::before{opacity:1}
+.ovr-mark::after{content:"";position:absolute;left:-2px;width:10px;top:-5px;bottom:-5px}
 
 /* ---------------- floating controls ---------------- */
 .totop{position:absolute;right:34px;top:12px;z-index:5;width:30px;height:30px;
@@ -225,15 +233,20 @@ html[data-theme="dark"] .ovr-win{background:rgba(236,231,217,.08);border-color:r
 .runrow{display:flex;align-items:center;gap:10px;margin-top:13px;flex-wrap:wrap}
 .runbtn{background:var(--on-stone);color:var(--stone);border:1px solid var(--on-stone);
   padding:7px 15px;font:500 14px var(--sans)}
-.runbtn:hover{background:var(--brass);border-color:var(--brass);color:var(--stone)}
+.runbtn:hover{background:var(--brass);border-color:var(--brass);color:var(--on-brass)}
 .runbtn:disabled{opacity:.5;cursor:default}
 .scope{font:11.5px/1.45 var(--mono);color:var(--on-stone-muted);letter-spacing:.01em}
 .progress{height:2px;background:rgba(241,237,224,.15);margin-top:14px;overflow:hidden}
 .progress span{display:block;height:100%;width:0;background:var(--brass);transition:width .25s ease}
 .stone-wait .verdict{font:14.5px/1.4 var(--mono);color:var(--warn-on);letter-spacing:0}
 
-.railbody{flex:1;min-height:0;overflow:auto;scrollbar-width:thin;
-  scrollbar-color:var(--rule-strong) transparent}
+.railbody{flex:1;min-height:0;overflow:auto}
+/* Chromium ignores ::-webkit-scrollbar once scrollbar-color is set, so the
+   standard properties are a non-WebKit fallback only. */
+@supports not selector(::-webkit-scrollbar){
+  .railbody,.docwrap:not(.has-doc) .docpane{
+    scrollbar-width:thin;scrollbar-color:var(--sb-thumb-hover) transparent}
+}
 .railfoot{flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;
   height:30px;padding:0 14px;border-top:1px solid var(--rule);background:var(--page-2);
   font:11.5px var(--mono);letter-spacing:.01em;color:var(--muted);white-space:nowrap;overflow:hidden}
@@ -458,7 +471,6 @@ html[data-theme="dark"] .drop{background:rgba(16,15,12,.92)}
   .docpane{padding:34px 56px 56px 40px}
   .front{padding:36px 24px 32px}
   textarea{min-height:160px}
-  .ovr{width:22px}
   .rail{border-top:0}
   .stone{padding:13px 18px 12px}
   .stone-top{margin-bottom:6px}
@@ -490,9 +502,6 @@ html[data-theme="dark"] .drop{background:rgba(16,15,12,.92)}
   .lede{font-size:15px;margin-bottom:16px}
   textarea{min-height:120px;font-size:13.5px}
   .count{margin-left:auto;width:auto;font-size:11.5px}
-  .ovr{width:16px}
-  .ovr-mark{left:3px;right:3px}
-  .ovr-win{left:3px;right:3px}
   .totop{right:24px;top:auto;bottom:2px}
   .docwrap{grid-template-rows:minmax(0,1fr) 32px}
   .docwrap:not(.has-doc){grid-template-rows:minmax(0,1fr)}
@@ -565,25 +574,25 @@ html[data-theme="dark"] .drop{background:rgba(16,15,12,.92)}
    Labels get a 12px floor, body copy 15–18px, and the result rail widens
    so claims can breathe. The claim map becomes a real scrollbar.
    ======================================================================== */
-:root{--bar:42px;--ruler:34px;--rail-w:440px}
+:root{--bar:42px;--rail-w:440px}
 body{font-size:15.5px}
 .app{grid-template-rows:54px minmax(0,1fr)}
 .topbar{gap:12px;padding:0 18px}
 .wordmark{font-size:21px}
 .docname{font-size:13px}
-.demo-tag{font-size:10.5px;padding:2px 6px}
+.demo-tag{font-size:11px;padding:2px 6px}
 .tbtn{font-size:13px;min-height:32px;padding:7px 10px}
 .icon{width:32px;height:32px;font-size:15px}
 .body{grid-template-columns:minmax(0,1fr) var(--rail-w)}
 .docpane{padding:48px calc(var(--ruler) + 44px) 72px 52px}
 /* The front door can overflow at phone sizes once the type scale is honest.
    It gets a real scrollbar instead of hiding the controls below the fold. */
-.docwrap:not(.has-doc) .docpane{scrollbar-width:auto;scrollbar-color:var(--rule-strong) var(--page-2)}
-.docwrap:not(.has-doc) .docpane::-webkit-scrollbar{width:14px;height:14px}
-.docwrap:not(.has-doc) .docpane::-webkit-scrollbar-track{background:var(--page-2)}
-.docwrap:not(.has-doc) .docpane::-webkit-scrollbar-thumb{background:var(--rule-strong);
-  border:3px solid var(--page-2);border-radius:99px}
-.docwrap:not(.has-doc) .docpane::-webkit-scrollbar-thumb:hover{background:var(--brass)}
+.docwrap:not(.has-doc) .docpane::-webkit-scrollbar{width:12px;height:12px}
+.docwrap:not(.has-doc) .docpane::-webkit-scrollbar-track{background:transparent}
+.docwrap:not(.has-doc) .docpane::-webkit-scrollbar-thumb{background:var(--sb-thumb);
+  border:3px solid transparent;background-clip:padding-box;border-radius:99px}
+.docwrap:not(.has-doc) .docpane::-webkit-scrollbar-thumb:hover{background:var(--sb-thumb-hover);
+  background-clip:padding-box}
 .paper{max-width:720px;padding-left:48px}
 .gmarks,.paper td .gmarks{left:-48px}
 .paper h1{font-size:36px}
@@ -593,7 +602,7 @@ body{font-size:15.5px}
 .paper li{font-size:17.5px;line-height:1.62;margin-bottom:9px}
 .paper blockquote{font-size:17.5px;line-height:1.6}
 .paper table{font-size:15px}
-.paper th{font-size:11.5px}
+.paper th{font-size:12px}
 
 /* front door */
 .front{padding:62px 26px 56px}
@@ -624,18 +633,18 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
 .scope{font-size:12px}
 .railfoot{height:36px;padding:0 16px;font-size:12px}
 .linkish{font-size:12px;min-height:28px}
-.railbody{scrollbar-width:auto;scrollbar-color:var(--rule-strong) transparent}
 .railbody::-webkit-scrollbar{width:12px;height:12px}
 .railbody::-webkit-scrollbar-track{background:transparent}
-.railbody::-webkit-scrollbar-thumb{background:var(--rule-strong);border:3px solid var(--page-2);border-radius:99px;min-height:36px}
-.railbody::-webkit-scrollbar-thumb:hover{background:var(--brass)}
+.railbody::-webkit-scrollbar-thumb{background:var(--sb-thumb);
+  border:3px solid transparent;background-clip:padding-box;border-radius:99px;min-height:36px}
+.railbody::-webkit-scrollbar-thumb:hover{background:var(--sb-thumb-hover);background-clip:padding-box}
 .emptystate{padding:24px 22px;font-size:15px}
 .empty-k{font-size:12px}
 .legend{gap:11px;margin-top:22px}
 .legend dt{width:112px;font-size:14px}
 .legend dd{font-size:13.5px}
 .rname{font-size:15px}
-.rmeta{font-size:11.5px}
+.rmeta{font-size:12px}
 .rverdict{font-size:12px}
 
 /* result cards */
@@ -652,18 +661,18 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
 .tag{font-size:11px}
 .part-text{font-size:14.5px}
 .quote{font-size:15px;line-height:1.55}
-.where{font-size:11.5px}
+.where{font-size:12px}
 .reason,.detail,.part-note{font-size:13px}
 .download,.source,.source-plain,.outcome{font-size:12px}
 .mhead{font-size:12px;padding:12px 14px}
 .mrow{padding:9px 14px}
-.mno{font-size:11.5px}
+.mno{font-size:12px}
 .mtext{font-size:15px}
 .mnote{font-size:11px}
-.tray-k{font-size:11.5px}
+.tray-k{font-size:12px}
 .trow{font-size:13.5px}
-.trow .tlabel{font-size:11.5px}
-.trow .twhy{font-size:11.5px}
+.trow .tlabel{font-size:12px}
+.trow .twhy{font-size:12px}
 .more summary{font-size:12px}
 .more li{font-size:13.5px}
 .replay{font-size:13px;padding:11px 13px}
@@ -676,33 +685,16 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
 .dlg h2{font-size:24px}
 .dlg dt{font-size:12px}
 .dlg dd{font-size:14px}
-.dlg-note{font-size:11.5px}
+.dlg-note{font-size:12px}
 .evdlg{width:min(480px,100vw);padding:24px 24px 20px}
-.ev-kicker{font-size:11.5px}
+.ev-kicker{font-size:12px}
 .ev-title{font-size:28px}
 .ev-claim{font-size:17px}
 .ev-fact .part-text{font-size:14.5px}
 .ev-links a,.ev-links span{font-size:12.5px}
-.ev-links .ev-outcome,.ev-note{font-size:11.5px}
+.ev-links .ev-outcome,.ev-note{font-size:12px}
 
-/* claim map as a scrollbar: wide track, visible draggable viewport thumb */
-.ovr{width:var(--ruler);cursor:ns-resize;touch-action:none;
-  border-left:1px solid var(--rule);
-  background:linear-gradient(to left,rgba(20,18,13,.055),rgba(20,18,13,.012))}
-.ovr::before{content:"";position:absolute;top:10px;bottom:10px;right:11px;width:3px;
-  border-radius:3px;background:var(--rule-strong);opacity:.45;pointer-events:none}
-.ovr-win{left:7px;right:7px;min-height:28px;pointer-events:auto;cursor:grab;
-  border-radius:6px;background:rgba(20,18,13,.12);border:1px solid rgba(20,18,13,.28);
-  box-shadow:inset 0 0 0 1px rgba(251,249,242,.25)}
-.ovr-win:active{cursor:grabbing}
-html[data-theme="dark"] .ovr-win{background:rgba(236,231,217,.13);border-color:rgba(236,231,217,.3);
-  box-shadow:inset 0 0 0 1px rgba(21,19,14,.35)}
-.ovr-mark{left:7px;right:7px;height:10px;padding:3px 0;z-index:2}
-.ovr-mark::before{height:3px}
-.ovr-mark.m-bad::before{height:5px}
-.ovr-mark.m-unsup::before{height:4px}
-.ovr-mark.m-ok::before,.ovr-mark.m-info::before{height:3px}
-.ovr-mark::after{left:-7px;right:0;top:-6px;bottom:-6px}
+/* the claim map now reads as a scrollbar: ticks left, slider right, no frame */
 .totop{right:calc(var(--ruler) + 10px)}
 .pagerbar button{width:36px;height:36px}
 .pg-n{font-size:12px;line-height:36px;min-width:54px}
@@ -727,19 +719,19 @@ html[data-theme="dark"] .ovr-win{background:rgba(236,231,217,.13);border-color:r
 .md-wrap{flex:1;min-height:0;position:relative;margin:18px 28px 0;display:flex;
   background:var(--paper);border:1px solid var(--rule-strong);border-radius:1px}
 .md-wrap:focus-within{outline:2px solid var(--brass);outline-offset:0;border-color:var(--ink)}
-.md-editor{flex:1;min-height:0;width:100%;height:100%;margin:0;padding:16px 34px 16px 18px;
+.md-editor{flex:1;min-height:0;width:100%;height:100%;margin:0;
+  padding:16px calc(var(--ruler) + 8px) 16px 18px;
   resize:none;white-space:pre-wrap;overflow:auto;font:15.5px/1.75 var(--mono);
   color:var(--ink);background:var(--paper);border:0;border-radius:0;scrollbar-width:none}
 .md-editor:focus{outline:none;border:0}
 .md-editor::-webkit-scrollbar{width:0;height:0}
-.md-scroll{position:absolute;top:0;right:0;bottom:0;width:20px;border-left:1px solid var(--rule);
-  background:linear-gradient(to left,var(--soft),rgba(0,0,0,0));cursor:pointer;touch-action:none}
-.md-scroll-win{display:none;position:absolute;left:3px;right:3px;top:0;min-height:30px;border-radius:6px;
-  background:rgba(20,18,13,.16);border:1px solid rgba(20,18,13,.3);cursor:grab;
-  box-shadow:inset 0 0 0 1px rgba(251,249,242,.2)}
-.md-scroll-win:active{cursor:grabbing}
-html[data-theme=dark] .md-scroll-win{background:rgba(236,231,217,.16);
-  border-color:rgba(236,231,217,.32);box-shadow:inset 0 0 0 1px rgba(21,19,14,.3)}
+/* Same VS Code model as the document ruler: slim track, round translucent thumb. */
+.md-scroll{position:absolute;top:0;right:0;bottom:0;width:var(--ruler);border-left:0;
+  background:transparent;cursor:default;touch-action:none}
+.md-scroll-win{display:none;position:absolute;right:2px;width:7px;top:0;min-height:24px;
+  border-radius:8px;background:var(--sb-thumb);border:0;cursor:grab}
+.md-wrap:hover .md-scroll-win{background:var(--sb-thumb-hover)}
+.md-scroll-win:active{cursor:grabbing;background:var(--sb-thumb-hover)}
 .editdlg .fronterr{margin:8px 28px 0}
 .edit-foot{display:flex;align-items:center;gap:12px;padding:14px 28px 18px;
   border-top:1px solid var(--rule);background:var(--page-2)}
@@ -763,8 +755,6 @@ html[data-theme=dark] .md-scroll-win{background:rgba(236,231,217,.16);
   .docpane{padding:38px 62px 60px 42px}
   .paper{padding-left:42px}
   .gmarks,.paper td .gmarks{left:-42px}
-  .ovr{width:30px}
-  .totop{right:40px}
   .stone{padding:16px 20px 14px}
   .verdict{font-size:20px}
   .counts{margin-top:10px}
@@ -783,17 +773,15 @@ html[data-theme=dark] .md-scroll-win{background:rgba(236,231,217,.16);
   .icon{width:30px;height:30px;font-size:14px}
   #export{display:none}
   .body{grid-template-rows:minmax(0,1fr) 44vh}
-  .ovr{width:26px}
-  .ovr::before{right:8px}
-  .ovr-win{left:5px;right:5px;min-height:26px}
-  .ovr-mark{left:5px;right:5px}
-  .ovr-mark::after{left:-5px}
+  :root{--ruler:20px}
+  .ovr-win,.md-scroll-win{right:3px;width:9px}
+  .ovr-mark{left:3px;width:5px}
   .docpane{padding:0 46px 54px 16px}
   .paper{padding-left:30px;max-width:none}
   .paper .gmarks,.paper td .gmarks{left:-30px}
   .front{padding:22px 16px 28px}
   .front h1{font-size:34px;margin-bottom:9px}
-  .kicker{font-size:11.5px;margin-bottom:7px}
+  .kicker{font-size:12px;margin-bottom:7px}
   .lede{font-size:15.5px;line-height:1.55;margin-bottom:18px}
   textarea{min-height:132px;font-size:14.5px;padding:13px 14px}
   .front-row{gap:8px;margin-top:12px}
@@ -803,20 +791,19 @@ html[data-theme=dark] .md-scroll-win{background:rgba(236,231,217,.16);
   .docwrap:not(.has-doc){grid-template-rows:minmax(0,1fr)}
   .ovr{bottom:38px}
   .docwrap:not(.has-doc) .ovr{bottom:0}
-  .totop{right:34px;bottom:2px}
+  .totop{right:30px;bottom:2px}
   .pagerbar button{width:34px;height:34px}
-  .pg-n{font-size:11.5px;line-height:34px}
+  .pg-n{font-size:12px;line-height:34px}
   .stone.in-doc{margin:0 -46px 16px -16px;padding:10px 46px 10px 16px}
   .stone.in-doc .verdict{font-size:18px}
-  .stone.in-doc .assay,.stone.in-doc .stonelink{font-size:11.5px}
+  .stone.in-doc .assay,.stone.in-doc .stonelink{font-size:12px}
   .stone.in-doc .counts{flex-wrap:wrap;overflow-x:visible}
-  .stone.in-doc .cnt{font-size:11.5px;min-height:28px}
-  .railfoot{height:34px;padding:0 14px;font-size:11.5px}
-  .railbody{scrollbar-width:auto}
+  .stone.in-doc .cnt{font-size:12px;min-height:28px}
+  .railfoot{height:34px;padding:0 14px;font-size:12px}
   .paper h1{font-size:31px;margin-bottom:17px}
   .paper h2{font-size:22px;margin-top:28px}
   .paper p,.paper li{font-size:18px;line-height:1.66}
-  .paper td::before{font-size:11.5px}
+  .paper td::before{font-size:12px}
   .legend dt{width:100px;font-size:13.5px}
   .legend dd{font-size:13px}
   .editdlg{width:100vw;height:100vh;max-height:none;margin:0;border:0}
@@ -829,6 +816,6 @@ html[data-theme=dark] .md-scroll-win{background:rgba(236,231,217,.16);
   .editdlg .fronterr{margin:6px 16px 0}
   .edit-foot{padding:11px 16px 14px;gap:8px}
   .edit-keys{display:none}
-  .edit-foot .count{font-size:11.5px}
+  .edit-foot .count{font-size:12px}
   .edit-foot .primary,.edit-foot .secondary{font-size:13px;padding:7px 10px}
 }

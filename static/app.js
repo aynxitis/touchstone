@@ -504,7 +504,7 @@ function layout() {
   if (scrollable) {
     // Match a code editor's viewport slider: the thumb travels over the track
     // that remains after its own height is removed.
-    const winH = Math.max(28, Math.round((ch / sh) * h));
+    const winH = Math.max(24, Math.round((ch / sh) * h));
     const trackH = Math.max(0, h - winH);
     const maxScroll = Math.max(1, sh - ch);
     const winTop = Math.round((pane.scrollTop / maxScroll) * trackH);
@@ -516,7 +516,7 @@ function layout() {
     const rect = c.unit.el.getBoundingClientRect();
     const paneRect = pane.getBoundingClientRect();
     const y = ((rect.top - paneRect.top + pane.scrollTop) / sh) * h + (c.offset || 0);
-    c.mark.style.top = `${Math.max(0, Math.min(h - 9, Math.round(y)))}px`;
+    c.mark.style.top = `${Math.max(0, Math.min(h - 8, Math.round(y)))}px`;
   }
   top.hidden = !scrollable;
   top.classList.toggle("low", pane.scrollTop < ch * 0.5);
@@ -2011,7 +2011,7 @@ function layoutEditorScroll() {
   const scrollable = sh > ch + 2 && h > 0;
   win.style.display = scrollable ? "block" : "none";
   if (!scrollable) return;
-  const winH = Math.max(30, Math.round((ch / sh) * h));
+  const winH = Math.max(24, Math.round((ch / sh) * h));
   const track = Math.max(0, h - winH);
   const max = Math.max(1, sh - ch);
   const top = Math.round((area.scrollTop / max) * track);
