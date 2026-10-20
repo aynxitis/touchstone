@@ -1521,7 +1521,16 @@ def merge(claim, results, texts, context=""):
     caps += names_cap(left)
     token = CLAIM_BOUNDS.set(tuple(b[1:] for b in bounds(claim)))
     try:
-        v = verdict(facts, base["framing"], demoted, missing_numbers(claim, "\n".join(texts)), caps=caps)
+        missing = missing_numbers(claim, "\n".join(texts))
+        v = verdict(facts, base["framing"], demoted, missing, caps=caps)
+        # A source's verified contradiction that same_fact() matched to no base fact is not in
+        # `facts`: it must still keep the claim from SOURCED (amber, never greener or redder).
+        if v["label"] == "SOURCED" and (unmatched := list(dict.fromkeys(
+                f"Sources disagree on \"{g['fact']}\": {site(base_url)} states it, {site(u)} contradicts it."
+                for u, r in with_facts for g in r["facts"] if g["status"] == "contradicted" and g.get("quote")))):
+            disagree += unmatched
+            caps += unmatched
+            v = verdict(facts, base["framing"], demoted, missing, caps=caps)
     finally:
         CLAIM_BOUNDS.reset(token)
     if v["label"] == "CONTRADICTED" and (why := date_reason(claim + "\n" + context, facts)):
