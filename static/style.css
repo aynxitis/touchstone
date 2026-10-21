@@ -56,7 +56,9 @@ textarea,input{caret-color:var(--brass)}
 .demo-tag{display:inline-block;margin-left:2px;padding:1px 5px;border:1px solid var(--brass);
   color:var(--brass);font:11px/1.3 var(--mono);letter-spacing:.12em;text-transform:uppercase;
   vertical-align:middle;white-space:nowrap}
-.kicker .demo-tag{margin-left:8px}
+/* Below 1100px the top bar hands the demo marker to the front page's fine print. */
+.front-demo{display:none;margin:0 0 8px}
+@media (max-width:1099px){.front-demo{display:block}}
 .top-actions{margin-left:auto;display:flex;align-items:center;gap:6px;flex:none}
 .tbtn{background:none;border:1px solid transparent;padding:5px 9px;cursor:pointer;
   min-height:24px;font:12.5px var(--mono);letter-spacing:.04em;color:var(--muted);text-transform:uppercase}
@@ -81,8 +83,6 @@ textarea,input{caret-color:var(--brass)}
 .front{min-height:100%;display:flex;justify-content:center;padding:56px 24px 48px}
 .front[hidden]{display:none}
 .front-inner{width:100%;max-width:620px}
-.kicker{font:12px var(--mono);letter-spacing:.14em;text-transform:uppercase;
-  color:var(--brass);margin:0 0 10px}
 .front h1{font:500 42px/1.12 var(--serif);letter-spacing:-.03em;color:var(--ink);margin:0 0 12px}
 .lede{margin:0 0 24px;color:var(--muted);font-size:15.5px;max-width:52ch}
 textarea{width:100%;min-height:250px;resize:vertical;padding:14px 16px;
@@ -508,7 +508,6 @@ html[data-theme="dark"] .drop{background:rgba(16,15,12,.92)}
 }
 @media (max-width:699px){
   .topbar{gap:8px;padding:0 12px}
-  .topbar .demo-tag{display:none}
   .docname{display:none !important}
   #export{display:none}
   .body{grid-template-rows:minmax(0,1fr) 42vh}
@@ -626,7 +625,6 @@ body{font-size:15.5px}
 /* front door */
 .front{padding:62px 26px 56px}
 .front-inner{max-width:680px}
-.kicker{font-size:12px;margin-bottom:12px}
 .front h1{font-size:42px;margin-bottom:14px}
 .lede{font-size:16.5px;line-height:1.6;margin-bottom:26px}
 textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
@@ -770,6 +768,8 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
   body:not(.has-report) .rail .stone.is-empty{display:none}
   body:not(.has-report) .legend{gap:7px;margin-top:16px}
   body:not(.has-report) .legend dd{display:none}
+  /* The top bar is full of actions at these widths; the front page carries the
+     demo marker in its fine print instead. */
   .topbar .demo-tag{display:none}
   .docname{max-width:220px}
   .docpane{padding:38px calc(var(--ruler) + var(--mm-w) + 24px) 60px 42px}
@@ -787,7 +787,6 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
 }
 @media (max-width:699px){
   .topbar{gap:8px;padding:0 12px}
-  .topbar .demo-tag{display:none}
   .docname{display:none !important}
   .tbtn{font-size:12.5px;min-height:30px;padding:6px 8px}
   .icon{width:30px;height:30px;font-size:14px}
