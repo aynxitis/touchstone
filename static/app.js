@@ -456,6 +456,14 @@ function addGutter(unit, claim) {
   });
   box.append(mark);
   claim.gmark = mark;
+  // Only problems colour the minimap, the way editor diagnostics do; sourced
+  // and neutral text stays skeleton grey. Worst claim wins per block.
+  if (claim.kind === "bad" || claim.kind === "unsup") {
+    const rank = { bad: 2, unsup: 1 };
+    if ((rank[claim.kind] || 0) >= (rank[unit.el.dataset.kind] || 0)) {
+      unit.el.dataset.kind = claim.kind;
+    }
+  }
 }
 
 function attachClaim(ev) {
@@ -484,17 +492,20 @@ function attachClaim(ev) {
 /* ---------------- minimap ---------------- */
 
 let mmKey = "";
+let mmScale = 0;
+let mmOffX = 0;
+let mmPreviewW = 0;
+let mmSkeletonH = 0;
 
-/* A code-editor minimap: the rendered document cloned into the gutter and
-   reflowed at minimap size. The clone is inert (aria-hidden, no ids or links);
-   it is rebuilt only when the report or the pane size changes. */
+/* A code-editor minimap: not the text, a skeleton of the page's real line
+   boxes at one uniform scale, so the preview keeps the document's proportions.
+   Lines in a contradicted or unsupported block take that problem's colour. */
 function drawMinimap() {
   const mm = $("minimap");
   const body = $("mmbody");
   const paper = $("paper");
   if (!mm || !body || !paper) return;
-  const src = state.report || "";
-  if (!src) {
+  if (!state.report) {
     mm.hidden = true;
     mmKey = "";
     return;
@@ -503,34 +514,50 @@ function drawMinimap() {
   const w = mm.clientWidth;
   const h = mm.clientHeight;
   if (!w || !h) return;
-  const key = `${w}x${h}|${src.length}`;
+  const key = `${w}x${h}|${state.report.length}|${doc.claims.length}`;
   if (key === mmKey) return;
   mmKey = key;
 
-  const page = paper.cloneNode(true);
-  page.removeAttribute("id");
-  page.hidden = false;
-  page.classList.add("mm-page");
-  for (const n of page.querySelectorAll("[id]")) n.removeAttribute("id");
-  for (const n of page.querySelectorAll(".gmarks")) n.remove();
-  for (const a of page.querySelectorAll("a")) {
-    a.removeAttribute("href");
-    a.removeAttribute("target");
+  const pcs = getComputedStyle(paper);
+  const padL = parseFloat(pcs.paddingLeft) || 0;
+  const padR = parseFloat(pcs.paddingRight) || 0;
+  const prect = paper.getBoundingClientRect();
+  const docW = paper.clientWidth - padL - padR;
+  const docH = paper.scrollHeight;
+  if (docW <= 0 || docH <= 0) return;
+  // One scale for both axes: the preview keeps the page's proportions, and a
+  // page taller than the gutter shrinks to fit it instead of losing its tail.
+  const s = Math.min(w / docW, h / docH);
+  const offX = Math.max(0, (w - docW * s) / 2);
+
+  const frag = document.createDocumentFragment();
+  const walker = document.createTreeWalker(paper, NodeFilter.SHOW_TEXT);
+  let node;
+  let count = 0;
+  while ((node = walker.nextNode()) && count < 900) {
+    if (!node.nodeValue.trim()) continue;
+    const host = node.parentElement && node.parentElement.closest("[data-kind]");
+    const kind = host ? host.dataset.kind : "";
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    for (const r of range.getClientRects()) {
+      if (r.width < 1 || r.height < 1) continue;
+      const barH = Math.max(1, r.height * s * 0.8);
+      const bar = document.createElement("i");
+      bar.className = "mm-line" + (kind ? ` is-${kind}` : "");
+      bar.style.left = `${(offX + (r.left - prect.left - padL) * s).toFixed(2)}px`;
+      bar.style.top = `${((r.top - prect.top) * s + (r.height * s - barH) / 2).toFixed(2)}px`;
+      bar.style.width = `${Math.max(1, r.width * s).toFixed(2)}px`;
+      bar.style.height = `${barH.toFixed(2)}px`;
+      frag.append(bar);
+      count += 1;
+    }
   }
-  page.style.width = "100%";
-  body.style.width = `${w}px`;
-  body.replaceChildren(page);
-  // Reflow at gutter width, then grow the type until the preview fills most of
-  // the gutter. Growing the type re-wraps the text (it never clips it), so the
-  // minimap keeps reading as a tiny page rather than a column of cut lines.
-  const target = h * 0.92;
-  let k = 1;
-  let height = page.getBoundingClientRect().height;
-  for (let i = 0; i < 2 && height > 0; i++) {
-    k = Math.max(1, Math.min(2.4, k * Math.sqrt(target / Math.max(1, height))));
-    page.style.setProperty("--mm-k", k.toFixed(3));
-    height = page.getBoundingClientRect().height;
-  }
+  body.replaceChildren(frag);
+  mmScale = s;
+  mmOffX = offX;
+  mmPreviewW = docW * s;
+  mmSkeletonH = docH * s;
 }
 
 function layout() {
@@ -556,6 +583,7 @@ function layout() {
   const ch = pane.clientHeight;
   const h = ovr.clientHeight;
   const scrollable = sh > ch + 4 && h > 0;
+  drawMinimap();
   win.style.display = scrollable ? "block" : "none";
   if (scrollable) {
     // Match a code editor's viewport slider: the thumb travels over the track
@@ -567,8 +595,15 @@ function layout() {
     win.style.height = `${winH}px`;
     win.style.top = `${Math.max(0, Math.min(trackH, winTop))}px`;
     if (mmSlider) {
-      mmSlider.style.height = win.style.height;
-      mmSlider.style.top = win.style.top;
+      // The band is the viewport drawn at the minimap's own scale, so it keeps
+      // the page's proportions instead of stretching to the gutter.
+      const bandH = Math.max(14, Math.round(ch * mmScale));
+      const visH = Math.min(h, mmSkeletonH || h);
+      const bandTop = Math.min(Math.max(0, visH - bandH), Math.round(pane.scrollTop * mmScale));
+      mmSlider.style.left = `${mmOffX}px`;
+      mmSlider.style.width = `${mmPreviewW}px`;
+      mmSlider.style.height = `${Math.min(bandH, visH)}px`;
+      mmSlider.style.top = `${bandTop}px`;
     }
   }
   if (mmSlider) mmSlider.hidden = !scrollable;
@@ -581,7 +616,6 @@ function layout() {
   }
   top.hidden = !scrollable;
   top.classList.toggle("low", pane.scrollTop < ch * 0.5);
-  drawMinimap();
   paintPager();
 }
 
@@ -2422,27 +2456,44 @@ function bindEvents() {
     e.preventDefault();
   }, { passive: false });
 
-  // The minimap is a second ruler: click or drag anywhere on it to move the
-  // viewport, exactly like an editor's minimap.
+  // The minimap is a second ruler, but it maps onto the preview's own scale:
+  // clicking a line jumps to that line, and the empty space below the preview
+  // is the tail of the document.
   const mmEl = $("minimap");
   if (mmEl) {
+    let mmGrab = -1;
+    const scrollFromMinimap = (clientY) => {
+      const pane = $("docpane");
+      if (!pane || !mmScale) return;
+      const r = mmEl.getBoundingClientRect();
+      const bandH = Math.max(14, Math.round(pane.clientHeight * mmScale));
+      const visH = Math.min(r.height, mmSkeletonH || r.height);
+      const grab = mmGrab < 0 ? bandH / 2 : mmGrab;
+      const maxScroll = Math.max(0, pane.scrollHeight - pane.clientHeight);
+      const bandTop = Math.min(Math.max(0, visH - bandH), clientY - r.top - grab);
+      pane.scrollTop = Math.min(maxScroll, Math.max(0, bandTop / mmScale));
+    };
     mmEl.addEventListener("pointerdown", (e) => {
       if (e.button !== 0 || !state.report) return;
       const pane = $("docpane");
-      const win = $("ovrwin");
+      const win = $("mmslider");
       if (pane.scrollHeight - pane.clientHeight <= 0) return;
-      rulerGrab = (win.offsetHeight || 0) / 2;
+      const y = e.clientY - mmEl.getBoundingClientRect().top;
+      mmGrab = win && !win.hidden && y >= win.offsetTop && y <= win.offsetTop + win.offsetHeight
+        ? y - win.offsetTop
+        : win ? win.offsetHeight / 2 : 0;
       rulerDrag = true;
       try { mmEl.setPointerCapture(e.pointerId); } catch { /* no capture */ }
-      scrollFromRuler(e.clientY);
+      scrollFromMinimap(e.clientY);
       e.preventDefault();
     });
-    mmEl.addEventListener("pointermove", (e) => { if (rulerDrag) scrollFromRuler(e.clientY); });
+    mmEl.addEventListener("pointermove", (e) => { if (rulerDrag) scrollFromMinimap(e.clientY); });
     mmEl.addEventListener("pointerup", (e) => {
       rulerDrag = false;
+      mmGrab = -1;
       try { mmEl.releasePointerCapture(e.pointerId); } catch { /* already released */ }
     });
-    mmEl.addEventListener("pointercancel", () => { rulerDrag = false; });
+    mmEl.addEventListener("pointercancel", () => { rulerDrag = false; mmGrab = -1; });
     mmEl.addEventListener("wheel", (e) => {
       if (!state.report) return;
       $("docpane").scrollTop += e.deltaY;

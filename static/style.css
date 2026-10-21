@@ -13,7 +13,7 @@
   --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --serif:"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif;
   --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
-  --bar:34px; --ruler:16px; --mm-w:84px;
+  --bar:34px; --ruler:16px; --mm-w:120px;
   color-scheme:light;
 }
 html[data-theme="dark"]{
@@ -175,32 +175,17 @@ textarea:focus{outline:none;border-color:var(--ink)}
 .ovr-mark:hover::before,.ovr-mark:focus-visible::before{opacity:1}
 .ovr-mark::after{content:"";position:absolute;left:-2px;width:10px;top:-5px;bottom:-5px}
 
-/* ---------------- minimap: the document rendered tiny, like a code editor ---------------- */
+/* ---------------- minimap: a skeleton of the page, like a code editor's ---------------- */
 .minimap{position:absolute;top:0;right:var(--ruler);bottom:var(--bar);width:var(--mm-w);
-  overflow:hidden;z-index:6;cursor:default;touch-action:none}
+  overflow:hidden;z-index:6;cursor:default;touch-action:none;
+  --mm-ink:rgba(20,18,13,.30)}
+html[data-theme="dark"] .minimap{--mm-ink:rgba(236,231,217,.28)}
 .docwrap:not(.has-doc) .minimap{bottom:0}
 .minimap[hidden]{display:none}
-.mm-body{position:absolute;top:0;left:0}
-.mm-body *{pointer-events:none !important}
-.mm-page{width:100% !important;max-width:none !important;margin:0 !important;padding:0 !important;
-  background:transparent !important;border:0 !important;box-shadow:none !important;
-  font-size:calc(3px * var(--mm-k,1)) !important;line-height:calc(4.8px * var(--mm-k,1)) !important;
-  letter-spacing:0 !important;opacity:.6}
-html[data-theme="dark"] .mm-page{opacity:.5}
-.mm-page *{font-size:calc(3px * var(--mm-k,1)) !important;
-  line-height:calc(4.8px * var(--mm-k,1)) !important;margin:0 !important;padding:0 !important;
-  border:0 !important;border-radius:0 !important;box-shadow:none !important;background:transparent !important;
-  text-indent:0 !important;min-height:0 !important;max-width:none !important}
-.mm-page h1,.mm-page h2,.mm-page h3,.mm-page h4,.mm-page h5,.mm-page h6{
-  font-size:calc(4.8px * var(--mm-k,1)) !important;
-  line-height:calc(6.6px * var(--mm-k,1)) !important;
-  margin-top:calc(2px * var(--mm-k,1)) !important}
-.mm-page table,.mm-page thead,.mm-page tbody,.mm-page tr,.mm-page th,.mm-page td{
-  display:block !important;width:auto !important}
-.mm-page ul,.mm-page ol{padding-left:6px !important}
-.mm-page li{list-style-position:inside !important}
-.mm-page p{margin-bottom:.8px !important}
-.mm-page a{color:var(--brass) !important;text-decoration:none !important}
+.mm-body{position:absolute;top:0;left:0;right:0}
+.mm-line{position:absolute;display:block;background:var(--mm-ink);border-radius:0;pointer-events:none}
+.mm-line.is-bad{background:var(--fail)}
+.mm-line.is-unsup{background:var(--warn)}
 .mm-slider{position:absolute;left:0;right:0;top:0;height:0;border-radius:3px;
   background:rgba(20,18,13,.10);border:0;cursor:grab;
   transition:background .12s ease}
@@ -776,7 +761,7 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
 /* keep touch targets comfortable without changing the editorial rhythm */
 @media (max-width:1099px){
   .body{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) 44vh}
-  :root{--mm-w:56px}
+  :root{--mm-w:72px}
   /* The landing page needs the form first; the empty rail can be shorter than
      the result rail and scroll its own recent assays. */
   body:not(.has-report) .body{grid-template-rows:minmax(0,1fr) 28vh}
