@@ -21,7 +21,7 @@
       <input id="file" type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" hidden>
       <button id="export" class="tbtn" type="button" disabled>Export</button>
       <button id="theme" class="icon" type="button" aria-label="Switch to dark theme" title="Switch theme"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="5.2"/><path d="M8 2.8a5.2 5.2 0 0 1 0 10.4Z" fill="currentColor" stroke="none"/></svg></button>
-      <button id="help" class="icon" type="button" aria-label="Keyboard shortcuts" aria-haspopup="dialog" title="Keys">?</button>
+      <button id="help" class="icon" type="button" aria-label="Keyboard shortcuts" aria-haspopup="dialog" title="Keys"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="1.5" y="4.5" width="13" height="7" rx="1.2"/><path d="M4 7h.01M6.4 7h.01M8.8 7h.01M11.2 7h.01M4 9.6h.01M11.2 9.6h.01M6.2 9.6h3.6"/></svg></button>
     </div>
   </header>
 
@@ -37,7 +37,10 @@
               <span class="example-note">A saved report; no tokens.</span>
             </div>
             <label class="sr-only" for="report">Report to check</label>
-            <textarea id="report" spellcheck="false" placeholder="Paste the report here, links included."></textarea>
+            <div class="sheet">
+              <div class="sheet-head"><span>Report</span><span>Markdown</span></div>
+              <textarea id="report" spellcheck="false" placeholder="Paste the report here, links included."></textarea>
+            </div>
             <div class="front-row">
               <button id="check" class="primary" type="button">Open report</button>
               <button id="import2" class="secondary" type="button">Import .md</button>
