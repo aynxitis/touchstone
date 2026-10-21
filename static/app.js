@@ -70,7 +70,7 @@ function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
   const btn = $("theme");
   if (!btn) return;
-  btn.textContent = theme === "dark" ? "◑" : "◐";
+  btn.dataset.mode = theme;
   const next = theme === "dark" ? "light" : "dark";
   btn.setAttribute("aria-label", `Switch to ${next} theme`);
   btn.title = `Switch to ${next} theme`;
@@ -1068,7 +1068,11 @@ function showEvidence(claim) {
   if (!claim) return;
   const ev = claim.ev && typeof claim.ev === "object" ? claim.ev : {};
   evidenceNo = claim.no;
-  $("ev-kicker").textContent = `${claim.label} · CLAIM ${claim.no}`;
+  const state = $("ev-state");
+  const kind = String(claim.label || "").toLowerCase();
+  state.textContent = claim.label || "Evidence";
+  state.dataset.kind = kind.includes("contradic") ? "bad"
+    : kind.includes("unsupport") ? "unsup" : "ok";
   $("ev-title").textContent = `Claim ${claim.no}`;
   $("ev-claim").textContent = claim.text;
 

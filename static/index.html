@@ -20,7 +20,7 @@
       <button id="import" class="tbtn" type="button">Import</button>
       <input id="file" type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" hidden>
       <button id="export" class="tbtn" type="button" disabled>Export</button>
-      <button id="theme" class="icon" type="button" aria-label="Switch to dark theme" title="Switch theme">◐</button>
+      <button id="theme" class="icon" type="button" aria-label="Switch to dark theme" title="Switch theme"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="5.2"/><path d="M8 2.8a5.2 5.2 0 0 1 0 10.4Z" fill="currentColor" stroke="none"/></svg></button>
       <button id="help" class="icon" type="button" aria-label="Keyboard shortcuts" aria-haspopup="dialog" title="Keys">?</button>
     </div>
   </header>
@@ -59,11 +59,11 @@
       <div class="ovr" id="ovr" role="group" aria-label="Claim map" hidden>
         <div class="ovr-win" id="ovrwin" aria-hidden="true"></div>
       </div>
-      <button id="totop" class="totop" type="button" aria-label="Back to top" title="Back to top" hidden>↑</button>
+      <button id="totop" class="totop" type="button" aria-label="Back to top" title="Back to top" hidden><svg class="ic" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 12.6V3.8"/><path d="m4.4 7.2 3.6-3.6 3.6 3.6"/></svg></button>
       <div class="pagerbar" id="pagerbar">
-        <button id="prev" type="button" aria-label="Previous problem">‹</button>
+        <button id="prev" type="button" aria-label="Previous problem"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M10.2 3.4 5.6 8l4.6 4.6"/></svg></button>
         <span class="pg-n" id="pgn">1 / 1</span>
-        <button id="next" type="button" aria-label="Next problem">›</button>
+        <button id="next" type="button" aria-label="Next problem"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M5.8 3.4 10.4 8l-4.6 4.6"/></svg></button>
       </div>
     </div>
 
@@ -143,9 +143,11 @@
 </div>
 
 <dialog id="evidence" class="evdlg" aria-labelledby="ev-title">
-  <form method="dialog"><button class="dlgx" type="submit" aria-label="Close evidence">×</button></form>
-  <p class="ev-kicker" id="ev-kicker">Evidence</p>
-  <h2 class="ev-title" id="ev-title">Claim</h2>
+  <form method="dialog"><button class="dlgx" type="submit" aria-label="Close evidence"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m4.6 4.6 6.8 6.8M11.4 4.6l-6.8 6.8"/></svg></button></form>
+  <div class="ev-head">
+    <h2 class="ev-title" id="ev-title">Claim</h2>
+    <span class="ev-state" id="ev-state">Evidence</span>
+  </div>
   <p class="ev-claim" id="ev-claim"></p>
   <div class="ev-facts" id="ev-facts"></div>
   <div class="ev-links" id="ev-links"></div>
@@ -158,10 +160,9 @@
 <dialog id="editor" class="editdlg" aria-labelledby="edit-title">
   <div class="edit-head">
     <div>
-      <p class="ev-kicker">Report source</p>
-      <h2 class="edit-title" id="edit-title">Edit markdown</h2>
+      <h2 class="edit-title" id="edit-title">Edit report source</h2>
     </div>
-    <button id="close-edit" class="dlgx" type="button" aria-label="Close editor">×</button>
+    <button id="close-edit" class="dlgx" type="button" aria-label="Close editor"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m4.6 4.6 6.8 6.8M11.4 4.6l-6.8 6.8"/></svg></button>
   </div>
   <div class="edit-bar">
     <div class="md-tools" role="group" aria-label="Markdown formatting">
@@ -188,7 +189,7 @@
 </dialog>
 
 <dialog id="shortcuts" class="dlg">
-  <form method="dialog"><button class="dlgx" type="submit" aria-label="Close">×</button></form>
+  <form method="dialog"><button class="dlgx" type="submit" aria-label="Close"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m4.6 4.6 6.8 6.8M11.4 4.6l-6.8 6.8"/></svg></button></form>
   <h2>Keys</h2>
   <dl>
     <div><dt>Ctrl / ⌘ O</dt><dd>Import a report</dd></div>
