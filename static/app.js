@@ -2262,6 +2262,37 @@ function growInline(ta) {
   ta.style.height = `${Math.max(ta.scrollHeight, 24)}px`;
 }
 
+function adjacentBlock(blk, dir) {
+  const blocks = [...$("paper").querySelectorAll(".blk")];
+  const at = blocks.indexOf(blk);
+  return at < 0 ? null : blocks[at + dir] || null;
+}
+
+function blockAfter(line) {
+  return [...$("paper").querySelectorAll(".blk")].find((b) => b.__from >= line) || null;
+}
+
+function blockBefore(line) {
+  return [...$("paper").querySelectorAll(".blk")].reverse().find((b) => b.__to <= line) || null;
+}
+
+// Arrow keys at the edge of a block continue into the adjacent block. The
+// edit is committed first, so a changed block re-renders; locate the neighbour
+// again by source line rather than holding a DOM node that the re-render replaced.
+function moveInline(dir) {
+  if (!inline || state.running) return false;
+  const { ta, blk } = inline;
+  if (!adjacentBlock(blk, dir)) return false;
+  const from = blk.__from;
+  const newLines = ta.value.replace(/\s+$/, "").split("\n").length;
+  closeInline();
+  if (inline) return false;   // rejected: the report cannot be empty or is too long
+  const target = dir > 0 ? blockAfter(from + newLines) : blockBefore(from);
+  if (!target) return false;
+  openBlockEditor(target, 0, 0, dir > 0 ? "start" : "end");
+  return true;
+}
+
 function wrapInline(before, after) {
   if (!inline) return;
   const ta = inline.ta;
@@ -2334,7 +2365,7 @@ function closeInline() {
   return true;
 }
 
-function openBlockEditor(blk, x, y) {
+function openBlockEditor(blk, x, y, caretAt) {
   if (state.running || !blk || !blk.__src || !blk.isConnected) return;
   if (inline) {
     const committed = closeInline();
@@ -2370,7 +2401,9 @@ function openBlockEditor(blk, x, y) {
     ta.style.lineHeight = "1.6";
   }
 
-  const at = caretFromPoint(blk, x, y, ta.value);
+  const at = caretAt === "start" ? 0
+    : caretAt === "end" ? ta.value.length
+    : caretFromPoint(blk, x, y, ta.value);
   blk.hidden = true;
   blk.parentNode.insertBefore(ta, blk);
   inline = { ta, blk };
@@ -2402,6 +2435,17 @@ function openBlockEditor(blk, x, y) {
       const t = ta.selectionEnd;
       ta.setRangeText("  ", s, t, "end");
       growInline(ta);
+      return;
+    }
+    if (!e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey &&
+        (e.key === "ArrowUp" || e.key === "ArrowDown") &&
+        ta.selectionStart === ta.selectionEnd &&
+        ((e.key === "ArrowUp" && ta.selectionStart === 0) ||
+         (e.key === "ArrowDown" && ta.selectionStart === ta.value.length))) {
+      if (moveInline(e.key === "ArrowDown" ? 1 : -1)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
       return;
     }
     if ((e.ctrlKey || e.metaKey) && !e.altKey) {

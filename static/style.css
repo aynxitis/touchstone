@@ -7,7 +7,7 @@
 :root{
   --page:#e5e5e2; --page-2:#dcdcd8; --paper:#fbfbf9;
   --ink:#17181a; --muted:#505255; --faint:#6b6d6f;
-  --rule:#d1d1cd; --rule-strong:#a9aaa6; --soft:#ededea;
+  --rule:#d1d1cd; --rule-strong:#a9aaa6; --soft:#ededea; --edit-bg:#e9e9e5;
   --stone:#1a1b1d; --on-stone:#f0f0ed; --on-stone-muted:#a6a7a4;
   --brass:#6f5414; --on-brass:#fbfbf9; --accent-on:#e3c476;
   --gold:#c9a227; --gold-hover:#b08a1c; --gold-ink:#17181a;
@@ -32,7 +32,7 @@ html[data-ui="xl"]{--ui:1.12}
 html[data-theme="dark"]{
   --page:#111214; --page-2:#18191b; --paper:#1d1e20;
   --ink:#ececea; --muted:#a2a3a1; --faint:#8b8c8a;
-  --rule:#2c2d2f; --rule-strong:#45464a; --soft:#242528;
+  --rule:#2c2d2f; --rule-strong:#45464a; --soft:#242528; --edit-bg:#2a2b2f;
   --stone:#0c0d0e; --on-stone:#f0f0ed; --on-stone-muted:#a3a4a1;
   --brass:#d9b45f; --on-brass:#121314; --accent-on:#e7c97d;
   --gold:#d9b45f; --gold-hover:#e6c578; --gold-ink:#161718;
@@ -779,7 +779,7 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
 .paper .blk{cursor:text}
 .paper .blk a,.paper .blk .gmark{cursor:pointer}
 .inline-edit{display:block;width:100%;min-height:0;max-height:none;margin:0 0 17px;padding:0;border:0;border-radius:0;
-  background:var(--paper);color:var(--ink);resize:none;overflow:hidden;
+  background:var(--edit-bg);color:var(--ink);resize:none;overflow:hidden;
   caret-color:var(--brass);scrollbar-width:none}
 .inline-edit:focus{outline:none}
 .inline-edit::-webkit-scrollbar{width:0;height:0}
