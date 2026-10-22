@@ -92,6 +92,80 @@ function toggleTheme() {
   layout();
 }
 
+// ---------------- text size ----------------
+// Two independent scopes. Reading changes the report and its claims;
+// Interface changes the labels and controls around it. Both persist.
+const READ_KEY = "touchstone.readsize";
+const UI_KEY = "touchstone.uisize";
+const SIZE_STEPS = new Set(["lg", "xl"]);
+const SIZE_WORDS = { default: "Normal", lg: "Large", xl: "Largest" };
+let textRead = "default";
+let textUi = "default";
+
+function storedSize(key) {
+  let value = "";
+  try { value = localStorage.getItem(key) || ""; } catch { /* private mode */ }
+  return SIZE_STEPS.has(value) ? value : "default";
+}
+
+function syncTextSizeButtons() {
+  for (const btn of document.querySelectorAll("#textmenu button[data-scope]")) {
+    const active = (btn.dataset.scope === "read" ? textRead : textUi) === btn.dataset.size;
+    btn.setAttribute("aria-pressed", String(active));
+  }
+}
+
+function applyTextSize(read, ui) {
+  textRead = read;
+  textUi = ui;
+  const root = document.documentElement;
+  if (SIZE_STEPS.has(read)) root.dataset.read = read;
+  else delete root.dataset.read;
+  if (SIZE_STEPS.has(ui)) root.dataset.ui = ui;
+  else delete root.dataset.ui;
+  syncTextSizeButtons();
+}
+
+function initTextSize() {
+  applyTextSize(storedSize(READ_KEY), storedSize(UI_KEY));
+}
+
+function setTextMenu(open, returnFocus) {
+  const menu = $("textmenu");
+  const btn = $("textsize");
+  if (!menu || !btn) return;
+  if (open) {
+    menu.hidden = false;
+    btn.setAttribute("aria-expanded", "true");
+    const active = menu.querySelector('button[aria-pressed="true"]') || menu.querySelector("button");
+    if (active) active.focus();
+    return;
+  }
+  const hadFocus = menu.contains(document.activeElement);
+  menu.hidden = true;
+  btn.setAttribute("aria-expanded", "false");
+  if (returnFocus && hadFocus) btn.focus();
+}
+
+function toggleTextMenu() {
+  const menu = $("textmenu");
+  if (menu) setTextMenu(menu.hidden, true);
+}
+
+function setTextSize(scope, size) {
+  if (scope !== "read" && scope !== "ui") return;
+  if (size !== "default" && !SIZE_STEPS.has(size)) return;
+  if (inline) {
+    closeInline();
+    if (inline) return;   // an empty block stays open; do not change type under it
+  }
+  applyTextSize(scope === "read" ? size : textRead, scope === "ui" ? size : textUi);
+  try { localStorage.setItem(scope === "read" ? READ_KEY : UI_KEY, size); } catch { /* private mode */ }
+  mmKey = "";
+  announce(`${scope === "read" ? "Reading" : "Interface"} text: ${SIZE_WORDS[size]}.`);
+  requestAnimationFrame(() => { layout(); });
+}
+
 // ---------------- state ----------------
 const state = {
   report: "", name: "", running: false, startedAt: 0, elapsed: 0, tokens: null,
@@ -1282,7 +1356,7 @@ function renderHistory() {
     const counts = historyCounts(run);
     const checked = int(run.checked) ?? arr(run.claims).length;
     const cited = int(run.cited) ?? checked;
-    const verdict = checked ? summaryLine(counts, checked, cited) : "Saved assay";
+    const verdict = checked ? summaryLine(counts, checked, cited) : "Saved check";
     const d = new Date(str(entry.created));
     const dateText = Number.isNaN(d.getTime())
       ? "" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -1300,7 +1374,7 @@ function renderHistory() {
       if (state.running) return;
       const saved = entry.run;
       if (!validRun(saved, str(saved.report))) {
-        setProvenance("That saved assay can no longer be read.");
+        setProvenance("That saved check can no longer be read.");
         return;
       }
       if (loadReport(str(saved.report), str(entry.name))) {
@@ -1402,7 +1476,7 @@ function stoneEmpty() {
   stopWaiting();
   clearSkeletons();
   state.retryPlayback = false;
-  setStone("NO ASSAY", "Paste a report on the left to check it.", "empty");
+  setStone("NO CHECK", "Paste a report on the left to check it.", "empty");
   $("counts").hidden = true;
   $("runrow").hidden = true;
   $("progress").hidden = true;
@@ -1417,12 +1491,12 @@ function stoneReady() {
   clearSkeletons();
   state.retryPlayback = false;
   $("empty").hidden = true;
-  setStone("READY", "Nothing checked yet. Run the assay when you're ready.", "");
+  setStone("READY", "Nothing checked yet. Run the check when you're ready.", "");
   $("counts").replaceChildren();
   $("counts").hidden = true;
   const links = (state.report.match(/https?:\/\/[^\s)>\]]+/g) || []).length;
   $("scope").textContent = `${state.report.length.toLocaleString()} characters · ${links} source link${links === 1 ? "" : "s"}`;
-  $("run").textContent = "Run assay";
+  $("run").textContent = "Run check";
   $("run").disabled = false;
   $("runrow").hidden = false;
   $("progress").hidden = true;
@@ -1450,7 +1524,7 @@ function stoneProgress(done, total) {
 function stoneDone(counts, done, cited) {
   stopWaiting();
   clearSkeletons();
-  setStone(done ? `ASSAY · ${done} CLAIM${done === 1 ? "" : "S"}` : "ASSAY", summaryLine(counts, done, cited), "");
+  setStone(done ? `CHECKED · ${done} CLAIM${done === 1 ? "" : "S"}` : "CHECKED", summaryLine(counts, done, cited), "");
   state.retryPlayback = false;
   $("counts").hidden = false;
   $("runrow").hidden = true;
@@ -1701,7 +1775,7 @@ function resultsView(report) {
     }
 
     if (ev.type === "skipped") {
-      const reason = str(ev.reason) || (limit ? `Limit of ${limit} claims per audit.` : "");
+      const reason = str(ev.reason) || (limit ? `Limit of ${limit} claims per check.` : "");
       addSkipped(ev, reason);
       run.not_checked.push({ claim: int(ev.claim), text: str(ev.text), url: str(ev.url),
                              label: "NOT CHECKED", reason });
@@ -1741,7 +1815,7 @@ function resultsView(report) {
     }
 
     if (ev.type === "error") {
-      stoneError(str(ev.error) || "The audit failed.");
+      stoneError(str(ev.error) || "The check failed.");
     }
   };
 
@@ -1849,14 +1923,14 @@ async function runAudit() {
           stoneError("Still busy — please try again later.");
           return;
         }
-        if (!(await waitWhileBusy(msg || "Another audit is running.", since))) {
+        if (!(await waitWhileBusy(msg || "Another check is running.", since))) {
           stoneReady();
           announce("Cancelled.");
           return;
         }
         continue;
       }
-      stoneError(msg || `The server refused the audit (HTTP ${resp.status}).`);
+      stoneError(msg || `The server refused the check (HTTP ${resp.status}).`);
       return;
     }
 
@@ -1962,8 +2036,8 @@ async function replay(run, opts = {}) {
   const events = runEvents(run);
   const date = new Date(run.created).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   $("replay-msg").textContent = opts.example
-    ? `Saved example run from ${date}. This is a real Perplexity answer; `
-      + "we changed one figure (Samsung 18% → 19%) to show a catch."
+    ? `Saved example from ${date}. A real Perplexity answer, extended with more from the same sources; `
+      + "one figure (Samsung 18% → 19%) is changed to show a catch."
     : `Saved run from ${date}. Replayed from this browser; no tokens spent.`;
   $("replay").hidden = false;
   setProvenance("replaying · 0 tokens");
@@ -2019,7 +2093,7 @@ async function replay(run, opts = {}) {
   requestAnimationFrame(layout);
 }
 
-const EXAMPLE_LOADED = "Example loaded. Run the assay to check it.";
+const EXAMPLE_LOADED = "Example loaded. Run the check when you're ready.";
 
 async function loadExample() {
   if (state.running) return;
@@ -2215,12 +2289,12 @@ function applyEditedReport(next) {
     unit.nums = numbersOf(unit.text);
   }
   stoneReady();
-  setProvenance("Edited · previous assay cleared.");
+  setProvenance("Edited · previous check cleared.");
   renderRuler();
   layout();
   pane.scrollTop = y;
   requestAnimationFrame(() => { pane.scrollTop = y; layout(); });
-  announce("Report edited. Previous assay cleared.");
+  announce("Report edited. Previous check cleared.");
 }
 
 function closeInline() {
@@ -2477,6 +2551,18 @@ function stepCard(dir) {
 function bindEvents() {
   bindInlineEditor();
   $("theme").addEventListener("click", toggleTheme);
+  $("textsize").addEventListener("click", (e) => { e.stopPropagation(); toggleTextMenu(); });
+  $("textmenu").addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-scope]");
+    if (!btn) return;
+    setTextSize(btn.dataset.scope, btn.dataset.size);
+  });
+  document.addEventListener("pointerdown", (e) => {
+    const menu = $("textmenu");
+    if (!menu || menu.hidden) return;
+    if (e.target.closest("#textmenu, #textsize")) return;
+    setTextMenu(false, false);
+  });
   $("import").addEventListener("click", () => { if (!state.running) $("file").click(); });
   $("import2").addEventListener("click", () => { if (!state.running) $("file").click(); });
   $("file").addEventListener("change", (e) => {
@@ -2629,6 +2715,13 @@ function bindEvents() {
       return;
     }
     if (document.querySelector("dialog[open]")) return;
+    if (!$("textmenu").hidden) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setTextMenu(false, true);
+      }
+      return;
+    }
     if (!mod && !e.altKey && e.key.toLowerCase() === "e" && state.report && !state.running) {
       e.preventDefault();
       editVisibleBlock();
@@ -2671,6 +2764,7 @@ function bindEvents() {
 
 function init() {
   initTheme();
+  initTextSize();
   bindEvents();
   updateCount();
   setMatchedVisible(!state.hideOk);

@@ -21,9 +21,14 @@
   --sans:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
   --serif:"Newsreader","Iowan Old Style","Palatino Linotype",Georgia,serif;
   --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
-  --bar:34px; --ruler:16px; --mm-w:120px;
+  --bar:54px; --ruler:16px; --mm-w:120px;
+  --read:1; --ui:1;
   color-scheme:light;
 }
+html[data-read="lg"]{--read:1.1}
+html[data-read="xl"]{--read:1.2}
+html[data-ui="lg"]{--ui:1.06}
+html[data-ui="xl"]{--ui:1.12}
 html[data-theme="dark"]{
   --page:#111214; --page-2:#18191b; --paper:#1d1e20;
   --ink:#ececea; --muted:#a2a3a1; --faint:#8b8c8a;
@@ -58,7 +63,7 @@ textarea,input{caret-color:var(--brass)}
 
 /* ---------------- top bar ---------------- */
 .app{height:100vh;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:48px minmax(0,1fr)}
-.topbar{display:flex;align-items:center;gap:14px;padding:0 16px;
+.topbar{position:relative;z-index:20;display:flex;align-items:center;gap:14px;padding:0 16px;
   background:var(--topbar);border-bottom:1px solid var(--topbar-rule)}
 .wordmark{font:600 20px/1 var(--sans);letter-spacing:-.02em;color:var(--topbar-fg);
   text-decoration:none;flex:none;display:inline-flex;align-items:center;gap:9px}
@@ -248,7 +253,7 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,236,234,.1
 .totop[hidden]{display:none}
 
 .pagerbar{grid-row:2;display:flex;align-items:center;justify-content:center;
-  padding:8px 12px;background:var(--paper);border-top:1px solid var(--rule);
+  height:var(--bar);padding:8px 12px;background:var(--paper);border-top:1px solid var(--rule);
   visibility:hidden}
 .docwrap:not(.has-doc) .pagerbar{display:none}
 .pagerbar.show{visibility:visible}
@@ -313,7 +318,7 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,236,234,.1
     scrollbar-width:thin;scrollbar-color:var(--sb-thumb-hover) transparent}
 }
 .railfoot{flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;
-  height:auto;min-height:42px;padding:12px 14px;border-top:1px solid var(--rule);background:var(--page-2);
+  height:var(--bar);min-height:var(--bar);padding:0 16px;border-top:1px solid var(--rule);background:var(--page-2);
   font:11.5px var(--mono);letter-spacing:.01em;color:var(--muted);white-space:nowrap;overflow:hidden}
 .railfoot #provenance{overflow:hidden;text-overflow:ellipsis}
 .linkish{display:inline-flex;align-items:center;min-height:24px;background:none;border:0;
@@ -493,8 +498,8 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,236,234,.1
 .dlgx .ic{width:14px;height:14px}
 
 /* evidence sheet: an overlay, never a third column */
-.evdlg{position:fixed;inset:48px 0 0 auto;margin:0;width:min(440px,100vw);
-  max-width:none;height:calc(100vh - 48px);max-height:none;border:0;
+.evdlg{position:fixed;inset:54px 0 0 auto;margin:0;width:min(440px,100vw);
+  max-width:none;height:calc(100vh - 54px);max-height:none;border:0;
   border-left:1px solid var(--rule-strong);background:var(--paper);color:var(--ink);
   padding:22px 22px 18px;overflow:auto;box-shadow:-12px 0 30px rgba(23,24,26,.12)}
 .evdlg::backdrop{background:rgba(12,13,14,.35)}
@@ -527,7 +532,7 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,236,234,.1
   padding-top:12px;border-top:1px solid var(--rule)}
 .ev-note{font:11px/1.4 var(--mono);color:var(--faint)}
 @media (max-width:699px){
-  .evdlg{inset:48px 0 0 0;width:100vw;border-left:0;box-shadow:none}
+  .evdlg{inset:54px 0 0 0;width:100vw;border-left:0;box-shadow:none}
 }
 .drop{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
   background:rgba(251,251,249,.92);font:14.5px var(--mono);letter-spacing:.04em;color:var(--ink)}
@@ -646,7 +651,7 @@ html[data-theme="dark"] .drop{background:rgba(17,18,20,.92)}
    Labels get a 12px floor, body copy 15–18px, and the result rail widens
    so claims can breathe. The claim map becomes a real scrollbar.
    ======================================================================== */
-:root{--bar:46px;--rail-w:440px}
+:root{--rail-w:440px}
 body{font-size:15.5px}
 .app{grid-template-rows:54px minmax(0,1fr)}
 .topbar{gap:12px;padding:0 18px}
@@ -702,7 +707,7 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
 .cnt b{font-size:13px}
 .runbtn{font-size:15px;padding:9px 17px}
 .scope{font-size:12px}
-.railfoot{min-height:44px;padding:12px 16px;font-size:12px}
+.railfoot{height:var(--bar);min-height:var(--bar);padding:8px 16px;font-size:12px}
 .linkish{font-size:12px;min-height:28px}
 .railbody::-webkit-scrollbar{width:12px;height:12px}
 .railbody::-webkit-scrollbar-track{background:transparent}
@@ -819,7 +824,7 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
   .icon{width:30px;height:30px;font-size:14px}
   #export,#import{display:none}
   .body{grid-template-rows:minmax(0,1fr) 44vh}
-  :root{--ruler:20px;--mm-w:0px}
+  :root{--ruler:20px;--mm-w:0px;--bar:51px}
   .minimap{display:none}
   .ovr-win{right:3px;width:10px}
   .ovr-mark{left:2px;width:3px}
@@ -836,9 +841,9 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
   .front-row{gap:8px;margin-top:12px}
   .primary,.secondary{font-size:14px;padding:8px 12px}
   .count{font-size:12px}
-  .docwrap{grid-template-rows:minmax(0,1fr) 38px}
+  .docwrap{grid-template-rows:minmax(0,1fr) var(--bar)}
   .docwrap:not(.has-doc){grid-template-rows:minmax(0,1fr)}
-  .ovr{bottom:38px}
+  .ovr{bottom:var(--bar)}
   .docwrap:not(.has-doc) .ovr{bottom:0}
   .totop{right:30px;bottom:2px}
   .pagerbar button{width:34px;height:34px}
@@ -858,4 +863,132 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
   .paper td::before{font-size:12px}
   .legend dt{width:100px;font-size:13.5px}
   .legend dd{font-size:13px}
+}
+
+/* ========================================================================
+   Text size — two independent scopes: the report you read, and the
+   interface around it. Both save on this device; the default is untouched.
+   ======================================================================== */
+html[data-read] .paper h1{font-size:calc(34px * var(--read))}
+html[data-read] .paper h2{font-size:calc(21px * var(--read))}
+html[data-read] .paper h3,html[data-read] .paper h4,
+html[data-read] .paper h5,html[data-read] .paper h6{font-size:calc(17px * var(--read))}
+html[data-read] .paper p{font-size:calc(18px * var(--read))}
+html[data-read] .paper li{font-size:calc(17.5px * var(--read))}
+html[data-read] .paper blockquote{font-size:calc(17.5px * var(--read))}
+html[data-read] .paper code{font-size:calc(13.5px * var(--read))}
+html[data-read] .paper table{font-size:calc(15px * var(--read))}
+html[data-read] .paper th{font-size:calc(12px * var(--read))}
+html[data-read] .claim{font-size:calc(16.5px * var(--read))}
+html[data-read] .part-text{font-size:calc(14.5px * var(--read))}
+html[data-read] .quote{font-size:calc(15px * var(--read))}
+html[data-read] .ev-claim{font-size:calc(17px * var(--read))}
+html[data-read] .ev-fact .part-text{font-size:calc(14.5px * var(--read))}
+html[data-read] textarea{font-size:calc(15px * var(--read))}
+@media (max-width:699px){
+  html[data-read] .paper h1{font-size:calc(31px * var(--read))}
+  html[data-read] .paper h2{font-size:calc(22px * var(--read))}
+  html[data-read] .paper p,html[data-read] .paper li{font-size:calc(18px * var(--read))}
+  html[data-read] textarea{font-size:calc(14.5px * var(--read))}
+}
+
+html[data-ui] .wordmark{font-size:calc(21px * var(--ui))}
+html[data-ui] .docname{font-size:calc(13px * var(--ui))}
+html[data-ui] .demo-tag{font-size:calc(11px * var(--ui))}
+html[data-ui] .tbtn{font-size:calc(13px * var(--ui))}
+html[data-ui] .icon{font-size:calc(15px * var(--ui))}
+html[data-ui] .aa{font-size:calc(13px * var(--ui))}
+html[data-ui] .sheet-head{font-size:calc(11px * var(--ui))}
+html[data-ui] .primary{font-size:calc(15px * var(--ui))}
+html[data-ui] .secondary{font-size:calc(14.5px * var(--ui))}
+html[data-ui] .count{font-size:calc(12.5px * var(--ui))}
+html[data-ui] .fronterr{font-size:calc(13px * var(--ui))}
+html[data-ui] .meta{font-size:calc(12.5px * var(--ui))}
+html[data-ui] .notice{font-size:calc(13.5px * var(--ui))}
+html[data-ui] .example-note{font-size:calc(12px * var(--ui))}
+html[data-ui] .assay,html[data-ui] .stonelink{font-size:calc(12px * var(--ui))}
+html[data-ui] .verdict{font-size:calc(23px * var(--ui))}
+html[data-ui] .stone.is-empty .verdict{font-size:calc(19px * var(--ui))}
+html[data-ui] .cnt{font-size:calc(12px * var(--ui))}
+html[data-ui] .cnt b{font-size:calc(13px * var(--ui))}
+html[data-ui] .runbtn{font-size:calc(15px * var(--ui))}
+html[data-ui] .scope{font-size:calc(12px * var(--ui))}
+html[data-ui] .railfoot{font-size:calc(12px * var(--ui))}
+html[data-ui] .linkish{font-size:calc(12px * var(--ui))}
+html[data-ui] .emptystate{font-size:calc(15px * var(--ui))}
+html[data-ui] .empty-k{font-size:calc(12px * var(--ui))}
+html[data-ui] .legend dt{font-size:calc(14px * var(--ui))}
+html[data-ui] .legend dd{font-size:calc(13.5px * var(--ui))}
+html[data-ui] .rname{font-size:calc(15px * var(--ui))}
+html[data-ui] .rmeta{font-size:calc(12px * var(--ui))}
+html[data-ui] .rverdict{font-size:calc(12px * var(--ui))}
+html[data-ui] .badge{font-size:calc(11px * var(--ui))}
+html[data-ui] .cno{font-size:calc(12px * var(--ui))}
+html[data-ui] .cardlink{font-size:calc(12px * var(--ui))}
+html[data-ui] .tag{font-size:calc(11px * var(--ui))}
+html[data-ui] .where{font-size:calc(12px * var(--ui))}
+html[data-ui] .reason,html[data-ui] .detail,html[data-ui] .part-note{font-size:calc(13px * var(--ui))}
+html[data-ui] .download,html[data-ui] .source,html[data-ui] .source-plain,
+html[data-ui] .outcome{font-size:calc(12px * var(--ui))}
+html[data-ui] .mhead{font-size:calc(12px * var(--ui))}
+html[data-ui] .mno{font-size:calc(12px * var(--ui))}
+html[data-ui] .mtext{font-size:calc(15px * var(--ui))}
+html[data-ui] .mnote{font-size:calc(11px * var(--ui))}
+html[data-ui] .tray-k{font-size:calc(12px * var(--ui))}
+html[data-ui] .trow{font-size:calc(13.5px * var(--ui))}
+html[data-ui] .trow .tlabel{font-size:calc(12px * var(--ui))}
+html[data-ui] .trow .twhy{font-size:calc(12px * var(--ui))}
+html[data-ui] .more summary{font-size:calc(12px * var(--ui))}
+html[data-ui] .more li{font-size:calc(13.5px * var(--ui))}
+html[data-ui] .replay{font-size:calc(13px * var(--ui))}
+html[data-ui] .nolinks{font-size:calc(14px * var(--ui))}
+html[data-ui] .prompt-text{font-size:calc(12.5px * var(--ui))}
+html[data-ui] .prompt-box .secondary{font-size:calc(12px * var(--ui))}
+html[data-ui] .pg-n{font-size:calc(12px * var(--ui))}
+html[data-ui] .dlg h2{font-size:calc(24px * var(--ui))}
+html[data-ui] .dlg dt{font-size:calc(12px * var(--ui))}
+html[data-ui] .dlg dd{font-size:calc(14px * var(--ui))}
+html[data-ui] .dlg-note{font-size:calc(12px * var(--ui))}
+html[data-ui] .ev-kicker{font-size:calc(12px * var(--ui))}
+html[data-ui] .ev-title{font-size:calc(28px * var(--ui))}
+html[data-ui] .ev-state{font-size:calc(11px * var(--ui))}
+html[data-ui] .ev-links a,html[data-ui] .ev-links span{font-size:calc(12.5px * var(--ui))}
+html[data-ui] .ev-links .ev-outcome,html[data-ui] .ev-note{font-size:calc(12px * var(--ui))}
+html[data-ui] .drop{font-size:calc(14.5px * var(--ui))}
+@media (max-width:1099px){
+  html[data-ui] .verdict{font-size:calc(20px * var(--ui))}
+}
+@media (max-width:699px){
+  html[data-ui] .tbtn{font-size:calc(12.5px * var(--ui))}
+  html[data-ui] .icon{font-size:calc(14px * var(--ui))}
+  html[data-ui] .secondary{font-size:calc(14px * var(--ui))}
+  html[data-ui] .count{font-size:calc(12px * var(--ui))}
+  html[data-ui] .legend dt{font-size:calc(13.5px * var(--ui))}
+  html[data-ui] .legend dd{font-size:calc(13px * var(--ui))}
+  html[data-ui] .stone.in-doc .verdict{font-size:calc(18px * var(--ui))}
+}
+
+/* The size menu: one familiar Aa button, two plainly named scopes. */
+.aa{font:600 13px/1 var(--sans);letter-spacing:-.02em}
+.textmenu{position:absolute;top:calc(100% + 6px);right:18px;z-index:50;
+  width:min(330px,calc(100vw - 24px));padding:13px 14px 14px;
+  background:var(--paper);border:1px solid var(--rule-strong);color:var(--ink);
+  box-shadow:0 14px 34px rgba(23,24,26,.2)}
+.textmenu[hidden]{display:none}
+.tm-k{margin:0 0 10px;font:12px var(--mono);letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted)}
+.tm-row{display:grid;grid-template-columns:72px minmax(0,1fr);align-items:center;gap:10px;
+  margin-top:10px}
+.tm-l{font:12px var(--mono);color:var(--ink)}
+.tm-opts{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--rule-strong)}
+.tm-opts button{min-height:30px;padding:6px 4px;border:0;border-left:1px solid var(--rule);
+  background:none;color:var(--muted);cursor:pointer;font:12px var(--mono);
+  letter-spacing:.02em;text-transform:uppercase}
+.tm-opts button:first-child{border-left:0}
+.tm-opts button:hover{background:var(--soft);color:var(--ink)}
+.tm-opts button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.tm-opts button:focus-visible{outline:2px solid var(--brass);outline-offset:-2px}
+.tm-note{margin:11px 0 0;font:12px/1.4 var(--mono);color:var(--faint)}
+@media (max-width:699px){
+  .textmenu{right:12px}
 }

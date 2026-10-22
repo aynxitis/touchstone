@@ -19,8 +19,29 @@
       <button id="import" class="tbtn" type="button">Import</button>
       <input id="file" type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" hidden>
       <button id="export" class="tbtn" type="button" disabled>Export</button>
+      <button id="textsize" class="icon aa" type="button" aria-label="Text size" aria-haspopup="true" aria-expanded="false" aria-controls="textmenu" title="Text size">Aa</button>
       <button id="theme" class="icon" type="button" aria-label="Switch to dark theme" title="Switch theme"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="5.2"/><path d="M8 2.8a5.2 5.2 0 0 1 0 10.4Z" fill="currentColor" stroke="none"/></svg></button>
       <button id="help" class="icon" type="button" aria-label="Keyboard shortcuts" aria-haspopup="dialog" title="Keys"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="1.5" y="4.5" width="13" height="7" rx="1.2"/><path d="M4 7h.01M6.4 7h.01M8.8 7h.01M11.2 7h.01M4 9.6h.01M11.2 9.6h.01M6.2 9.6h3.6"/></svg></button>
+    </div>
+    <div class="textmenu" id="textmenu" role="group" aria-label="Text size" hidden>
+      <p class="tm-k">Text size</p>
+      <div class="tm-row">
+        <span class="tm-l" id="tm-reading">Reading</span>
+        <div class="tm-opts" role="group" aria-labelledby="tm-reading">
+          <button type="button" data-scope="read" data-size="default" aria-pressed="true">Normal</button>
+          <button type="button" data-scope="read" data-size="lg" aria-pressed="false">Large</button>
+          <button type="button" data-scope="read" data-size="xl" aria-pressed="false">Largest</button>
+        </div>
+      </div>
+      <div class="tm-row">
+        <span class="tm-l" id="tm-interface">Interface</span>
+        <div class="tm-opts" role="group" aria-labelledby="tm-interface">
+          <button type="button" data-scope="ui" data-size="default" aria-pressed="true">Normal</button>
+          <button type="button" data-scope="ui" data-size="lg" aria-pressed="false">Large</button>
+          <button type="button" data-scope="ui" data-size="xl" aria-pressed="false">Largest</button>
+        </div>
+      </div>
+      <p class="tm-note">Changes save on this device.</p>
     </div>
   </header>
 
@@ -69,11 +90,11 @@
       </div>
     </div>
 
-    <aside class="rail" id="rail" aria-label="Assay results">
+    <aside class="rail" id="rail" aria-label="Check results">
       <div class="grip" id="grip" aria-hidden="true"><span></span></div>
       <div class="stone" id="stone">
         <div class="stone-top">
-          <span class="assay" id="assay">NO ASSAY</span>
+          <span class="assay" id="assay">NO CHECK</span>
           <span class="stone-tools">
             <button id="rerun" class="stonelink" type="button" hidden>Re-run</button>
             <button id="cancel" class="stonelink" type="button" hidden>Cancel</button>
@@ -82,7 +103,7 @@
         <p class="verdict" id="verdict">Paste a report on the left to check it.</p>
         <div class="counts" id="counts" role="group" aria-label="Filter claims by result" hidden></div>
         <div class="runrow" id="runrow" hidden>
-          <button id="run" class="runbtn" type="button">Run assay</button>
+          <button id="run" class="runbtn" type="button">Run check</button>
           <span id="scope" class="scope"></span>
         </div>
         <div class="progress" id="progress" hidden><span id="bar"></span></div>
@@ -108,7 +129,7 @@
         </div>
 
         <div id="empty" class="emptystate">
-          <p class="empty-k">The bench</p>
+          <p class="empty-k">How it works</p>
           <p>Each claim lands here with the line the source actually wrote.</p>
           <dl class="legend">
             <div><dt><span class="dot dot-green"></span>Matched</dt><dd>the source says it</dd></div>
@@ -116,7 +137,7 @@
             <div><dt><span class="dot dot-red"></span>Contradicted</dt><dd>the source says otherwise</dd></div>
           </dl>
           <div id="recent" class="recent" hidden>
-            <p class="empty-k">Recent assays</p>
+            <p class="empty-k">Recent checks</p>
             <ul id="recentlist" class="recentlist"></ul>
           </div>
         </div>
@@ -161,13 +182,13 @@
 
 <dialog id="shortcuts" class="dlg">
   <form method="dialog"><button class="dlgx" type="submit" aria-label="Close"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m4.6 4.6 6.8 6.8M11.4 4.6l-6.8 6.8"/></svg></button></form>
-  <h2>Keys</h2>
+  <h2>Keyboard shortcuts</h2>
   <dl>
     <div><dt>Click</dt><dd>Edit a block in place</dd></div>
     <div><dt>E</dt><dd>Edit the visible block</dd></div>
     <div><dt>Esc</dt><dd>Finish editing</dd></div>
     <div><dt>Ctrl / ⌘ O</dt><dd>Import a report</dd></div>
-    <div><dt>Ctrl / ⌘ Enter</dt><dd>Run the assay</dd></div>
+    <div><dt>Ctrl / ⌘ Enter</dt><dd>Run the check</dd></div>
     <div><dt>J / K</dt><dd>Next / previous card</dd></div>
     <div><dt>[ / ]</dt><dd>Previous / next problem</dd></div>
     <div><dt>G</dt><dd>Back to top</dd></div>

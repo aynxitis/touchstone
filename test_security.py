@@ -652,8 +652,8 @@ finally:
     touchstone.MIN_CALL_SECONDS = real_min
 
 # 13l. The page states the active provider's limits.
-assert A.limits_line(*A.CAPS["groq"]) == ('<p class="meta">Up to 10 cited claims per audit (the first 10, '
-                                          'in report order). 5 audits per hour.</p>')
+assert A.limits_line(*A.CAPS["groq"]) == ('<p class="meta">Up to 10 cited claims per check (the first 10, '
+                                          'in report order). 5 checks per hour.</p>')
 assert "25 cited claims and 8 distinct source links" in A.limits_line(*A.CAPS["gemini"])
 with tempfile.TemporaryDirectory() as d:
     d = Path(d)

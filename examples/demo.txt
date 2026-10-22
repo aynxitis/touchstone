@@ -1,5 +1,7 @@
 For full-year 2025, **Transsion**—the parent of TECNO, Infinix, and itel—led Africa's smartphone market with about **48% of shipments** (over 40.5 million units), according to Omdia data. Africa shipped 84.4 million smartphones in 2025, up 13% year over year. [gizmochina](https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/)
 
+The year was not a straight line. Africa shipped **19.2 million smartphones in Q2 2025**, up 7% year over year and the ninth consecutive quarter of growth, before Q4 shipments rose **14% to 23.1 million units** as financing, steadier currencies and wider 4G rollout reached more buyers. [tech-ish](https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/) [gizmochina](https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/)
+
 ## 2025 brand shares
 
 | Brand / group | Q2 2025 shipment share | Annual trend |
@@ -8,9 +10,49 @@ For full-year 2025, **Transsion**—the parent of TECNO, Infinix, and itel—led
 | Samsung | 19% | +3% year over year  [tech-ish](https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/) |
 | Xiaomi (including Redmi and POCO) | 14% | +32% year over year  [tech-ish](https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/) |
 
+Transsion's lead is still built on entry-level volume: TECNO, Infinix and itel together shipped **9.7 million phones in Q2**, up 6% year over year. Samsung held second place at 18%, while Xiaomi's 32% growth lifted it to 14%, up from 12% a year earlier. [tech-ish](https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/)
+
 ## What changed across 2025
 
 - Samsung was the strongest challenger, with Q4 shipments up 27%, helped by the Galaxy A series and broader mid-range lineup. [gizmochina](https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/)
 - Devices priced below $200 made up **81% of African smartphone shipments** in 2025, underscoring the market's price sensitivity. [gizmochina](https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/)
+- HONOR grew 161% to 4% share on the back of aggressive mid-range launches, while OPPO slipped 11% to 4%. [tech-ish](https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/)
+- Sub-$100 phones surged 38% in Q2 2025, even as average selling prices firmed in the premium tier. [tech-ish](https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/)
+
+## The Q4 acceleration
+
+Africa shipped **23.1 million smartphones in Q4 2025, up 14% year over year**, helped by expanded financing programs, steadier currencies, wider 4G rollout and early 5G adoption in South Africa and Egypt. [gizmochina](https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/)
+
+Financing is doing much of the work. Operators and retailers are pushing installment plans in South Africa, while M-KOPA and Safaricom bundle devices with mobile money in Kenya. [tech-ish](https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/)
+
+## The upgrade cycle
+
+Smartphones made up roughly **55% of total mobile phone shipments** in Africa in 2025, with feature-phone users upgrading fastest in Nigeria and South Africa. [gizmochina](https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/)
+
+That figure should be read carefully. Smartphone ownership overtook feature phones in Kenya during 2025, but the continent still has a long tail of 2G and 3G devices. [tech-ish](https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/)
+
+## Prices and the 2026 outlook
+
+Average selling prices rose **11% in Q4 2025** as buyers shifted toward better-specced models. [gizmochina](https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/)
+
+Entry-level devices below $200 still accounted for 81% of shipments, leaving vendors exposed to rising component costs. [gizmochina](https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/)
+
+Looking ahead, Omdia expects Africa's smartphone shipments to **decline 23% in 2026** as inflation, currency volatility and tighter channel inventory weigh on demand. [gizmochina](https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/)
+
+## The country picture
+
+| Country | 2025 shipment growth | What drove it |
+|---|---:|---|
+| South Africa | +38% | prepaid demand and sub-$100 devices |
+| Nigeria | +25% | affordable 4G phones below $200 |
+| Egypt | +22% | local manufacturing and value portfolios |
+| Kenya | +3% | cost pressure; Q2 slipped 2% |
+| Morocco | -3% | higher import tariffs |
+
+South Africa and Nigeria did most of the heavy lifting, while Egypt benefited from assembly lines that shortened supply chains. Kenya's single-digit growth masked a 2% decline in Q2, and Morocco's tariff burden kept it the only major market to shrink. [gizmochina](https://www.gizmochina.com/2026/02/25/transsion-captures-48-as-africa-smartphone-market-grows-13-in-2025/)
+
+## What to watch in 2026
+
+The wildcard for 2026 is memory pricing: a sustained rise in DRAM and NAND costs would hit the sub-$200 segment that drives most of the volume. Vendors are also watching local-assembly rules in Egypt and Ethiopia, and the pace of 5G rollouts in South Africa, where 5G shipments grew 63% in Q2 2025. [tech-ish](https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/)
 
 Note: figures based on **shipments** differ from "usage" or installed-base statistics; for example, Samsung can lead usage-based mobile market estimates even while Transsion leads new smartphone shipments. [tech-ish](https://tech-ish.com/2025/08/22/africa-kenya-smartphone-market-share-q2-2025/)

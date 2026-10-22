@@ -78,8 +78,8 @@ CAPS = {"groq": (10, None), "gemini": (25, 8)}   # provider -> (claims, distinct
 MAX_CLAIMS, MAX_URLS = CAPS[PROVIDER]
 DAILY_FULL = "Touchstone's free daily capacity is used up, try again tomorrow."
 MINUTE_FULL = "Touchstone is at its per-minute capacity right now. Try again in a minute."
-BUSY_MSG = ("Another audit is running (they take up to 5 minutes). "
-            "Your audit will start automatically when it's free.")
+BUSY_MSG = ("Another check is running (it can take up to 5 minutes). "
+            "Your check will start automatically when it's free.")
 HEARTBEAT = json.dumps({"type": "heartbeat"}) + "\n"
 
 # Groq: max_retries=0, audit() does the retrying, so a per-minute 429 becomes a visible
@@ -88,13 +88,13 @@ HEARTBEAT = json.dumps({"type": "heartbeat"}) + "\n"
 client = make_client(PROVIDER)
 PACER = TokenPacer.for_provider(PROVIDER)   # the provider's minute/day, shared by audits
 def limits_line(max_claims, max_urls):
-    """The page's statement of the per-audit limits, for the active provider."""
+    """The page's statement of the per-check limits, for the active provider."""
     if max_urls is None:
-        what = f"Up to {max_claims} cited claims per audit (the first {max_claims}, in report order)."
+        what = f"Up to {max_claims} cited claims per check (the first {max_claims}, in report order)."
     else:
-        what = (f"Up to {max_claims} cited claims and {max_urls} distinct source links per audit "
+        what = (f"Up to {max_claims} cited claims and {max_urls} distinct source links per check "
                 "(the first ones, in report order).")
-    return f'<p class="meta">{what} {RATE_LIMIT} audits per hour.</p>'
+    return f'<p class="meta">{what} {RATE_LIMIT} checks per hour.</p>'
 
 
 PROVIDER_NOTE = {"gemini": '<p class="notice">Reports are processed by Google Gemini (free tier), which may use '
@@ -377,7 +377,7 @@ async def run_audit(request: Request):
     wait = rate_limited(ip)
     if wait:
         busy.release()
-        return JSONResponse({"error": f"Limit of {RATE_LIMIT} audits per hour reached. "
+        return JSONResponse({"error": f"Limit of {RATE_LIMIT} checks per hour reached. "
                                       f"Try again in {wait} minute{'s' if wait > 1 else ''}."}, status_code=429)
 
     out, stop, started = queue.Queue(), threading.Event(), threading.Event()
@@ -405,7 +405,7 @@ async def run_audit(request: Request):
                     ev["message"] = DAILY_FULL if ev["scope"] == "day" else MINUTE_FULL
                 out.put(json.dumps(ev, ensure_ascii=False) + "\n")
         except Exception as e:
-            out.put(json.dumps({"type": "error", "error": f"Audit failed ({type(e).__name__})."}) + "\n")
+            out.put(json.dumps({"type": "error", "error": f"Check failed ({type(e).__name__})."}) + "\n")
         finally:
             busy.release()
             out.put(None)
