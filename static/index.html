@@ -16,7 +16,6 @@
     <span class="docname" id="docname" hidden></span>
     <div class="top-actions">
       <button id="new" class="tbtn" type="button" hidden>New</button>
-      <button id="edit" class="tbtn" type="button" hidden>Edit</button>
       <button id="import" class="tbtn" type="button">Import</button>
       <input id="file" type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" hidden>
       <button id="export" class="tbtn" type="button" disabled>Export</button>
@@ -59,7 +58,7 @@
         <div class="mm-body" id="mmbody"></div>
         <span class="mm-slider" id="mmslider" hidden></span>
       </div>
-      <div class="ovr" id="ovr" role="group" aria-label="Claim map" hidden>
+      <div class="ovr" id="ovr" role="group" aria-label="Document scrollbar and claim map" hidden>
         <div class="ovr-win" id="ovrwin" aria-hidden="true"></div>
       </div>
       <button id="totop" class="totop" type="button" aria-label="Back to top" title="Back to top" hidden><svg class="ic" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 12.6V3.8"/><path d="m4.4 7.2 3.6-3.6 3.6 3.6"/></svg></button>
@@ -160,52 +159,21 @@
   </div>
 </dialog>
 
-<dialog id="editor" class="editdlg" aria-labelledby="edit-title">
-  <div class="edit-head">
-    <div>
-      <h2 class="edit-title" id="edit-title">Edit report source</h2>
-    </div>
-    <button id="close-edit" class="dlgx" type="button" aria-label="Close editor"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m4.6 4.6 6.8 6.8M11.4 4.6l-6.8 6.8"/></svg></button>
-  </div>
-  <div class="edit-bar">
-    <div class="md-tools" role="group" aria-label="Markdown formatting">
-      <button type="button" data-md="bold" title="Bold (Ctrl+B)"><b>B</b></button>
-      <button type="button" data-md="italic" title="Italic (Ctrl+I)"><i>I</i></button>
-      <button type="button" data-md="h2" title="Heading">H2</button>
-      <button type="button" data-md="link" title="Link (Ctrl+K)">Link</button>
-    </div>
-    <span class="edit-hint">Saving clears the last assay; run it again to check the new text.</span>
-  </div>
-  <div class="md-wrap">
-    <textarea id="markdown" class="md-editor" spellcheck="false" aria-label="Markdown source"></textarea>
-    <div id="mdeditbar" class="md-scroll" aria-hidden="true">
-      <div id="mdeditwin" class="md-scroll-win"></div>
-    </div>
-  </div>
-  <p id="edit-err" class="fronterr" role="status"></p>
-  <div class="edit-foot">
-    <span class="count" id="editcount"></span>
-    <span class="edit-keys">Ctrl / ⌘ S to save</span>
-    <button id="cancel-edit" class="secondary" type="button">Cancel</button>
-    <button id="save-edit" class="primary" type="button">Save changes</button>
-  </div>
-</dialog>
-
 <dialog id="shortcuts" class="dlg">
   <form method="dialog"><button class="dlgx" type="submit" aria-label="Close"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m4.6 4.6 6.8 6.8M11.4 4.6l-6.8 6.8"/></svg></button></form>
   <h2>Keys</h2>
   <dl>
+    <div><dt>Click</dt><dd>Edit a block in place</dd></div>
+    <div><dt>E</dt><dd>Edit the visible block</dd></div>
+    <div><dt>Esc</dt><dd>Finish editing</dd></div>
     <div><dt>Ctrl / ⌘ O</dt><dd>Import a report</dd></div>
-    <div><dt>Ctrl / ⌘ Enter</dt><dd>Run the assay / save edits</dd></div>
-    <div><dt>Ctrl / ⌘ E</dt><dd>Edit the markdown</dd></div>
-    <div><dt>Ctrl / ⌘ S</dt><dd>Save markdown edits</dd></div>
+    <div><dt>Ctrl / ⌘ Enter</dt><dd>Run the assay</dd></div>
     <div><dt>J / K</dt><dd>Next / previous card</dd></div>
     <div><dt>[ / ]</dt><dd>Previous / next problem</dd></div>
     <div><dt>G</dt><dd>Back to top</dd></div>
     <div><dt>?</dt><dd>This list</dd></div>
-    <div><dt>Esc</dt><dd>Close</dd></div>
   </dl>
-  <p class="dlg-note">Click a mark on the ruler to jump to its claim.</p>
+  <p class="dlg-note">Click a mark on the scrollbar to jump to its claim.</p>
 </dialog>
 
 <div id="drop" class="drop" hidden><span>Drop a .md or .txt report</span></div>

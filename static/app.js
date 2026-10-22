@@ -289,6 +289,16 @@ function renderList(article, lines, i, addUnit) {
 function renderReport(article, text) {
   const units = [];
   const lines = String(text).replace(/\r\n?/g, "\n").split("\n");
+  // Remember each top-level block's exact source range so the document can be
+  // edited in place. Blocks, not lines: a click on a list or table edits the
+  // whole construct, the way Obsidian keeps a rendered block as one widget.
+  const markBlock = (node, from, to) => {
+    if (!node) return;
+    node.__src = lines.slice(from, to).join("\n");
+    node.__from = from;
+    node.__to = to;
+    node.classList.add("blk");
+  };
   const addUnit = (node, kind, line) => {
     const t = node.textContent.replace(/\s+/g, " ").trim();
     if (!t) return;
@@ -301,6 +311,7 @@ function renderReport(article, text) {
     if (!line.trim()) { i += 1; continue; }
 
     if (isFenceLine(line)) {
+      const start = i;
       const lang = line.replace(/^\s*```/, "").trim();
       const body = [];
       i += 1;
@@ -312,23 +323,32 @@ function renderReport(article, text) {
       if (lang) code.dataset.lang = lang;
       pre.append(code);
       article.append(pre);
+      markBlock(pre, start, i);
       continue;
     }
 
     const h = /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
     if (h) {
+      const start = i;
       const heading = el(`h${h[1].length}`);
       heading.append(renderInline(h[2]));
       article.append(heading);
       i += 1;
+      markBlock(heading, start, i);
       continue;
     }
 
     if (isRuleLine(line)) { article.append(el("hr")); i += 1; continue; }
 
-    if (isTableStart(lines, i)) { i = renderTable(article, lines, i, addUnit); continue; }
+    if (isTableStart(lines, i)) {
+      const start = i;
+      i = renderTable(article, lines, i, addUnit);
+      markBlock(article.lastElementChild, start, i);
+      continue;
+    }
 
     if (isQuoteLine(line)) {
+      const start = i;
       const body = [];
       while (i < lines.length && isQuoteLine(lines[i])) {
         body.push(lines[i].replace(/^\s*>\s?/, ""));
@@ -337,10 +357,16 @@ function renderReport(article, text) {
       const q = el("blockquote");
       q.append(renderInline(body.join(" ")));
       article.append(q);
+      markBlock(q, start, i);
       continue;
     }
 
-    if (isListLine(line)) { i = renderList(article, lines, i, addUnit); continue; }
+    if (isListLine(line)) {
+      const start = i;
+      i = renderList(article, lines, i, addUnit);
+      markBlock(article.lastElementChild, start, i);
+      continue;
+    }
 
     const start = i;
     const buf = [line.trim()];
@@ -355,6 +381,7 @@ function renderReport(article, text) {
     p.append(renderInline(buf.join(" ")));
     article.append(p);
     addUnit(p, "p", start);
+    markBlock(p, start, i);
   }
   return units;
 }
@@ -584,11 +611,14 @@ function layout() {
   const h = ovr.clientHeight;
   const scrollable = sh > ch + 4 && h > 0;
   drawMinimap();
-  win.style.display = scrollable ? "block" : "none";
+  // A scrollbar always shows a slider. When the document fits, the thumb fills
+  // the track in an idle state rather than vanishing and leaving only ticks.
+  win.style.display = "block";
+  win.classList.toggle("is-idle", !scrollable);
   if (scrollable) {
     // Match a code editor's viewport slider: the thumb travels over the track
     // that remains after its own height is removed.
-    const winH = Math.max(24, Math.round((ch / sh) * h));
+    const winH = Math.max(40, Math.round((ch / sh) * h));
     const trackH = Math.max(0, h - winH);
     const maxScroll = Math.max(1, sh - ch);
     const winTop = Math.round((pane.scrollTop / maxScroll) * trackH);
@@ -605,6 +635,9 @@ function layout() {
       mmSlider.style.height = `${Math.min(bandH, visH)}px`;
       mmSlider.style.top = `${bandTop}px`;
     }
+  } else {
+    win.style.height = `${Math.max(40, h - 8)}px`;
+    win.style.top = "4px";
   }
   if (mmSlider) mmSlider.hidden = !scrollable;
   for (const c of doc.claims) {
@@ -2029,7 +2062,7 @@ function updateCount() {
 }
 
 function loadReport(text, name) {
-  const clean = String(text || "").replace(/^\uFEFF/, "");
+  const clean = String(text || "").replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
   if (!clean.trim()) {
     frontError("Paste a report first.");
     return false;
@@ -2072,7 +2105,6 @@ function loadReport(text, name) {
   $("docname").title = state.name;
   $("docname").hidden = false;
   $("new").hidden = false;
-  $("edit").hidden = false;
   $("showmatched").hidden = false;
   $("docwrap").classList.add("has-doc");
   $("docpane").scrollTop = 0;
@@ -2088,195 +2120,258 @@ function loadReport(text, name) {
   return true;
 }
 
-/* ---------------- markdown editor ---------------- */
+/* ---------------- in-place block editor ----------------
+   One surface, no edit button. A click turns the block under the pointer into
+   its own Markdown source at the same position and typography; Esc or clicking
+   away renders it back. This is the block-level cousin of Obsidian's Live
+   Preview: syntax is visible only while the block is active, and the rest of
+   the document stays rendered. */
 
-function updateEditCount() {
-  const n = $("markdown").value.length;
-  $("editcount").textContent = `${n.toLocaleString()} / ${MAX_CHARS.toLocaleString()}`;
-  $("editcount").classList.toggle("over", n > MAX_CHARS);
-  layoutEditorScroll();
+let inline = null;
+
+function inlineStyleNode(blk) {
+  if (blk.tagName === "UL" || blk.tagName === "OL") return blk.querySelector("li") || blk;
+  return blk;
 }
 
-let editorDrag = false;
-let editorGrab = 0;
-
-function layoutEditorScroll() {
-  const area = $("markdown");
-  const bar = $("mdeditbar");
-  const win = $("mdeditwin");
-  if (!area || !bar || !win) return;
-  const sh = area.scrollHeight;
-  const ch = area.clientHeight;
-  const h = bar.clientHeight;
-  const scrollable = sh > ch + 2 && h > 0;
-  win.style.display = scrollable ? "block" : "none";
-  if (!scrollable) return;
-  const winH = Math.max(24, Math.round((ch / sh) * h));
-  const track = Math.max(0, h - winH);
-  const max = Math.max(1, sh - ch);
-  const top = Math.round((area.scrollTop / max) * track);
-  win.style.height = `${winH}px`;
-  win.style.top = `${Math.max(0, Math.min(track, top))}px`;
-}
-
-function scrollEditorFromBar(y) {
-  const area = $("markdown");
-  const bar = $("mdeditbar");
-  const win = $("mdeditwin");
-  const rect = bar.getBoundingClientRect();
-  const winH = win.offsetHeight;
-  const track = rect.height - winH;
-  const max = area.scrollHeight - area.clientHeight;
-  if (max <= 0 || track <= 0) return;
-  const top = Math.max(0, Math.min(track, y - rect.top - editorGrab));
-  area.scrollTop = (top / track) * max;
-}
-
-function openEditor() {
-  if (!state.report || state.running) return;
-  $("edit-err").textContent = "";
-  const area = $("markdown");
-  area.value = state.report;
-  area.scrollTop = 0;
-  area.scrollLeft = 0;
-  updateEditCount();
-  const dlg = $("editor");
-  if (!dlg.open) dlg.showModal();
-  area.focus();
-  area.setSelectionRange(0, 0);
-  // Focus can restore a stale scroll offset in some browsers; put the writer
-  // at the top of the source, not halfway through the previous document.
-  requestAnimationFrame(() => {
-    area.scrollTop = 0;
-    area.scrollLeft = 0;
-    area.setSelectionRange(0, 0);
-    layoutEditorScroll();
-  });
-  announce("Markdown editor open.");
-}
-
-function closeEditor() {
-  const dlg = $("editor");
-  if (dlg.open) dlg.close();
-  $("edit-err").textContent = "";
-}
-
-function saveEditor() {
-  const text = $("markdown").value.replace(/^\uFEFF/, "");
-  if (!text.trim()) {
-    $("edit-err").textContent = "Add a report before saving.";
-    $("markdown").focus();
-    return;
+// Strip inline Markdown while remembering where each visible character came
+// from, so a click in the rendered block can land on the matching source.
+function inlinePlain(src) {
+  let text = "";
+  const map = [];
+  let i = 0;
+  const push = (s, at) => {
+    for (let k = 0; k < s.length; k += 1) { text += s[k]; map.push(at + k); }
+  };
+  while (i < src.length) {
+    const rest = src.slice(i);
+    let m;
+    if ((m = /^\*\*([^*]+?)\*\*/.exec(rest))) { push(m[1], i + 2); i += m[0].length; }
+    else if ((m = /^__([^_]+?)__/.exec(rest))) { push(m[1], i + 2); i += m[0].length; }
+    else if ((m = /^\*([^*\n]+?)\*/.exec(rest))) { push(m[1], i + 1); i += m[0].length; }
+    else if ((m = /^_([^_\n]+?)_/.exec(rest))) { push(m[1], i + 1); i += m[0].length; }
+    else if ((m = /^`([^`]+?)`/.exec(rest))) { push(m[1], i + 1); i += m[0].length; }
+    else if ((m = /^!\[([^\]]*)\]\([^)]*\)/.exec(rest))) { push(m[1], i + 2); i += m[0].length; }
+    else if ((m = /^\[([^\]]*)\]\([^)]*\)/.exec(rest))) { push(m[1], i + 1); i += m[0].length; }
+    else { text += rest[0]; map.push(i); i += 1; }
   }
-  if (text.length > MAX_CHARS) {
-    $("edit-err").textContent = `Reports are limited to ${MAX_CHARS.toLocaleString()} characters.`;
-    return;
-  }
-  if (text === state.report) {
-    closeEditor();
-    return;
-  }
-  const name = state.name || reportName(text);
-  closeEditor();
-  if (loadReport(text, name)) {
-    setProvenance("Edited · previous assay cleared.");
-    announce("Markdown saved. Run the assay to check the new text.");
-  }
+  return { text, map };
 }
 
-function wrapMarkdown(before, after, placeholder) {
-  const area = $("markdown");
-  const start = area.selectionStart;
-  const end = area.selectionEnd;
-  const selected = area.value.slice(start, end);
-  const text = selected || placeholder;
-  area.setRangeText(before + text + after, start, end, "end");
-  if (!selected) {
-    area.setSelectionRange(start + before.length, start + before.length + text.length);
+function caretFromPoint(blk, x, y, src) {
+  const at = src.length;
+  if (!document.caretRangeFromPoint) return at;
+  let cr = null;
+  try { cr = document.caretRangeFromPoint(x, y); } catch { return at; }
+  if (!cr || !blk.contains(cr.startContainer)) return at;
+  const r = document.createRange();
+  r.selectNodeContents(blk);
+  try { r.setEnd(cr.startContainer, cr.startOffset); } catch { return at; }
+  const prefix = r.toString();
+  const { text, map } = inlinePlain(src);
+  let idx = text.indexOf(prefix);
+  if (idx >= 0) {
+    idx += prefix.length;
+  } else {
+    // Line boxes can differ by a space; the last few rendered words still map.
+    const tail = prefix.slice(-24).trim();
+    if (!tail) return at;
+    idx = text.lastIndexOf(tail);
+    if (idx < 0) return at;
+    idx += tail.length;
   }
-  area.dispatchEvent(new Event("input", { bubbles: true }));
-  area.focus();
+  return idx < map.length ? map[idx] : src.length;
 }
 
-function formatMarkdown(kind) {
-  if (kind === "bold") wrapMarkdown("**", "**", "bold text");
-  else if (kind === "italic") wrapMarkdown("*", "*", "italic text");
-  else if (kind === "link") wrapMarkdown("[", "](https://)", "link text");
-  else if (kind === "h2") {
-    const area = $("markdown");
-    const start = area.selectionStart;
-    const line = area.value.lastIndexOf("\n", start - 1) + 1;
-    area.setRangeText("## ", line, line, "end");
-    area.dispatchEvent(new Event("input", { bubbles: true }));
-    area.focus();
-  }
+function growInline(ta) {
+  ta.style.height = "auto";
+  ta.style.height = `${Math.max(ta.scrollHeight, 24)}px`;
 }
 
-function bindEditorEvents() {
-  $("edit").addEventListener("click", openEditor);
-  $("close-edit").addEventListener("click", closeEditor);
-  $("cancel-edit").addEventListener("click", closeEditor);
-  $("save-edit").addEventListener("click", saveEditor);
-  $("markdown").addEventListener("input", () => {
-    updateEditCount();
-    if ($("edit-err").textContent) $("edit-err").textContent = "";
-  });
-  $("markdown").addEventListener("scroll", layoutEditorScroll);
-  const edbar = $("mdeditbar");
-  edbar.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0) return;
-    const win = $("mdeditwin");
-    if (win.style.display === "none") return;
-    const onThumb = e.target === win;
-    editorGrab = onThumb ? e.clientY - win.getBoundingClientRect().top : win.offsetHeight / 2;
-    editorDrag = true;
-    try { edbar.setPointerCapture(e.pointerId); } catch { /* no pointer capture */ }
-    editorGrab = Math.max(0, Math.min(win.offsetHeight || 0, editorGrab));
-    if (!onThumb) scrollEditorFromBar(e.clientY);
-    e.preventDefault();
-  });
-  edbar.addEventListener("pointermove", (e) => { if (editorDrag) scrollEditorFromBar(e.clientY); });
-  edbar.addEventListener("pointerup", (e) => {
-    editorDrag = false;
-    try { edbar.releasePointerCapture(e.pointerId); } catch { /* already released */ }
-  });
-  edbar.addEventListener("pointercancel", () => { editorDrag = false; });
-  edbar.addEventListener("wheel", (e) => {
-    $("markdown").scrollTop += e.deltaY;
-    e.preventDefault();
-  }, { passive: false });
-  window.addEventListener("resize", layoutEditorScroll);
-  for (const btn of document.querySelectorAll("[data-md]")) {
-    btn.addEventListener("click", () => formatMarkdown(btn.dataset.md));
+function wrapInline(before, after) {
+  if (!inline) return;
+  const ta = inline.ta;
+  const s = ta.selectionStart;
+  const e = ta.selectionEnd;
+  const label = ta.value.slice(s, e) || "text";
+  ta.setRangeText(before + label + after, s, e, "end");
+  ta.setSelectionRange(s + before.length, s + before.length + label.length);
+  growInline(ta);
+  ta.focus();
+}
+
+function applyEditedReport(next) {
+  const pane = $("docpane");
+  const y = pane.scrollTop;
+  state.report = next;
+  $("report").value = next;
+  updateCount();
+  resetRunView();
+  const article = $("paper");
+  article.replaceChildren();
+  doc.units = renderReport(article, next);
+  for (const unit of doc.units) {
+    unit.words = wordsOf(unit.text);
+    unit.nums = numbersOf(unit.text);
   }
-  $("markdown").addEventListener("keydown", (e) => {
-    const mod = e.ctrlKey || e.metaKey;
-    if (mod && e.key.toLowerCase() === "s") {
+  stoneReady();
+  setProvenance("Edited · previous assay cleared.");
+  renderRuler();
+  layout();
+  pane.scrollTop = y;
+  requestAnimationFrame(() => { pane.scrollTop = y; layout(); });
+  announce("Report edited. Previous assay cleared.");
+}
+
+function closeInline() {
+  if (!inline) return false;
+  const { ta, blk } = inline;
+  inline = null;
+  document.body.classList.remove("is-editing");
+  const src = ta.value.replace(/\s+$/, "");
+  const changed = src !== blk.__src;
+  if (!changed) {
+    ta.remove();
+    blk.hidden = false;
+    layout();
+    return false;
+  }
+  const lines = state.report.split("\n");
+  const next = lines.slice(0, blk.__from).concat(src.split("\n"), lines.slice(blk.__to)).join("\n");
+  if (!next.trim()) {
+    setProvenance("Edit ignored — the report cannot be empty.");
+    inline = { ta, blk };
+    document.body.classList.add("is-editing");
+    layout();
+    ta.focus();
+    return false;
+  }
+  if (next.length > MAX_CHARS) {
+    setProvenance(`Edit ignored — reports are limited to ${MAX_CHARS.toLocaleString()} characters.`);
+    inline = { ta, blk };
+    document.body.classList.add("is-editing");
+    layout();
+    ta.focus();
+    return false;
+  }
+  ta.remove();
+  blk.hidden = false;
+  applyEditedReport(next);
+  return true;
+}
+
+function openBlockEditor(blk, x, y) {
+  if (state.running || !blk || !blk.__src || !blk.isConnected) return;
+  if (inline) {
+    const committed = closeInline();
+    // A committed edit re-renders the article, so the block this click landed
+    // on is gone. The next click opens a block; an unchanged edit continues.
+    if (committed || !blk.isConnected) return;
+  }
+
+  const ta = el("textarea", "inline-edit");
+  ta.value = blk.__src;
+  ta.spellcheck = false;
+  ta.setAttribute("aria-label", "Edit this block's Markdown source");
+
+  const styleNode = inlineStyleNode(blk);
+  const cs = getComputedStyle(styleNode);
+  const bcs = getComputedStyle(blk);
+  ta.style.fontFamily = cs.fontFamily;
+  ta.style.fontSize = cs.fontSize;
+  ta.style.fontWeight = cs.fontWeight;
+  ta.style.lineHeight = cs.lineHeight;
+  ta.style.letterSpacing = cs.letterSpacing;
+  ta.style.textAlign = cs.textAlign;
+  ta.style.margin = bcs.margin;
+  ta.style.padding = "0";
+  ta.style.borderTop = cs.borderTop;
+  if (blk.tagName === "BLOCKQUOTE") ta.style.paddingLeft = bcs.paddingLeft;
+  if (blk.tagName === "UL" || blk.tagName === "OL") ta.style.paddingLeft = bcs.paddingLeft;
+  if (blk.tagName === "PRE") ta.style.padding = bcs.padding;
+  if (/^H[1-6]$/.test(blk.tagName)) ta.style.paddingTop = cs.paddingTop;
+  if (blk.tagName === "TABLE") {
+    ta.style.fontFamily = "var(--mono)";
+    ta.style.fontSize = "13.5px";
+    ta.style.lineHeight = "1.6";
+  }
+
+  const at = caretFromPoint(blk, x, y, ta.value);
+  blk.hidden = true;
+  blk.parentNode.insertBefore(ta, blk);
+  inline = { ta, blk };
+  document.body.classList.add("is-editing");
+  growInline(ta);
+  ta.focus();
+  const pos = Math.max(0, Math.min(ta.value.length, at));
+  ta.setSelectionRange(pos, pos);
+  layout();
+
+  ta.addEventListener("input", () => growInline(ta));
+  ta.addEventListener("blur", () => { if (inline && inline.ta === ta) closeInline(); });
+  ta.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
       e.preventDefault();
-      saveEditor();
-    } else if (mod && e.key === "Enter") {
+      e.stopPropagation();
+      closeInline();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       e.preventDefault();
-      saveEditor();
-    } else if (mod && e.key.toLowerCase() === "b") {
+      e.stopPropagation();
+      closeInline();
+      return;
+    }
+    if (e.key === "Tab") {
       e.preventDefault();
-      formatMarkdown("bold");
-    } else if (mod && e.key.toLowerCase() === "i") {
-      e.preventDefault();
-      formatMarkdown("italic");
-    } else if (mod && e.key.toLowerCase() === "k") {
-      e.preventDefault();
-      formatMarkdown("link");
-    } else if (e.key === "Tab") {
-      e.preventDefault();
-      const area = e.currentTarget;
-      const at = area.selectionStart;
-      area.setRangeText("  ", at, area.selectionEnd, "end");
-      area.dispatchEvent(new Event("input", { bubbles: true }));
+      const s = ta.selectionStart;
+      const t = ta.selectionEnd;
+      ta.setRangeText("  ", s, t, "end");
+      growInline(ta);
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+      const k = e.key.toLowerCase();
+      if (k === "b") { e.preventDefault(); wrapInline("**", "**"); }
+      else if (k === "i") { e.preventDefault(); wrapInline("*", "*"); }
+      else if (k === "k") { e.preventDefault(); wrapInline("[", "](https://)"); }
     }
   });
-  $("editor").addEventListener("close", () => {
-    editorDrag = false;
-    $("edit-err").textContent = "";
+}
+
+function editVisibleBlock() {
+  const pane = $("docpane");
+  const prect = pane.getBoundingClientRect();
+  const block = [...$("paper").querySelectorAll(".blk")].find((b) => {
+    const r = b.getBoundingClientRect();
+    return r.bottom > prect.top + 10 && r.top < prect.bottom - 10;
+  });
+  if (!block) return;
+  const r = block.getBoundingClientRect();
+  const y = Math.min(Math.max(r.top + 14, prect.top + 14), prect.bottom - 14);
+  openBlockEditor(block, r.left + 14, y);
+}
+
+function bindInlineEditor() {
+  const paper = $("paper");
+  let down = null;
+  paper.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    down = { x: e.clientX, y: e.clientY };
+  });
+  paper.addEventListener("click", (e) => {
+    if (state.running) return;
+    if (e.target.closest("a, button, .inline-edit, .gmarks")) return;
+    if (down) {
+      const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
+      down = null;
+      if (moved > 6) return;
+    }
+    const sel = document.getSelection();
+    if (sel && !sel.isCollapsed) return;
+    const blk = e.target.closest(".blk");
+    if (!blk || !blk.__src) return;
+    openBlockEditor(blk, e.clientX, e.clientY);
   });
 }
 
@@ -2302,7 +2397,6 @@ function showFront(focus) {
   $("docwrap").classList.remove("has-doc");
   $("docname").hidden = true;
   $("new").hidden = true;
-  $("edit").hidden = true;
   $("showmatched").hidden = true;
   $("ovr").hidden = true;
   for (const old of $("ovr").querySelectorAll(".ovr-mark")) old.remove();
@@ -2381,7 +2475,7 @@ function stepCard(dir) {
 }
 
 function bindEvents() {
-  bindEditorEvents();
+  bindInlineEditor();
   $("theme").addEventListener("click", toggleTheme);
   $("import").addEventListener("click", () => { if (!state.running) $("file").click(); });
   $("import2").addEventListener("click", () => { if (!state.running) $("file").click(); });
@@ -2439,6 +2533,8 @@ function bindEvents() {
   const ovr = $("ovr");
   ovr.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || e.target.closest(".ovr-mark") || !state.report) return;
+    const pane = $("docpane");
+    if (pane.scrollHeight - pane.clientHeight <= 0) return;
     const win = $("ovrwin");
     const onThumb = e.target === win;
     rulerGrab = onThumb ? e.clientY - win.getBoundingClientRect().top : win.offsetHeight / 2;
@@ -2515,16 +2611,10 @@ function bindEvents() {
   if (narrow.addEventListener) narrow.addEventListener("change", placeStone);
 
   document.addEventListener("keydown", (e) => {
+    if (e.defaultPrevented) return;
     const typing = e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement ||
       (e.target instanceof HTMLElement && e.target.isContentEditable);
     const mod = e.ctrlKey || e.metaKey;
-    if ($("editor").open) {
-      if (!e.defaultPrevented && mod && (e.key.toLowerCase() === "s" || e.key === "Enter")) {
-        e.preventDefault();
-        saveEditor();
-      }
-      return;
-    }
     if (mod && e.key.toLowerCase() === "o") {
       e.preventDefault();
       if (!state.running) $("file").click();
@@ -2538,12 +2628,12 @@ function bindEvents() {
       }
       return;
     }
-    if (mod && e.key.toLowerCase() === "e") {
+    if (document.querySelector("dialog[open]")) return;
+    if (!mod && !e.altKey && e.key.toLowerCase() === "e" && state.report && !state.running) {
       e.preventDefault();
-      if (state.report && !state.running) openEditor();
+      editVisibleBlock();
       return;
     }
-    if ($("shortcuts").open) return;
     if (e.key === "?") { e.preventDefault(); $("shortcuts").showModal(); return; }
     if (e.key === "[") { e.preventDefault(); stepProblem(-1); return; }
     if (e.key === "]") { e.preventDefault(); stepProblem(1); return; }

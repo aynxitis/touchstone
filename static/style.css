@@ -1,20 +1,23 @@
-/* Touchstone — the instrument. A chalk sheet on a cool ground, an ink verdict
-   panel, one verdigris accent, vermilion for what fails. */
+/* Touchstone — graphite and gold. A dim-grey desk, a paper sheet, a graphite
+   verdict panel, one gold accent, vermilion for what fails. */
 @font-face{font-family:"Archivo";src:url("fonts/archivo-latin-1.woff2") format("woff2");
   font-weight:400 700;font-style:normal;font-display:swap}
 @font-face{font-family:"Newsreader";src:url("fonts/newsreader-latin-2.woff2") format("woff2");
   font-weight:400 600;font-style:normal;font-display:swap}
 :root{
-  --page:#e8ebe7; --page-2:#dfe4df; --paper:#fcfcfa;
-  --ink:#101413; --muted:#4f5753; --faint:#68706b;
-  --rule:#ccd3cd; --rule-strong:#a6b0a9; --soft:#e6ebe6;
-  --stone:#101413; --on-stone:#eef2ee; --on-stone-muted:#a7b3ac;
-  --brass:#0b5f4f; --on-brass:#fcfcfa; --accent-on:#82ccb9;
-  --ok:#2f6b4b; --warn:#8a6100; --fail:#a63a26; --info:#33586b; --grey:#5f6862;
-  --ok-on:#8fb39b; --warn-on:#c9a24a; --fail-on:#e09a86; --info-on:#9fc0cd;
-  --ok-bg:#e4efe7; --warn-bg:#f5ecd6; --fail-bg:#f6e4df; --info-bg:#e4eef2; --grey-bg:#e9ede9;
-  --sb-thumb:rgba(16,20,19,.28); --sb-thumb-hover:rgba(16,20,19,.50);
-  --sel:rgba(11,95,79,.18);
+  --page:#e5e5e2; --page-2:#dcdcd8; --paper:#fbfbf9;
+  --ink:#17181a; --muted:#505255; --faint:#6b6d6f;
+  --rule:#d1d1cd; --rule-strong:#a9aaa6; --soft:#ededea;
+  --stone:#1a1b1d; --on-stone:#f0f0ed; --on-stone-muted:#a6a7a4;
+  --brass:#6f5414; --on-brass:#fbfbf9; --accent-on:#e3c476;
+  --gold:#c9a227; --gold-hover:#b08a1c; --gold-ink:#17181a;
+  --topbar:#1a1b1d; --topbar-fg:#f0f0ed; --topbar-muted:#a6a7a4;
+  --topbar-line:#3a3b3d; --topbar-rule:#2e2f31;
+  --ok:#3c6b4e; --warn:#8a6100; --fail:#a63a26; --info:#5b5d5f; --grey:#636568;
+  --ok-on:#8fb39b; --warn-on:#d9a44b; --fail-on:#e09a86; --info-on:#a9abac;
+  --ok-bg:#e6efe8; --warn-bg:#f4ecd7; --fail-bg:#f6e4df; --info-bg:#ececea; --grey-bg:#ededeb;
+  --sb-thumb:rgba(23,24,26,.48); --sb-thumb-hover:rgba(23,24,26,.66);
+  --sel:rgba(201,162,39,.24);
   --sans:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
   --serif:"Newsreader","Iowan Old Style","Palatino Linotype",Georgia,serif;
   --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
@@ -22,16 +25,19 @@
   color-scheme:light;
 }
 html[data-theme="dark"]{
-  --page:#0b0e0d; --page-2:#101514; --paper:#141a17;
-  --ink:#eaf0eb; --muted:#9aa5a0; --faint:#7f8a84;
-  --rule:#232c27; --rule-strong:#3a453f; --soft:#1b2320;
-  --stone:#070a09; --on-stone:#eaf0eb; --on-stone-muted:#9faea6;
-  --brass:#5fc4ae; --on-brass:#07100d; --accent-on:#5fc4ae;
-  --ok:#7fc39b; --warn:#c9a24a; --fail:#d4796a; --info:#8fb6cb; --grey:#9aa5a0;
-  --ok-on:#7fc39b; --warn-on:#c9a24a; --fail-on:#e09a86; --info-on:#9fc0cd;
-  --ok-bg:#16211b; --warn-bg:#241f12; --fail-bg:#2a1b17; --info-bg:#16232a; --grey-bg:#1a211d;
-  --sb-thumb:rgba(234,240,235,.22); --sb-thumb-hover:rgba(234,240,235,.44);
-  --sel:rgba(95,196,174,.22);
+  --page:#111214; --page-2:#18191b; --paper:#1d1e20;
+  --ink:#ececea; --muted:#a2a3a1; --faint:#8b8c8a;
+  --rule:#2c2d2f; --rule-strong:#45464a; --soft:#242528;
+  --stone:#0c0d0e; --on-stone:#f0f0ed; --on-stone-muted:#a3a4a1;
+  --brass:#d9b45f; --on-brass:#121314; --accent-on:#e7c97d;
+  --gold:#d9b45f; --gold-hover:#e6c578; --gold-ink:#161718;
+  --topbar:#0d0e0f; --topbar-fg:#f0f0ed; --topbar-muted:#a3a4a1;
+  --topbar-line:#333436; --topbar-rule:#242527;
+  --ok:#86c39a; --warn:#dda23f; --fail:#d4796a; --info:#a3a5a7; --grey:#9a9c9e;
+  --ok-on:#86c39a; --warn-on:#dda23f; --fail-on:#e09a86; --info-on:#a3a5a7;
+  --ok-bg:#16211b; --warn-bg:#251f12; --fail-bg:#2a1b17; --info-bg:#1f2022; --grey-bg:#1f2022;
+  --sb-thumb:rgba(236,236,234,.36); --sb-thumb-hover:rgba(236,236,234,.56);
+  --sel:rgba(217,180,95,.26);
   color-scheme:dark;
 }
 
@@ -53,15 +59,16 @@ textarea,input{caret-color:var(--brass)}
 /* ---------------- top bar ---------------- */
 .app{height:100vh;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:48px minmax(0,1fr)}
 .topbar{display:flex;align-items:center;gap:14px;padding:0 16px;
-  background:var(--page-2);border-bottom:1px solid var(--rule)}
-.wordmark{font:600 20px/1 var(--sans);letter-spacing:-.02em;color:var(--ink);
+  background:var(--topbar);border-bottom:1px solid var(--topbar-rule)}
+.wordmark{font:600 20px/1 var(--sans);letter-spacing:-.02em;color:var(--topbar-fg);
   text-decoration:none;flex:none;display:inline-flex;align-items:center;gap:9px}
-.wordmark::before{content:"";display:block;width:7px;height:7px;background:var(--brass)}
-.docname{font:12.5px var(--mono);letter-spacing:.02em;color:var(--muted);
+.wordmark::before{content:"";display:block;width:7px;height:7px;background:var(--gold)}
+.docname{font:12.5px var(--mono);letter-spacing:.02em;color:var(--topbar-muted);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .demo-tag{display:inline-block;margin-left:2px;padding:1px 5px;border:1px solid var(--brass);
   color:var(--brass);font:11px/1.3 var(--mono);letter-spacing:.12em;text-transform:uppercase;
   vertical-align:middle;white-space:nowrap}
+.topbar .demo-tag{border-color:var(--gold);color:var(--gold)}
 /* Below 1100px the top bar hands the demo marker to the front page's fine print. */
 .front-demo{display:none;margin:0 0 8px}
 @media (max-width:1099px){.front-demo{display:block}}
@@ -70,9 +77,14 @@ textarea,input{caret-color:var(--brass)}
   min-height:24px;font:12.5px var(--mono);letter-spacing:.04em;color:var(--muted);text-transform:uppercase}
 .tbtn:hover:not(:disabled){border-color:var(--rule-strong);color:var(--ink)}
 .tbtn:disabled{opacity:.35;cursor:default}
+.topbar .tbtn{color:var(--topbar-muted)}
+.topbar .tbtn:hover:not(:disabled){border-color:var(--topbar-line);color:var(--topbar-fg)}
 .icon{display:inline-grid;place-items:center;background:none;border:1px solid var(--rule);width:28px;height:28px;padding:0;
   cursor:pointer;font:14.5px var(--mono);line-height:1;color:var(--muted)}
 .icon:hover{color:var(--ink);border-color:var(--rule-strong)}
+.topbar .icon{color:var(--topbar-muted);border-color:var(--topbar-rule)}
+.topbar .icon:hover{color:var(--topbar-fg);border-color:var(--topbar-line)}
+.topbar :focus-visible{outline-color:var(--gold)}
 .ic{display:block;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;
   stroke-linecap:round;stroke-linejoin:round}
 #theme .ic{transition:transform .18s ease}
@@ -111,9 +123,9 @@ textarea::placeholder{color:var(--faint)}
 textarea:focus{outline:none;border-color:var(--ink)}
 .front-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
 .primary,.secondary,.runbtn,.cardlink,.linkish{cursor:pointer}
-.primary{background:var(--ink);color:var(--paper);border:1px solid var(--ink);
+.primary{background:var(--gold);color:var(--gold-ink);border:1px solid var(--gold);
   padding:11px 18px;font:600 12px var(--mono);letter-spacing:.1em;text-transform:uppercase}
-.primary:hover{background:var(--stone)}
+.primary:hover{background:var(--gold-hover);border-color:var(--gold-hover)}
 .secondary{background:none;color:var(--ink);border:1px solid var(--rule-strong);
   padding:10px 15px;font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase}
 .secondary:hover{background:var(--soft);border-color:var(--ink)}
@@ -174,18 +186,28 @@ textarea:focus{outline:none;border-color:var(--ink)}
 .paper tr.is-sel td{background:var(--soft)}
 .hide-ok .gmark.ok,.hide-ok .ovr-mark.m-ok{display:none}
 
-/* ---------------- overview ruler: a VS Code-style scrollbar ---------------- */
+/* ---------------- scrollbar: a real slider with claim ticks ---------------- */
 .ovr{position:absolute;top:0;right:0;bottom:var(--bar);width:var(--ruler);z-index:7;
   cursor:default;touch-action:none;background:transparent}
 .ovr[hidden]{display:none}
 .docwrap:not(.has-doc) .ovr{bottom:0}
-/* The thumb is the scrollbar: a slim translucent pill inset from the edge. */
-.ovr-win{position:absolute;right:2px;width:7px;min-height:24px;pointer-events:auto;
-  cursor:grab;border:0;border-radius:8px;background:var(--sb-thumb)}
+/* A track, so the control reads as a scrollbar and not a column of marks. */
+.ovr::before{content:"";position:absolute;left:50%;top:6px;bottom:6px;width:2px;
+  transform:translateX(-50%);border-radius:1px;background:var(--rule)}
+/* The slider: a graphite pill in the track, never hidden — when the document
+   fits it fills the track in an idle state instead of disappearing. */
+.ovr-win{position:absolute;right:1px;width:10px;min-height:40px;z-index:2;
+  pointer-events:auto;cursor:grab;border:0;border-radius:5px;
+  background:var(--sb-thumb)}
 .ovr:hover .ovr-win{background:var(--sb-thumb-hover)}
-.ovr-win:active{cursor:grabbing;background:var(--sb-thumb-hover)}
-/* Claim marks are overview-ruler ticks beside the slider, not bars across it. */
-.ovr-mark{position:absolute;left:2px;width:4px;height:8px;padding:3px 0;border:0;
+.ovr-win:active{cursor:grabbing;background:var(--gold)}
+.ovr-win.is-idle{opacity:.7;cursor:default}
+/* A grip line in the pill, so a full-length thumb still reads as a handle. */
+.ovr-win::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:1px;
+  transform:translate(-50%,-50%);border-radius:1px;background:var(--paper);opacity:.75}
+.ovr-win:active::after{background:var(--gold-ink);opacity:.7}
+/* Claim ticks sit on the left edge, clear of the slider. */
+.ovr-mark{position:absolute;left:1px;width:3px;height:8px;padding:3px 0;border:0;
   background:none;cursor:pointer;z-index:3}
 .ovr-mark::before{content:"";display:block;height:2px;border-radius:1px;
   background:var(--faint);opacity:.45}
@@ -194,13 +216,13 @@ textarea:focus{outline:none;border-color:var(--ink)}
 .ovr-mark.m-ok::before{height:2px;background:var(--ok);opacity:.6}
 .ovr-mark.m-info::before{height:2px;background:var(--info);opacity:.55}
 .ovr-mark:hover::before,.ovr-mark:focus-visible::before{opacity:1}
-.ovr-mark::after{content:"";position:absolute;left:-2px;width:10px;top:-5px;bottom:-5px}
+.ovr-mark::after{content:"";position:absolute;left:-1px;width:7px;top:-5px;bottom:-5px}
 
 /* ---------------- minimap: a skeleton of the page, like a code editor's ---------------- */
 .minimap{position:absolute;top:0;right:var(--ruler);bottom:var(--bar);width:var(--mm-w);
   overflow:hidden;z-index:6;cursor:default;touch-action:none;
-  --mm-ink:rgba(20,18,13,.30)}
-html[data-theme="dark"] .minimap{--mm-ink:rgba(236,231,217,.28)}
+  --mm-ink:rgba(23,24,26,.30)}
+html[data-theme="dark"] .minimap{--mm-ink:rgba(236,236,234,.28)}
 .docwrap:not(.has-doc) .minimap{bottom:0}
 .minimap[hidden]{display:none}
 .mm-body{position:absolute;top:0;left:0;right:0}
@@ -208,18 +230,18 @@ html[data-theme="dark"] .minimap{--mm-ink:rgba(236,231,217,.28)}
 .mm-line.is-bad{background:var(--fail)}
 .mm-line.is-unsup{background:var(--warn)}
 .mm-slider{position:absolute;left:0;right:0;top:0;height:0;border-radius:3px;
-  background:rgba(20,18,13,.10);border:0;cursor:grab;
+  background:rgba(23,24,26,.10);border:0;cursor:grab;
   transition:background .12s ease}
 .mm-slider[hidden]{display:none}
-.minimap:hover .mm-slider{background:rgba(20,18,13,.16)}
-html[data-theme="dark"] .mm-slider{background:rgba(236,231,217,.12)}
-html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,231,217,.18)}
+.minimap:hover .mm-slider{background:rgba(23,24,26,.16)}
+html[data-theme="dark"] .mm-slider{background:rgba(236,236,234,.12)}
+html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,236,234,.18)}
 
 /* ---------------- floating controls ---------------- */
 .totop{position:absolute;right:34px;top:12px;z-index:5;width:30px;height:30px;
   display:grid;place-items:center;
   background:var(--paper);border:1px solid var(--rule-strong);color:var(--ink);
-  cursor:pointer;font:14.5px var(--mono);line-height:1;box-shadow:0 2px 8px rgba(20,18,13,.08)}
+  cursor:pointer;font:14.5px var(--mono);line-height:1;box-shadow:0 2px 8px rgba(23,24,26,.08)}
 .totop .ic{width:14px;height:14px}
 .totop:hover{border-color:var(--ink)}
 .totop.low{top:auto;bottom:2px}
@@ -256,9 +278,9 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,231,217,.1
 .stone.is-empty .verdict{color:var(--on-stone-muted);font-size:17px;font-style:italic}
 .counts{display:flex;flex-wrap:wrap;gap:5px;margin-top:13px}
 .cnt{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;cursor:pointer;
-  min-height:24px;border:1px solid rgba(241,237,224,.18);background:none;color:var(--on-stone-muted);
+  min-height:24px;border:1px solid rgba(240,240,237,.18);background:none;color:var(--on-stone-muted);
   font:11.5px var(--mono);letter-spacing:.05em;text-transform:uppercase}
-.cnt:hover{border-color:rgba(241,237,224,.4);color:var(--on-stone)}
+.cnt:hover{border-color:rgba(240,240,237,.4);color:var(--on-stone)}
 .cnt b{font-weight:600;font-size:12px;color:var(--on-stone)}
 .cnt[aria-pressed="true"]{background:var(--on-stone);border-color:var(--on-stone);color:var(--stone)}
 .cnt[aria-pressed="true"] b{color:var(--stone)}
@@ -274,13 +296,13 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,231,217,.1
 .cnt .dot-blue{background:var(--info-on)}
 .cnt .dot-grey{background:var(--on-stone-muted)}
 .runrow{display:flex;align-items:center;gap:10px;margin-top:13px;flex-wrap:wrap}
-.runbtn{background:var(--on-stone);color:var(--stone);border:1px solid var(--on-stone);
+.runbtn{background:var(--gold);color:var(--gold-ink);border:1px solid var(--gold);
   padding:7px 15px;font:500 14px var(--sans)}
-.runbtn:hover{background:var(--brass);border-color:var(--brass);color:var(--on-brass)}
+.runbtn:hover{background:var(--gold-hover);border-color:var(--gold-hover);color:var(--gold-ink)}
 .runbtn:disabled{opacity:.5;cursor:default}
 .scope{font:11.5px/1.45 var(--mono);color:var(--on-stone-muted);letter-spacing:.01em}
-.progress{height:2px;background:rgba(241,237,224,.15);margin-top:14px;overflow:hidden}
-.progress span{display:block;height:100%;width:0;background:var(--brass);transition:width .25s ease}
+.progress{height:2px;background:rgba(240,240,237,.15);margin-top:14px;overflow:hidden}
+.progress span{display:block;height:100%;width:0;background:var(--gold);transition:width .25s ease}
 .stone-wait .verdict{font:14.5px/1.4 var(--mono);color:var(--warn-on);letter-spacing:0}
 
 .railbody{flex:1;min-height:0;overflow:auto}
@@ -456,7 +478,7 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,231,217,.1
 /* ---------------- dialog + drop ---------------- */
 .dlg{border:1px solid var(--rule-strong);background:var(--paper);color:var(--ink);
   padding:20px 22px 18px;width:min(400px,calc(100vw - 32px))}
-.dlg::backdrop{background:rgba(22,20,15,.45)}
+.dlg::backdrop{background:rgba(12,13,14,.45)}
 .dlg h2{font:600 22px/1.15 var(--sans);margin:0 0 14px;letter-spacing:-.02em}
 .dlg dl{margin:0;display:grid;gap:8px}
 .dlg dl div{display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:baseline}
@@ -474,8 +496,8 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,231,217,.1
 .evdlg{position:fixed;inset:48px 0 0 auto;margin:0;width:min(440px,100vw);
   max-width:none;height:calc(100vh - 48px);max-height:none;border:0;
   border-left:1px solid var(--rule-strong);background:var(--paper);color:var(--ink);
-  padding:22px 22px 18px;overflow:auto;box-shadow:-12px 0 30px rgba(20,18,13,.12)}
-.evdlg::backdrop{background:rgba(22,20,15,.35)}
+  padding:22px 22px 18px;overflow:auto;box-shadow:-12px 0 30px rgba(23,24,26,.12)}
+.evdlg::backdrop{background:rgba(12,13,14,.35)}
 .ev-kicker{margin:0 0 5px;font:11px var(--mono);letter-spacing:.1em;
   text-transform:uppercase;color:var(--brass)}
 .ev-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px}
@@ -508,8 +530,8 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,231,217,.1
   .evdlg{inset:48px 0 0 0;width:100vw;border-left:0;box-shadow:none}
 }
 .drop{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
-  background:rgba(242,239,230,.92);font:14.5px var(--mono);letter-spacing:.04em;color:var(--ink)}
-html[data-theme="dark"] .drop{background:rgba(16,15,12,.92)}
+  background:rgba(251,251,249,.92);font:14.5px var(--mono);letter-spacing:.04em;color:var(--ink)}
+html[data-theme="dark"] .drop{background:rgba(17,18,20,.92)}
 .drop[hidden]{display:none}
 .drop span{border:1px dashed var(--rule-strong);padding:26px 38px;background:var(--paper)}
 
@@ -566,8 +588,11 @@ html[data-theme="dark"] .drop{background:rgba(16,15,12,.92)}
   .stone.in-doc{display:block;position:sticky;top:0;z-index:6;
     margin:0 -34px 14px -16px;padding:9px 34px 9px 16px;
     background:var(--paper);color:var(--ink);border-bottom:1px solid var(--rule);
-    box-shadow:0 1px 0 rgba(20,18,13,.03)}
+    box-shadow:0 1px 0 rgba(23,24,26,.03)}
   .stone.in-doc.is-empty{display:none}
+  /* Editing takes the whole pane: the sticky status strip steps aside so the
+     caret and the block are never buried under it. */
+  body.is-editing .stone.in-doc{display:none}
   .stone.in-doc .assay{color:var(--muted)}
   .stone.in-doc .stonelink{color:var(--muted)}
   .stone.in-doc .verdict{color:var(--ink);font-size:16px;line-height:1.35}
@@ -584,10 +609,10 @@ html[data-theme="dark"] .drop{background:rgba(16,15,12,.92)}
   .stone.in-doc .cnt .dot-red{background:var(--fail)}
   .stone.in-doc .cnt .dot-blue{background:var(--info)}
   .stone.in-doc .cnt .dot-grey{background:var(--grey)}
-  .stone.in-doc .runbtn{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .stone.in-doc .runbtn{background:var(--gold);color:var(--gold-ink);border-color:var(--gold)}
   .stone.in-doc .scope{color:var(--muted)}
   .stone.in-doc .progress{background:var(--rule)}
-  .stone.in-doc .progress span{background:var(--brass)}
+  .stone.in-doc .progress span{background:var(--gold)}
 
   .paper table,.paper tbody{display:block}
   .paper thead{display:none}
@@ -745,45 +770,15 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
 .pagerbar button{width:36px;height:36px}
 .pg-n{font-size:12px;line-height:36px;min-width:54px}
 
-/* native editor scrollbar — deliberately larger than the browser default */
-.editdlg{width:min(1040px,calc(100vw - 48px));height:calc(100vh - 72px);
-  max-width:none;max-height:none;margin:auto;padding:0;border:1px solid var(--rule-strong);
-  background:var(--paper);color:var(--ink);box-shadow:0 18px 60px rgba(20,18,13,.24)}
-.editdlg[open]{display:flex;flex-direction:column}
-.editdlg::backdrop{background:rgba(22,20,15,.48)}
-.edit-head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;
-  padding:24px 28px 15px;border-bottom:1px solid var(--rule)}
-.edit-title{font:600 28px/1.1 var(--sans);letter-spacing:-.025em;margin:0}
-.edit-bar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;
-  padding:10px 28px;border-bottom:1px solid var(--rule);background:var(--page-2)}
-.md-tools{display:flex;gap:5px}
-.md-tools button{min-width:36px;height:34px;border:1px solid var(--rule);background:var(--paper);
-  color:var(--ink);cursor:pointer;font:12.5px var(--mono);padding:0 9px}
-.md-tools button:hover{border-color:var(--rule-strong);background:var(--soft)}
-.md-tools button:focus-visible{outline:2px solid var(--brass);outline-offset:1px}
-.edit-hint{font:12.5px/1.45 var(--mono);color:var(--muted);margin-left:auto}
-.md-wrap{flex:1;min-height:0;position:relative;margin:18px 28px 0;display:flex;
-  background:var(--paper);border:1px solid var(--rule-strong);border-radius:1px}
-.md-wrap:focus-within{outline:2px solid var(--brass);outline-offset:0;border-color:var(--ink)}
-.md-editor{flex:1;min-height:0;width:100%;height:100%;margin:0;
-  padding:16px calc(var(--ruler) + 8px) 16px 18px;
-  resize:none;white-space:pre-wrap;overflow:auto;font:15.5px/1.75 var(--mono);
-  color:var(--ink);background:var(--paper);border:0;border-radius:0;scrollbar-width:none}
-.md-editor:focus{outline:none;border:0}
-.md-editor::-webkit-scrollbar{width:0;height:0}
-/* Same VS Code model as the document ruler: slim track, round translucent thumb. */
-.md-scroll{position:absolute;top:0;right:0;bottom:0;width:var(--ruler);border-left:0;
-  background:transparent;cursor:default;touch-action:none}
-.md-scroll-win{display:none;position:absolute;right:2px;width:7px;top:0;min-height:24px;
-  border-radius:8px;background:var(--sb-thumb);border:0;cursor:grab}
-.md-wrap:hover .md-scroll-win{background:var(--sb-thumb-hover)}
-.md-scroll-win:active{cursor:grabbing;background:var(--sb-thumb-hover)}
-.editdlg .fronterr{margin:8px 28px 0}
-.edit-foot{display:flex;align-items:center;gap:12px;padding:14px 28px 18px;
-  border-top:1px solid var(--rule);background:var(--page-2)}
-.edit-foot .count{font-size:12.5px;color:var(--muted);margin-left:0}
-.edit-keys{font:12px var(--mono);color:var(--muted);margin-left:auto;white-space:nowrap}
-.edit-foot .secondary,.edit-foot .primary{flex:none}
+/* in-place editing: the document itself is the editor */
+.paper .blk{cursor:text}
+.paper .blk a,.paper .blk .gmark{cursor:pointer}
+.inline-edit{display:block;width:100%;min-height:0;max-height:none;margin:0 0 17px;padding:0;border:0;border-radius:0;
+  background:var(--paper);color:var(--ink);resize:none;overflow:hidden;
+  caret-color:var(--brass);scrollbar-width:none}
+.inline-edit:focus{outline:none}
+.inline-edit::-webkit-scrollbar{width:0;height:0}
+.inline-edit::selection{background:var(--sel);color:var(--ink)}
 
 /* keep touch targets comfortable without changing the editorial rhythm */
 @media (max-width:1099px){
@@ -826,8 +821,8 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
   .body{grid-template-rows:minmax(0,1fr) 44vh}
   :root{--ruler:20px;--mm-w:0px}
   .minimap{display:none}
-  .ovr-win,.md-scroll-win{right:3px;width:9px}
-  .ovr-mark{left:3px;width:5px}
+  .ovr-win{right:3px;width:10px}
+  .ovr-mark{left:2px;width:3px}
   .docpane{padding:0 46px 54px 16px}
   .paper{padding-left:30px;max-width:none}
   .paper .gmarks,.paper td .gmarks{left:-30px}
@@ -863,16 +858,4 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
   .paper td::before{font-size:12px}
   .legend dt{width:100px;font-size:13.5px}
   .legend dd{font-size:13px}
-  .editdlg{width:100vw;height:100vh;max-height:none;margin:0;border:0}
-  .edit-head{padding:16px 16px 10px}
-  .edit-title{font-size:27px}
-  .edit-bar{padding:8px 16px;gap:9px}
-  .edit-hint{display:none}
-  .md-wrap{margin:12px 16px 0}
-  .md-editor{padding:13px 30px 13px 14px;font-size:15px;line-height:1.7}
-  .editdlg .fronterr{margin:6px 16px 0}
-  .edit-foot{padding:11px 16px 14px;gap:8px}
-  .edit-keys{display:none}
-  .edit-foot .count{font-size:12px}
-  .edit-foot .primary,.edit-foot .secondary{font-size:13px;padding:7px 10px}
 }
