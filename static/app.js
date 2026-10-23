@@ -9,7 +9,7 @@ const MAX_CHARS = 20000;
 const TONES = {
   "SOURCED": "green", "PARTIAL": "yellow", "COULDN'T CONFIRM": "yellow",
   "UNSUPPORTED": "yellow", "CONTRADICTED": "red",
-  "UNVERIFIED": "blue", "OPINION": "violet", "SOURCE UNREACHABLE": "teal",
+  "UNVERIFIED": "blue", "OPINION": "violet", "SOURCE UNREACHABLE": "error",
   "NO SOURCE GIVEN": "brown", "NOT CHECKED": "grey", "ERROR": "error",
 };
 // Summary order and wording: "9 sourced, 3 partial, 1 contradicted, 2 unreachable"

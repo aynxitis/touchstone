@@ -19,10 +19,12 @@
   --ok-bg:#e6efe8; --warn-bg:#f4ecd7; --fail-bg:#f6e4df; --info-bg:#ececea; --grey-bg:#ededeb;
   /* Edge outcomes. The states that are not a verdict on the claim each keep a
      muted hue of their own, so the key and the card badges stay tellable apart;
-     none of them is a signal triple colour (green / amber / vermillion). */
-  --brown:#6d5741; --blue:#33607f; --violet:#6c5891; --teal:#26635c;
-  --brown-on:#d5c1a4; --blue-on:#9dc0d8; --violet-on:#c3b6de; --teal-on:#8ecbbf;
-  --brown-bg:#f1e9dd; --blue-bg:#e3ecf2; --violet-bg:#ece6f2; --teal-bg:#e0eeeb;
+     none of them is a signal triple colour (green / amber / vermillion). The two
+     ways a check can fail to complete — the page couldn't be read, the check
+     itself failed — share the vermillion ring. */
+  --brown:#6d5741; --blue:#33607f; --violet:#6c5891;
+  --brown-on:#d5c1a4; --blue-on:#9dc0d8; --violet-on:#c3b6de;
+  --brown-bg:#f1e9dd; --blue-bg:#e3ecf2; --violet-bg:#ece6f2;
   --sb-thumb:rgba(23,24,26,.48); --sb-thumb-hover:rgba(23,24,26,.66);
   --sel:rgba(201,162,39,.24);
   --sans:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
@@ -49,9 +51,9 @@ html[data-theme="dark"]{
   --ok:#86c39a; --warn:#dda23f; --fail:#d4796a; --info:#a3a5a7; --grey:#9a9c9e;
   --ok-on:#86c39a; --warn-on:#dda23f; --fail-on:#e09a86; --info-on:#a3a5a7;
   --ok-bg:#16211b; --warn-bg:#251f12; --fail-bg:#2a1b17; --info-bg:#1f2022; --grey-bg:#1f2022;
-  --brown:#c0a583; --blue:#86b0cf; --violet:#b1a0d0; --teal:#7fc0b4;
-  --brown-on:#c0a583; --blue-on:#86b0cf; --violet-on:#b1a0d0; --teal-on:#7fc0b4;
-  --brown-bg:#241f18; --blue-bg:#17242c; --violet-bg:#221e29; --teal-bg:#162522;
+  --brown:#c0a583; --blue:#86b0cf; --violet:#b1a0d0;
+  --brown-on:#c0a583; --blue-on:#86b0cf; --violet-on:#b1a0d0;
+  --brown-bg:#241f18; --blue-bg:#17242c; --violet-bg:#221e29;
   --sb-thumb:rgba(236,236,234,.36); --sb-thumb-hover:rgba(236,236,234,.56);
   --sel:rgba(217,180,95,.26);
   color-scheme:dark;
@@ -302,9 +304,9 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,236,234,.1
 .dot-grey{background:var(--grey)}
 .dot-brown{background:var(--brown)}
 .dot-violet{background:var(--violet)}
-.dot-teal{background:var(--teal)}
 /* Error is a failure of the check, never a verdict on the claim: vermillion as
-   a ring, so it stays distinct from a filled Contradicted dot. */
+   a ring, so it stays distinct from a filled Contradicted dot. A source that
+   couldn't be read is the same kind of dead end, so it wears the same ring. */
 .dot-error{background:transparent;box-shadow:inset 0 0 0 1.5px var(--fail)}
 .cnt .dot-green{background:var(--ok-on)}
 .cnt .dot-yellow{background:var(--warn-on)}
@@ -313,7 +315,6 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,236,234,.1
 .cnt .dot-grey{background:var(--on-stone-muted)}
 .cnt .dot-brown{background:var(--brown-on)}
 .cnt .dot-violet{background:var(--violet-on)}
-.cnt .dot-teal{background:var(--teal-on)}
 .cnt .dot-error{background:transparent;box-shadow:inset 0 0 0 1.5px var(--fail-on)}
 .cnt .dot-half{background:linear-gradient(90deg,var(--warn-on) 50%,transparent 50%);
   box-shadow:inset 0 0 0 1px var(--warn-on)}
@@ -415,7 +416,6 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,236,234,.1
 .badge.tone-grey{--tone:var(--grey);--tone-bg:var(--grey-bg)}
 .badge.tone-brown{--tone:var(--brown);--tone-bg:var(--brown-bg)}
 .badge.tone-violet{--tone:var(--violet);--tone-bg:var(--violet-bg)}
-.badge.tone-teal{--tone:var(--teal);--tone-bg:var(--teal-bg)}
 .badge.tone-error{--tone:var(--fail);--tone-bg:var(--fail-bg)}
 .cno{font:11.5px var(--mono);color:var(--muted);letter-spacing:.04em}
 .cardlink{position:relative;margin-left:auto;background:none;border:0;padding:2px 0;cursor:pointer;
@@ -660,7 +660,6 @@ html[data-theme="dark"] .drop{background:rgba(17,18,20,.92)}
   .stone.in-doc .cnt .dot-grey{background:var(--grey)}
   .stone.in-doc .cnt .dot-brown{background:var(--brown)}
   .stone.in-doc .cnt .dot-violet{background:var(--violet)}
-  .stone.in-doc .cnt .dot-teal{background:var(--teal)}
   .stone.in-doc .cnt .dot-error{background:transparent;box-shadow:inset 0 0 0 1.5px var(--fail)}
   .stone.in-doc .cnt .dot-half{background:linear-gradient(90deg,var(--warn) 50%,transparent 50%);
     box-shadow:inset 0 0 0 1px var(--warn)}
