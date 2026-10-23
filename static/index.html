@@ -12,7 +12,6 @@
 <div class="app">
   <header class="topbar">
     <a class="wordmark" href="/">Touchstone</a>
-    <span class="demo-tag" title="Design demo — not the shipped build">design demo</span>
     <span class="docname" id="docname" hidden></span>
     <div class="top-actions">
       <button id="new" class="tbtn" type="button" hidden>New</button>
@@ -67,7 +66,6 @@
               <span id="count" class="count"></span>
             </div>
             <p id="fronterr" class="fronterr" role="status"></p>
-            <p class="front-demo"><span class="demo-tag">design demo</span></p>
             <!--limits-->
             <!--provider-note-->
           </div>
@@ -138,7 +136,9 @@
     </div>
 
     <aside class="rail" id="rail" aria-label="Check results">
-      <div class="grip" id="grip" aria-hidden="true"><span></span></div>
+      <div class="grip" id="grip" role="separator" aria-orientation="horizontal"
+        aria-label="Resize results panel" aria-valuemin="0" aria-valuemax="100"
+        aria-valuenow="42" aria-valuetext="Results panel" tabindex="0"><span></span></div>
       <div class="stone" id="stone">
         <div class="stone-top">
           <span class="assay" id="assay">NO CHECK</span>

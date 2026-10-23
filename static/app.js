@@ -2290,7 +2290,6 @@ function loadReport(text, name) {
     if ($("front").hidden) setProvenance(msg);
     return false;
   }
-
   document.body.classList.add("has-report");
   resetRunView();
   state.report = clean;
@@ -3020,6 +3019,174 @@ async function importFile(file) {
 }
 
 const narrow = window.matchMedia("(max-width: 699px)");
+const sheetMQ = window.matchMedia("(max-width: 1099px)");
+let sheetDrag = null;
+let sheetRestore = null;
+let sheetRAF = 0;
+
+function bench() { return document.querySelector(".body"); }
+
+function sheetMin() {
+  const grip = $("grip");
+  return grip && grip.offsetHeight ? grip.offsetHeight : 26;
+}
+
+function sheetMax() {
+  const body = bench();
+  return body ? body.clientHeight : 0;
+}
+
+function queueSheetLayout() {
+  if (sheetRAF) return;
+  sheetRAF = requestAnimationFrame(() => { sheetRAF = 0; layout(); });
+}
+
+function setGripValue(height) {
+  const grip = $("grip");
+  if (!grip) return;
+  const min = sheetMin();
+  const max = Math.max(min, sheetMax());
+  const pct = max <= min ? 100 : Math.round(((height - min) / (max - min)) * 100);
+  grip.setAttribute("aria-valuenow", String(Math.max(0, Math.min(100, pct))));
+  grip.setAttribute("aria-valuetext", height <= min + 1 ? "Results closed" : `${pct}% open`);
+}
+
+function applySheetHeight(height, { snap = false } = {}) {
+  const body = bench();
+  const rail = $("rail");
+  if (!body || !rail || !sheetMQ.matches) return;
+  const min = sheetMin();
+  const max = Math.max(min, sheetMax());
+  let h = Math.round(Math.max(min, Math.min(max, height)));
+  if (snap) {
+    if (h <= min + 28) h = min;
+    else if (h >= max - 6) h = max;
+  }
+  body.style.setProperty("--sheet-h", `${h}px`);
+  rail.classList.toggle("is-collapsed", h <= min + 1);
+  setGripValue(h);
+  queueSheetLayout();
+}
+
+function defaultSheetHeight() {
+  return Math.round(window.innerHeight * (narrow.matches ? 0.44 : 0.42));
+}
+
+function collapseSheet() {
+  const rail = $("rail");
+  const h = rail.getBoundingClientRect().height;
+  if (h > sheetMin() + 28) sheetRestore = h;
+  applySheetHeight(sheetMin());
+}
+
+function expandSheet() {
+  applySheetHeight(sheetRestore || defaultSheetHeight());
+}
+
+function toggleSheet() {
+  const rail = $("rail");
+  if (rail.classList.contains("is-collapsed")) expandSheet();
+  else collapseSheet();
+}
+
+function syncSheet() {
+  const body = bench();
+  const rail = $("rail");
+  if (!body || !rail) return;
+  if (!sheetMQ.matches) {
+    body.style.removeProperty("--sheet-h");
+    rail.classList.remove("is-collapsed", "is-dragging");
+    sheetDrag = null;
+    sheetRestore = null;
+    return;
+  }
+  if (body.style.getPropertyValue("--sheet-h")) {
+    applySheetHeight(rail.getBoundingClientRect().height);
+  } else {
+    setGripValue(rail.getBoundingClientRect().height);
+  }
+}
+
+function bindSheet() {
+  const grip = $("grip");
+  if (!grip) return;
+  const onMove = (e) => {
+    if (!sheetDrag) return;
+    const dy = e.clientY - sheetDrag.y;
+    if (!sheetDrag.moved && Math.abs(dy) > 3) sheetDrag.moved = true;
+    if (sheetDrag.moved) {
+      applySheetHeight(sheetDrag.h - dy);
+      e.preventDefault();
+    }
+  };
+  const onUp = (e) => finish(e);
+  const onCancel = (e) => finish(e, true);
+  const detach = () => {
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    window.removeEventListener("pointercancel", onCancel);
+  };
+  const finish = (e, cancelled = false) => {
+    if (!sheetDrag) return;
+    const { moved } = sheetDrag;
+    const rail = $("rail");
+    const h = rail.getBoundingClientRect().height;
+    sheetDrag = null;
+    detach();
+    rail.classList.remove("is-dragging");
+    document.body.classList.remove("is-sheet-drag");
+    try { grip.releasePointerCapture(e.pointerId); } catch { /* already released */ }
+    if (cancelled) return;
+    if (!moved) {
+      toggleSheet();
+      return;
+    }
+    if (h > sheetMin() + 28) sheetRestore = h;
+    applySheetHeight(h, { snap: true });
+  };
+  grip.addEventListener("pointerdown", (e) => {
+    if (!sheetMQ.matches) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    const rail = $("rail");
+    const h = rail.getBoundingClientRect().height;
+    sheetDrag = { y: e.clientY, h, moved: false };
+    if (h > sheetMin() + 28) sheetRestore = h;
+    rail.classList.add("is-dragging");
+    document.body.classList.add("is-sheet-drag");
+    try { grip.setPointerCapture(e.pointerId); } catch { /* capture is optional */ }
+    window.addEventListener("pointermove", onMove, { passive: false });
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onCancel);
+    grip.focus({ preventScroll: true });
+    e.preventDefault();
+  });
+  grip.addEventListener("keydown", (e) => {
+    if (!sheetMQ.matches) return;
+    const rail = $("rail");
+    const h = rail.getBoundingClientRect().height;
+    const min = sheetMin();
+    const max = Math.max(min, sheetMax());
+    const step = e.shiftKey ? 48 : 16;
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      let next = h + (e.key === "ArrowUp" ? step : -step);
+      if (e.key === "ArrowDown" && next <= min + 28) next = min;
+      next = Math.max(min, Math.min(max, next));
+      if (h > min + 28) sheetRestore = h;
+      applySheetHeight(next);
+      e.preventDefault();
+    } else if (e.key === "Home") {
+      if (h > min + 28) sheetRestore = h;
+      applySheetHeight(max);
+      e.preventDefault();
+    } else if (e.key === "End") {
+      collapseSheet();
+      e.preventDefault();
+    } else if (e.key === "Enter" || e.key === " ") {
+      toggleSheet();
+      e.preventDefault();
+    }
+  });
+}
 
 function placeStone() {
   const stone = $("stone");
@@ -3057,6 +3224,7 @@ function stepCard(dir) {
 
 function bindEvents() {
   bindInlineEditor();
+  bindSheet();
   const docbar = $("docbar");
   docbar.addEventListener("pointerdown", (e) => {
     if (e.target.closest("#md-tools button")) e.preventDefault();
@@ -3271,9 +3439,11 @@ function bindEvents() {
   window.addEventListener("resize", () => {
     placeStone();
     if (state.mode === "edit") growSource();
+    syncSheet();
     layout();
   });
   if (narrow.addEventListener) narrow.addEventListener("change", placeStone);
+  if (sheetMQ.addEventListener) sheetMQ.addEventListener("change", syncSheet);
 
   document.addEventListener("keydown", (e) => {
     if (e.defaultPrevented) return;
@@ -3355,6 +3525,7 @@ function init() {
   showFront(false);
   applyModeUI();
   placeStone();
+  syncSheet();
   layout();
 }
 
