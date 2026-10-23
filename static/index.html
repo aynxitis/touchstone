@@ -72,7 +72,54 @@
             <!--provider-note-->
           </div>
         </section>
+        <div class="docbar" id="docbar" hidden>
+          <div class="mode-switch" id="mode-switch" role="group" aria-label="View mode">
+            <button type="button" data-mode="edit" aria-pressed="false" title="Raw Markdown">Edit</button>
+            <button type="button" data-mode="preview" aria-pressed="false" title="Rendered, read-only">Preview</button>
+            <button type="button" data-mode="inline" aria-pressed="true" title="Rendered, click a block to edit">Inline</button>
+          </div>
+          <button id="modebtn" class="modebtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="modemenu">
+            <span id="modebtn-label">Inline</span>
+            <svg class="ic" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m5 6 3 3 3-3"/></svg>
+          </button>
+          <div class="modemenu" id="modemenu" role="menu" aria-label="View mode" hidden>
+            <button type="button" data-mode="edit" role="menuitemradio" aria-checked="false"><b>Edit</b><span>Raw Markdown</span></button>
+            <button type="button" data-mode="preview" role="menuitemradio" aria-checked="false"><b>Preview</b><span>Read-only</span></button>
+            <button type="button" data-mode="inline" role="menuitemradio" aria-checked="true"><b>Inline</b><span>Click a block to edit</span></button>
+          </div>
+          <span class="toolhint" id="toolhint" hidden>Click a block to edit</span>
+          <div class="md-tools" id="md-tools" role="toolbar" aria-label="Markdown tools" hidden>
+            <div class="heading-wrap">
+              <button id="headingbtn" class="tool" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="headingmenu" aria-label="Heading" title="Heading"><span class="tool-glyph">H</span></button>
+              <div class="heading-menu" id="headingmenu" role="menu" aria-label="Heading level" hidden>
+                <button type="button" data-cmd="h1" role="menuitem">Heading 1</button>
+                <button type="button" data-cmd="h2" role="menuitem">Heading 2</button>
+                <button type="button" data-cmd="h3" role="menuitem">Heading 3</button>
+              </div>
+            </div>
+            <span class="tool-sep" aria-hidden="true"></span>
+            <div class="md-scroll" id="md-scroll">
+            <button class="tool" type="button" data-cmd="bold" aria-label="Bold" title="Bold (Ctrl+B)" aria-keyshortcuts="Control+B Meta+B"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8"/></svg></button>
+            <button class="tool" type="button" data-cmd="italic" aria-label="Italic" title="Italic (Ctrl+I)" aria-keyshortcuts="Control+I Meta+I"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><line x1="19" x2="10" y1="4" y2="4"/><line x1="14" x2="5" y1="20" y2="20"/><line x1="15" x2="9" y1="4" y2="20"/></svg></button>
+            <button class="tool" type="button" data-cmd="strike" aria-label="Strikethrough" title="Strikethrough"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M16 4H9a3 3 0 0 0-2.83 4"/><path d="M14 12a4 4 0 0 1 0 8H6"/><line x1="4" x2="20" y1="12" y2="12"/></svg></button>
+            <button class="tool" type="button" data-cmd="code" aria-label="Inline code" title="Inline code"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></button>
+            <button class="tool" type="button" data-cmd="link" aria-label="Link" title="Link (Ctrl+K)" aria-keyshortcuts="Control+K Meta+K"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+            <span class="tool-sep" aria-hidden="true"></span>
+            <button class="tool" type="button" data-cmd="ul" aria-label="Bullet list" title="Bullet list"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 19h.01"/><path d="M8 5h13"/><path d="M8 12h13"/><path d="M8 19h13"/></svg></button>
+            <button class="tool" type="button" data-cmd="ol" aria-label="Numbered list" title="Numbered list"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 19h10"/><path d="M4 4h1v5"/><path d="M4 9h2"/><path d="M6.5 20H3.4c0-1 2.6-1.925 2.6-3.5a1.5 1.5 0 0 0-2.6-1.02"/><path d="M11 5h10"/><path d="M11 12h10"/></svg></button>
+            <button class="tool" type="button" data-cmd="quote" aria-label="Blockquote" title="Blockquote"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M16 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z"/><path d="M5 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z"/></svg></button>
+            <span class="tool-sep" aria-hidden="true"></span>
+            <button class="tool" type="button" data-cmd="math" aria-label="Formula" title="Inline formula"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 7V5a1 1 0 0 0-1-1H6.5a.5.5 0 0 0-.4.8l4.5 6a2 2 0 0 1 0 2.4l-4.5 6a.5.5 0 0 0 .4.8H17a1 1 0 0 0 1-1v-2"/></svg></button>
+            <button class="tool" type="button" data-cmd="mathblock" aria-label="Display formula" title="Display formula on its own line"><span class="tool-glyph">$$</span></button>
+            <button class="tool" type="button" data-cmd="codeblock" aria-label="Code block" title="Code block"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m10 9-3 3 3 3"/><path d="m14 15 3-3-3-3"/></svg></button>
+            </div>
+          </div>
+        </div>
         <article class="paper" id="paper" hidden></article>
+        <section class="sourceview" id="sourceview" hidden>
+          <label class="sr-only" for="source">Report Markdown source</label>
+          <textarea id="source" spellcheck="false" placeholder="Write the report in Markdown."></textarea>
+        </section>
       </main>
 
       <div class="minimap" id="minimap" aria-hidden="true" hidden>
@@ -184,9 +231,12 @@
   <form method="dialog"><button class="dlgx" type="submit" aria-label="Close"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m4.6 4.6 6.8 6.8M11.4 4.6l-6.8 6.8"/></svg></button></form>
   <h2>Keyboard shortcuts</h2>
   <dl>
-    <div><dt>Click</dt><dd>Edit a block in place</dd></div>
-    <div><dt>E</dt><dd>Edit the visible block</dd></div>
-    <div><dt>Esc</dt><dd>Finish editing</dd></div>
+    <div><dt>Click</dt><dd>Edit a block in Inline view</dd></div>
+    <div><dt>E</dt><dd>Edit the visible block in Inline view</dd></div>
+    <div><dt>Esc</dt><dd>Finish inline editing</dd></div>
+    <div><dt>Ctrl / ⌘ B</dt><dd>Bold</dd></div>
+    <div><dt>Ctrl / ⌘ I</dt><dd>Italic</dd></div>
+    <div><dt>Ctrl / ⌘ K</dt><dd>Link</dd></div>
     <div><dt>Ctrl / ⌘ O</dt><dd>Import a report</dd></div>
     <div><dt>Ctrl / ⌘ Enter</dt><dd>Run the check</dd></div>
     <div><dt>J / K</dt><dd>Next / previous card</dd></div>
@@ -194,7 +244,7 @@
     <div><dt>G</dt><dd>Back to top</dd></div>
     <div><dt>?</dt><dd>This list</dd></div>
   </dl>
-  <p class="dlg-note">Click a mark on the scrollbar to jump to its claim.</p>
+  <p class="dlg-note">Edit shows raw Markdown. Preview is read-only. Inline renders the report and lets you click any block to edit it. In Edit or Inline, use the format bar above the page.</p>
 </dialog>
 
 <div id="drop" class="drop" hidden><span>Drop a .md or .txt report</span></div>

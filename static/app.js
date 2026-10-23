@@ -166,9 +166,22 @@ function setTextSize(scope, size) {
   requestAnimationFrame(() => { layout(); });
 }
 
+// ---------------- view mode ----------------
+const MODE_KEY = "touchstone.mode";
+const MODES = new Set(["edit", "preview", "inline"]);
+const MODE_WORDS = { edit: "Edit", preview: "Preview", inline: "Inline" };
+let sourceDirty = false;
+
+function storedMode() {
+  let value = "";
+  try { value = localStorage.getItem(MODE_KEY) || ""; } catch { /* private mode */ }
+  return MODES.has(value) ? value : "inline";
+}
+
 // ---------------- state ----------------
 const state = {
   report: "", name: "", running: false, startedAt: 0, elapsed: 0, tokens: null,
+  mode: storedMode(),
   lastRun: null, lastRunExample: false, retryPlayback: false, replay: false, selected: null, pager: [], pagerIdx: 0,
   filter: null, matchedOpen: false, hideOk: true, abort: null, replaying: false,
   total: 0, done: 0, cited: 0, counts: {},
@@ -190,6 +203,69 @@ function plain(text) {
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").trim();
 }
 
+let katexLoad = null;
+
+/* KaTeX is self-hosted and loaded only when the report actually contains a
+   formula. Its generated DOM is the one exception to the textContent rule:
+   ordinary report text still never reaches innerHTML. */
+function ensureKatex() {
+  if (window.katex) return Promise.resolve(window.katex);
+  if (katexLoad) return katexLoad;
+  katexLoad = new Promise((resolve) => {
+    if (!document.querySelector("link[data-katex]")) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = "/static/vendor/katex/katex.min.css";
+      link.dataset.katex = "";
+      document.head.append(link);
+    }
+    let script = document.querySelector("script[data-katex]");
+    if (!script) {
+      script = document.createElement("script");
+      script.src = "/static/vendor/katex/katex.min.js";
+      script.async = true;
+      script.dataset.katex = "";
+      document.head.append(script);
+    }
+    const done = () => resolve(window.katex || null);
+    if (window.katex) done();
+    else {
+      script.addEventListener("load", done, { once: true });
+      script.addEventListener("error", () => resolve(null), { once: true });
+    }
+  });
+  return katexLoad;
+}
+
+function mathNode(tex, display) {
+  const node = el(display ? "div" : "span", display ? "math-block" : "math-inline");
+  node.dataset.tex = tex;
+  node.textContent = tex;
+  node.setAttribute("aria-label", `Formula: ${tex}`);
+  return node;
+}
+
+function hydrateMath(root) {
+  const nodes = [...root.querySelectorAll(".math-inline, .math-block")];
+  if (!nodes.length) return;
+  ensureKatex().then((katex) => {
+    if (!katex) return;
+    for (const node of nodes) {
+      if (!node.isConnected || node.dataset.rendered === "1") continue;
+      try {
+        katex.render(node.dataset.tex || "", node, {
+          displayMode: node.classList.contains("math-block"),
+          throwOnError: false,
+          trust: false,
+          strict: "ignore",
+        });
+        node.dataset.rendered = "1";
+      } catch { /* keep the TeX text as a readable fallback */ }
+    }
+    layout();
+  });
+}
+
 function renderInline(text) {
   const frag = document.createDocumentFragment();
   let i = 0;
@@ -199,7 +275,18 @@ function renderInline(text) {
   };
   while (i < text.length) {
     const ch = text[i];
-    if (ch === "[") {
+    if (ch === "$") {
+      const close = text.indexOf("$", i + 1);
+      if (close > i + 1) {
+        const body = text.slice(i + 1, close);
+        if (!/\n/.test(body) && body.trim() === body && !/^\d[\d,.]*$/.test(body)) {
+          flush();
+          frag.append(mathNode(body, false));
+          i = close + 1;
+          continue;
+        }
+      }
+    } else if (ch === "[") {
       const close = text.indexOf("]", i + 1);
       if (close > i && text[close + 1] === "(") {
         const end = urlEnd(text, close + 2);
@@ -273,6 +360,7 @@ function urlEnd(text, start) {
 const isRuleLine = (l) => /^\s*((\*\s*){3,}|(-\s*){3,}|(_\s*){3,})$/.test(l);
 const isHeadingLine = (l) => /^(#{1,6})\s+/.test(l);
 const isFenceLine = (l) => /^\s*```/.test(l);
+const isDisplayMathStart = (l) => /^\s*\$\$/.test(l);
 const isQuoteLine = (l) => /^\s*>/.test(l);
 const isListLine = (l) => /^\s*([-*+]|\d+[.)])\s+/.test(l);
 
@@ -384,6 +472,32 @@ function renderReport(article, text) {
     const line = lines[i];
     if (!line.trim()) { i += 1; continue; }
 
+    if (isDisplayMathStart(line)) {
+      const start = i;
+      const first = line.replace(/^\s*\$\$/, "");
+      let tex = "";
+      if (first.trim().endsWith("$$")) {
+        tex = first.trim().slice(0, -2).trim();
+        i += 1;
+      } else {
+        const body = [];
+        if (first.trim()) body.push(first.trim());
+        i += 1;
+        while (i < lines.length && !/^\s*\$\$\s*$/.test(lines[i])) {
+          body.push(lines[i]);
+          i += 1;
+        }
+        if (i < lines.length) i += 1;
+        tex = body.join("\n").trim();
+      }
+      if (tex) {
+        const node = mathNode(tex, true);
+        article.append(node);
+        markBlock(node, start, i);
+        continue;
+      }
+    }
+
     if (isFenceLine(line)) {
       const start = i;
       const lang = line.replace(/^\s*```/, "").trim();
@@ -447,7 +561,7 @@ function renderReport(article, text) {
     i += 1;
     while (i < lines.length && lines[i].trim() &&
       !isFenceLine(lines[i]) && !isHeadingLine(lines[i]) && !isRuleLine(lines[i]) &&
-      !isQuoteLine(lines[i]) && !isListLine(lines[i]) && !isTableStart(lines, i)) {
+      !isDisplayMathStart(lines[i]) && !isQuoteLine(lines[i]) && !isListLine(lines[i]) && !isTableStart(lines, i)) {
       buf.push(lines[i].trim());
       i += 1;
     }
@@ -457,6 +571,7 @@ function renderReport(article, text) {
     addUnit(p, "p", start);
     markBlock(p, start, i);
   }
+  hydrateMath(article);
   return units;
 }
 
@@ -606,7 +721,7 @@ function drawMinimap() {
   const body = $("mmbody");
   const paper = $("paper");
   if (!mm || !body || !paper) return;
-  if (!state.report) {
+  if (!state.report || state.mode === "edit") {
     mm.hidden = true;
     mmKey = "";
     return;
@@ -678,13 +793,24 @@ function layout() {
   ovr.hidden = false;
   const stone = $("stone");
   const strip = narrow.matches && stone.classList.contains("in-doc") ? stone.offsetHeight : 0;
-  ovr.style.top = strip ? `${strip}px` : "";
-  if (mm) mm.style.top = strip ? `${strip}px` : "";
+  const bar = $("docbar");
+  const barH = bar && !bar.hidden ? bar.offsetHeight : 0;
+  if (bar) bar.style.top = strip ? `${strip}px` : "";
+  const barTop = bar && !bar.hidden
+    ? Math.max(0, bar.getBoundingClientRect().top - pane.getBoundingClientRect().top)
+    : 0;
+  const topOffset = barTop + barH;
+  ovr.style.top = topOffset ? `${topOffset}px` : "";
+  if (mm) mm.style.top = topOffset ? `${topOffset}px` : "";
   const sh = pane.scrollHeight;
   const ch = pane.clientHeight;
   const h = ovr.clientHeight;
   const scrollable = sh > ch + 4 && h > 0;
-  drawMinimap();
+  if (state.mode === "edit") {
+    if (mm) mm.hidden = true;
+  } else {
+    drawMinimap();
+  }
   // A scrollbar always shows a slider. When the document fits, the thumb fills
   // the track in an idle state rather than vanishing and leaving only ticks.
   win.style.display = "block";
@@ -715,7 +841,7 @@ function layout() {
   }
   if (mmSlider) mmSlider.hidden = !scrollable;
   for (const c of doc.claims) {
-    if (!c.mark || !c.unit) continue;
+    if (!c.mark || !c.unit || state.mode === "edit") continue;
     const rect = c.unit.el.getBoundingClientRect();
     const paneRect = pane.getBoundingClientRect();
     const y = ((rect.top - paneRect.top + pane.scrollTop) / sh) * h + (c.offset || 0);
@@ -724,6 +850,7 @@ function layout() {
   top.hidden = !scrollable;
   top.classList.toggle("low", pane.scrollTop < ch * 0.5);
   paintPager();
+  positionInlineFill();
 }
 
 function renderRuler() {
@@ -732,6 +859,7 @@ function renderRuler() {
   for (const c of doc.claims) c.mark = null;
   ovr.hidden = !state.report;
   if (!state.report) return;
+  if (state.mode === "edit") return;
   for (const c of [...doc.claims].filter((x) => x.unit).sort(byUnit)) {
     const mark = el("button", `ovr-mark m-${c.kind}`);
     mark.type = "button";
@@ -751,6 +879,10 @@ function renderRuler() {
 function selectClaim(no, scroll) {
   const claim = doc.byNo.get(Number(no));
   if (!claim) return;
+  // Results can survive a switch to Edit (for example, a saved example opened
+  // in the last-used mode). Selecting a claim still needs the rendered page,
+  // so bring Preview back without touching the checked source.
+  if (scroll && claim.unit && $("paper").hidden && state.mode === "edit" && !setMode("preview")) return;
   state.selected = claim.no;
   for (const node of document.querySelectorAll(".paper .is-sel, .card.is-sel, .mrow.is-sel")) {
     node.classList.remove("is-sel");
@@ -1625,6 +1757,10 @@ function setBusy(busy) {
     const node = $(id);
     if (node) node.disabled = busy;
   }
+  for (const node of document.querySelectorAll("#mode-switch button, #modemenu button, #modebtn, #md-tools button")) {
+    node.disabled = busy;
+  }
+  syncToolState();
 }
 
 function resetRunView() {
@@ -1880,6 +2016,10 @@ function waitWhileBusy(message, since) {
 
 async function runAudit() {
   if (state.running) return;
+  if (state.mode === "edit" && !commitSource()) return;
+  // A check is read against the rendered page; do not leave the reader in a
+  // raw source view where the claim marks and cards cannot point anywhere.
+  if (state.mode === "edit" && !setMode("preview")) return;
   const report = state.report;
   if (!report.trim()) { showFront(); frontError("Paste a report first."); return; }
   if (report.length > MAX_CHARS) {
@@ -2162,6 +2302,8 @@ function loadReport(text, name) {
   document.title = `${state.name} · Touchstone`;
 
   $("report").value = clean;
+  $("source").value = clean;
+  sourceDirty = false;
   updateCount();
   frontError("");
 
@@ -2175,6 +2317,7 @@ function loadReport(text, name) {
 
   $("front").hidden = true;
   article.hidden = false;
+  $("docbar").hidden = false;
   $("docname").textContent = state.name;
   $("docname").title = state.name;
   $("docname").hidden = false;
@@ -2183,7 +2326,7 @@ function loadReport(text, name) {
   $("docwrap").classList.add("has-doc");
   $("docpane").scrollTop = 0;
 
-  renderRuler();
+  applyModeUI();
   stoneReady();
   setProvenance("Zero tokens until you run.");
   placeStone();
@@ -2196,17 +2339,12 @@ function loadReport(text, name) {
 
 /* ---------------- in-place block editor ----------------
    One surface, no edit button. A click turns the block under the pointer into
-   its own Markdown source at the same position and typography; Esc or clicking
-   away renders it back. This is the block-level cousin of Obsidian's Live
+   its own Markdown source in place; Esc or clicking away renders it back. This
+   is the block-level cousin of Obsidian's Live
    Preview: syntax is visible only while the block is active, and the rest of
    the document stays rendered. */
 
 let inline = null;
-
-function inlineStyleNode(blk) {
-  if (blk.tagName === "UL" || blk.tagName === "OL") return blk.querySelector("li") || blk;
-  return blk;
-}
 
 // Strip inline Markdown while remembering where each visible character came
 // from, so a click in the rendered block can land on the matching source.
@@ -2225,6 +2363,8 @@ function inlinePlain(src) {
     else if ((m = /^\*([^*\n]+?)\*/.exec(rest))) { push(m[1], i + 1); i += m[0].length; }
     else if ((m = /^_([^_\n]+?)_/.exec(rest))) { push(m[1], i + 1); i += m[0].length; }
     else if ((m = /^`([^`]+?)`/.exec(rest))) { push(m[1], i + 1); i += m[0].length; }
+    else if ((m = /^\$\$([\s\S]+?)\$\$/.exec(rest))) { push(m[1], i + 2); i += m[0].length; }
+    else if ((m = /^\$([^$\n]+?)\$/.exec(rest))) { push(m[1], i + 1); i += m[0].length; }
     else if ((m = /^!\[([^\]]*)\]\([^)]*\)/.exec(rest))) { push(m[1], i + 2); i += m[0].length; }
     else if ((m = /^\[([^\]]*)\]\([^)]*\)/.exec(rest))) { push(m[1], i + 1); i += m[0].length; }
     else { text += rest[0]; map.push(i); i += 1; }
@@ -2260,6 +2400,28 @@ function caretFromPoint(blk, x, y, src) {
 function growInline(ta) {
   ta.style.height = "auto";
   ta.style.height = `${Math.max(ta.scrollHeight, 24)}px`;
+  if (inline && inline.ta === ta) positionInlineFill();
+}
+
+// The highlight is its own layer, so it can extend past the text box without
+// moving the text or the caret. It reaches into the paper's left gutter and
+// keeps a deliberate 6px of air above and below the source line.
+function positionInlineFill() {
+  if (!inline || !inline.fill) return;
+  const { ta, fill } = inline;
+  const paper = $("paper");
+  if (!ta || !paper || !ta.isConnected) return;
+  const cs = getComputedStyle(ta);
+  const padL = parseFloat(cs.paddingLeft) || 0;
+  const padR = parseFloat(cs.paddingRight) || 0;
+  const textLeft = ta.offsetLeft + padL;
+  const textRight = ta.offsetLeft + ta.offsetWidth - padR;
+  const left = Math.max(0, textLeft - 12);
+  const right = Math.min(paper.clientWidth - 2, textRight + 12);
+  fill.style.left = `${left}px`;
+  fill.style.width = `${Math.max(0, right - left)}px`;
+  fill.style.top = `${Math.max(0, ta.offsetTop - 6)}px`;
+  fill.style.height = `${ta.offsetHeight + 12}px`;
 }
 
 function adjacentBlock(blk, dir) {
@@ -2293,23 +2455,13 @@ function moveInline(dir) {
   return true;
 }
 
-function wrapInline(before, after) {
-  if (!inline) return;
-  const ta = inline.ta;
-  const s = ta.selectionStart;
-  const e = ta.selectionEnd;
-  const label = ta.value.slice(s, e) || "text";
-  ta.setRangeText(before + label + after, s, e, "end");
-  ta.setSelectionRange(s + before.length, s + before.length + label.length);
-  growInline(ta);
-  ta.focus();
-}
-
 function applyEditedReport(next) {
   const pane = $("docpane");
   const y = pane.scrollTop;
   state.report = next;
+  sourceDirty = false;
   $("report").value = next;
+  if ($("source")) $("source").value = next;
   updateCount();
   resetRunView();
   const article = $("paper");
@@ -2322,56 +2474,345 @@ function applyEditedReport(next) {
   stoneReady();
   setProvenance("Edited · previous check cleared.");
   renderRuler();
+  growSource();
   layout();
   pane.scrollTop = y;
   requestAnimationFrame(() => { pane.scrollTop = y; layout(); });
   announce("Report edited. Previous check cleared.");
 }
 
+/* ---------------- view modes and the Markdown bar ---------------- */
+
+function growSource() {
+  const ta = $("source");
+  if (!ta || state.mode !== "edit" || $("sourceview").hidden) return;
+  ta.style.height = "auto";
+  ta.style.height = `${Math.max(ta.scrollHeight, 320)}px`;
+}
+
+function syncModeControls() {
+  for (const btn of document.querySelectorAll("#mode-switch button[data-mode], #modemenu button[data-mode]")) {
+    const active = btn.dataset.mode === state.mode;
+    if (btn.getAttribute("role") === "menuitemradio") btn.setAttribute("aria-checked", String(active));
+    else btn.setAttribute("aria-pressed", String(active));
+  }
+  const label = $("modebtn-label");
+  if (label) label.textContent = MODE_WORDS[state.mode] || "Inline";
+}
+
+function closeHeadingMenu() {
+  const menu = $("headingmenu");
+  const btn = $("headingbtn");
+  if (menu) menu.hidden = true;
+  if (btn) btn.setAttribute("aria-expanded", "false");
+}
+
+function closeModeMenu() {
+  const menu = $("modemenu");
+  const btn = $("modebtn");
+  if (menu) menu.hidden = true;
+  if (btn) btn.setAttribute("aria-expanded", "false");
+}
+
+function syncToolState() {
+  const editing = !!state.report && (state.mode === "edit" || (state.mode === "inline" && !!inline));
+  const tools = $("md-tools");
+  const hint = $("toolhint");
+  if (tools) tools.hidden = !editing;
+  if (hint) hint.hidden = !(!!state.report && state.mode === "inline" && !inline);
+  const bar = $("docbar");
+  if (bar) bar.classList.toggle("has-tools", editing);
+  if (!editing) closeHeadingMenu();
+  for (const btn of document.querySelectorAll("#md-tools button")) {
+    btn.disabled = state.running;
+  }
+  const modebtn = $("modebtn");
+  if (modebtn) modebtn.disabled = state.running;
+  for (const btn of document.querySelectorAll("#mode-switch button, #modemenu button")) {
+    btn.disabled = state.running;
+  }
+}
+
+function applyModeUI() {
+  const has = !!state.report;
+  const edit = has && state.mode === "edit";
+  document.body.dataset.mode = state.mode;
+  $("docbar").hidden = !has;
+  $("paper").hidden = !has || edit;
+  $("sourceview").hidden = !edit;
+  if (edit) {
+    if (!sourceDirty) $("source").value = state.report;
+    growSource();
+  }
+  syncModeControls();
+  syncToolState();
+  mmKey = "";
+  if (has) {
+    renderRuler();
+    layout();
+  }
+}
+
+function commitSource() {
+  if (!sourceDirty) return true;
+  const next = $("source").value.replace(/\s+$/, "");
+  if (!next.trim()) {
+    setProvenance("Edit ignored: the report cannot be empty.");
+    $("source").focus();
+    return false;
+  }
+  if (next.length > MAX_CHARS) {
+    setProvenance(`Edit ignored: reports are limited to ${MAX_CHARS.toLocaleString()} characters.`);
+    $("source").focus();
+    return false;
+  }
+  if (next !== state.report) applyEditedReport(next);
+  sourceDirty = false;
+  return true;
+}
+
+function setMode(next) {
+  if (!MODES.has(next) || state.running || !state.report) return false;
+  closeModeMenu();
+  closeHeadingMenu();
+  if (next === state.mode) {
+    applyModeUI();
+    return true;
+  }
+  if (inline) {
+    closeInline();
+    if (inline) return false;
+  }
+  if (state.mode === "edit" && next !== "edit" && !commitSource()) return false;
+  if (next === "edit") {
+    $("source").value = state.report;
+    sourceDirty = false;
+  }
+  state.mode = next;
+  try { localStorage.setItem(MODE_KEY, next); } catch { /* private mode */ }
+  applyModeUI();
+  placeStone();
+  requestAnimationFrame(() => {
+    layout();
+    if (next === "edit") $("source").focus({ preventScroll: true });
+  });
+  announce(`${MODE_WORDS[next]} view.`);
+  return true;
+}
+
+function onSourceInput() {
+  const ta = $("source");
+  if (!ta) return;
+  const first = !sourceDirty;
+  sourceDirty = true;
+  $("report").value = ta.value;
+  updateCount();
+  if (first) {
+    resetRunView();
+    stoneReady();
+    setProvenance("Edited: previous check cleared.");
+    renderRuler();
+  }
+  growSource();
+  layout();
+}
+
+function editorTarget() {
+  if (state.mode === "edit") return $("source");
+  if (state.mode === "inline" && inline) return inline.ta;
+  return null;
+}
+
+function afterTool(ta) {
+  if (inline && inline.ta === ta) {
+    growInline(ta);
+    positionInlineFill();
+  }
+  if (ta === $("source")) {
+    onSourceInput();
+  } else {
+    layout();
+  }
+  ta.focus();
+}
+
+function toggleWrap(ta, open, close, placeholder) {
+  const s = ta.selectionStart;
+  const e = ta.selectionEnd;
+  const raw = ta.value.slice(s, e);
+  const wrapped = raw.length >= open.length + close.length &&
+    raw.startsWith(open) && raw.endsWith(close);
+  if (wrapped) {
+    const inner = raw.slice(open.length, raw.length - close.length);
+    ta.setRangeText(inner, s, e, "end");
+    ta.setSelectionRange(s, s + inner.length);
+  } else {
+    // A selection or caret inside **…** (or the other marker pairs) toggles
+    // the existing span off instead of stacking a second pair of markers.
+    const outerStart = s - open.length;
+    const outerEnd = e + close.length;
+    const around = outerStart >= 0 &&
+      ta.value.slice(outerStart, s) === open &&
+      ta.value.slice(e, outerEnd) === close;
+    if (around) {
+      const startOffset = s - outerStart - open.length;
+      const endOffset = e - outerStart - open.length;
+      ta.setRangeText("", e, outerEnd, "end");
+      ta.setRangeText("", outerStart, s, "end");
+      ta.setSelectionRange(outerStart + startOffset, outerStart + endOffset);
+    } else {
+      const label = raw || placeholder;
+      ta.setRangeText(`${open}${label}${close}`, s, e, "end");
+      ta.setSelectionRange(s + open.length, s + open.length + label.length);
+    }
+  }
+  afterTool(ta);
+}
+
+function selectedLines(ta) {
+  const s = ta.selectionStart;
+  const e = ta.selectionEnd;
+  const start = ta.value.lastIndexOf("\n", Math.max(0, s - 1)) + 1;
+  let end = ta.value.indexOf("\n", e);
+  if (end < 0) end = ta.value.length;
+  return { start, end, text: ta.value.slice(start, end) };
+}
+
+function linePrefix(ta, prefix) {
+  const range = selectedLines(ta);
+  const pattern = prefix === "- " ? /^[-*+]\s+/
+    : prefix === "1. " ? /^\d+[.)]\s+/
+    : /^>\s?/;
+  const lines = range.text.split("\n");
+  const all = lines.every((line) => pattern.test(line.replace(/^\s*/, "")));
+  const next = lines.map((line) => {
+    const indent = /^\s*/.exec(line)[0];
+    const rest = line.slice(indent.length);
+    return all ? indent + rest.replace(pattern, "") : indent + prefix + rest;
+  }).join("\n");
+  ta.setRangeText(next, range.start, range.end, "end");
+  afterTool(ta);
+}
+
+function applyHeading(level, ta) {
+  const range = selectedLines(ta);
+  const lines = range.text.split("\n");
+  const marker = "#".repeat(level);
+  const same = new RegExp(`^${marker}\\s+`);
+  const any = /^#{1,6}\s+/;
+  const all = lines.every((line) => same.test(line.replace(/^\s*/, "")));
+  const next = lines.map((line) => {
+    const indent = /^\s*/.exec(line)[0];
+    const rest = line.slice(indent.length);
+    if (all) return indent + rest.replace(any, "");
+    return `${indent}${marker} ${rest.replace(any, "")}`;
+  }).join("\n");
+  ta.setRangeText(next, range.start, range.end, "end");
+  afterTool(ta);
+}
+
+function applyLink(ta) {
+  const s = ta.selectionStart;
+  const e = ta.selectionEnd;
+  const label = ta.value.slice(s, e) || "link text";
+  ta.setRangeText(`[${label}](https://)`, s, e, "end");
+  const at = s + label.length + 3;
+  ta.setSelectionRange(at, at + 8);
+  afterTool(ta);
+}
+
+function insertBlock(ta, open, close, body) {
+  const s = ta.selectionStart;
+  const e = ta.selectionEnd;
+  const before = ta.value.slice(0, s);
+  const after = ta.value.slice(e);
+  const lead = before && !before.endsWith("\n") ? "\n" : "";
+  const trail = after && !after.startsWith("\n") ? "\n" : "";
+  const text = `${lead}${open}\n${body}\n${close}${trail}`;
+  const at = s + lead.length;
+  ta.setRangeText(text, s, e, "end");
+  ta.setSelectionRange(at + open.length + 1, at + open.length + 1 + body.length);
+  afterTool(ta);
+}
+
+function applyCodeBlock(ta) {
+  const body = ta.value.slice(ta.selectionStart, ta.selectionEnd);
+  insertBlock(ta, "```", "```", body);
+}
+
+function applyMathBlock(ta) {
+  const body = ta.value.slice(ta.selectionStart, ta.selectionEnd);
+  insertBlock(ta, "$$", "$$", body);
+}
+
+function applyCommand(cmd) {
+  const ta = editorTarget();
+  if (!ta || state.running) return;
+  if (cmd === "bold") toggleWrap(ta, "**", "**", "bold text");
+  else if (cmd === "italic") toggleWrap(ta, "*", "*", "italic text");
+  else if (cmd === "strike") toggleWrap(ta, "~~", "~~", "struck text");
+  else if (cmd === "code") toggleWrap(ta, "`", "`", "code");
+  else if (cmd === "link") applyLink(ta);
+  else if (cmd === "math") toggleWrap(ta, "$", "$", "x");
+  else if (cmd === "mathblock") applyMathBlock(ta);
+  else if (cmd === "codeblock") applyCodeBlock(ta);
+  else if (cmd === "ul") linePrefix(ta, "- ");
+  else if (cmd === "ol") linePrefix(ta, "1. ");
+  else if (cmd === "quote") linePrefix(ta, "> ");
+  else if (cmd === "h1") applyHeading(1, ta);
+  else if (cmd === "h2") applyHeading(2, ta);
+  else if (cmd === "h3") applyHeading(3, ta);
+}
+
 function closeInline() {
   if (!inline) return false;
-  const { ta, blk } = inline;
+  const { ta, blk, fill } = inline;
   inline = null;
   document.body.classList.remove("is-editing");
   const src = ta.value.replace(/\s+$/, "");
   const changed = src !== blk.__src;
   if (!changed) {
     ta.remove();
+    if (fill) fill.remove();
     blk.hidden = false;
+    syncToolState();
     layout();
     return false;
   }
   const lines = state.report.split("\n");
   const next = lines.slice(0, blk.__from).concat(src.split("\n"), lines.slice(blk.__to)).join("\n");
   if (!next.trim()) {
-    setProvenance("Edit ignored — the report cannot be empty.");
-    inline = { ta, blk };
+    setProvenance("Edit ignored: the report cannot be empty.");
+    inline = { ta, blk, fill };
     document.body.classList.add("is-editing");
     layout();
     ta.focus();
     return false;
   }
   if (next.length > MAX_CHARS) {
-    setProvenance(`Edit ignored — reports are limited to ${MAX_CHARS.toLocaleString()} characters.`);
-    inline = { ta, blk };
+    setProvenance(`Edit ignored: reports are limited to ${MAX_CHARS.toLocaleString()} characters.`);
+    inline = { ta, blk, fill };
     document.body.classList.add("is-editing");
     layout();
     ta.focus();
     return false;
   }
   ta.remove();
+  if (fill) fill.remove();
   blk.hidden = false;
   applyEditedReport(next);
+  syncToolState();
   return true;
 }
 
 function openBlockEditor(blk, x, y, caretAt) {
-  if (state.running || !blk || !blk.__src || !blk.isConnected) return;
+  if (state.mode !== "inline" || state.running || !blk || !blk.__src || !blk.isConnected) return;
   if (inline) {
     const committed = closeInline();
-    // A committed edit re-renders the article, so the block this click landed
-    // on is gone. The next click opens a block; an unchanged edit continues.
-    if (committed || !blk.isConnected) return;
+    // A rejected edit stays open and must keep its focus. A committed edit
+    // re-renders the article, so the block this click landed on is gone; the
+    // next click opens a block, while an unchanged edit continues.
+    if (inline || committed || !blk.isConnected) return;
   }
 
   const ta = el("textarea", "inline-edit");
@@ -2379,42 +2820,48 @@ function openBlockEditor(blk, x, y, caretAt) {
   ta.spellcheck = false;
   ta.setAttribute("aria-label", "Edit this block's Markdown source");
 
-  const styleNode = inlineStyleNode(blk);
-  const cs = getComputedStyle(styleNode);
+  // Every block edits as the same plain source text. A heading, list item or
+  // table stops carrying its rendered type size while the source is open; the
+  // block's outside spacing is kept so the page does not jump.
   const bcs = getComputedStyle(blk);
-  ta.style.fontFamily = cs.fontFamily;
-  ta.style.fontSize = cs.fontSize;
-  ta.style.fontWeight = cs.fontWeight;
-  ta.style.lineHeight = cs.lineHeight;
-  ta.style.letterSpacing = cs.letterSpacing;
-  ta.style.textAlign = cs.textAlign;
+  ta.style.fontFamily = "var(--mono)";
+  ta.style.fontSize = "15px";
+  ta.style.fontWeight = "400";
+  ta.style.lineHeight = "1.6";
+  ta.style.letterSpacing = "0";
+  ta.style.textAlign = "left";
   ta.style.margin = bcs.margin;
-  ta.style.padding = "0";
-  ta.style.borderTop = cs.borderTop;
-  if (blk.tagName === "BLOCKQUOTE") ta.style.paddingLeft = bcs.paddingLeft;
-  if (blk.tagName === "UL" || blk.tagName === "OL") ta.style.paddingLeft = bcs.paddingLeft;
-  if (blk.tagName === "PRE") ta.style.padding = bcs.padding;
-  if (/^H[1-6]$/.test(blk.tagName)) ta.style.paddingTop = cs.paddingTop;
-  if (blk.tagName === "TABLE") {
-    ta.style.fontFamily = "var(--mono)";
-    ta.style.fontSize = "13.5px";
-    ta.style.lineHeight = "1.6";
+  ta.style.padding = "0 12px 0 0";
+  if (blk.tagName === "BLOCKQUOTE" || blk.tagName === "UL" || blk.tagName === "OL") {
+    ta.style.paddingLeft = bcs.paddingLeft;
   }
+  if (blk.tagName === "PRE") ta.style.padding = bcs.padding;
+  ta.style.borderTop = "0";
+  ta.style.color = "var(--ink)";
+  ta.style.background = "transparent";
 
   const at = caretAt === "start" ? 0
     : caretAt === "end" ? ta.value.length
     : caretFromPoint(blk, x, y, ta.value);
+  const fill = el("div", "inline-fill");
+  fill.setAttribute("aria-hidden", "true");
   blk.hidden = true;
+  blk.parentNode.insertBefore(fill, blk);
   blk.parentNode.insertBefore(ta, blk);
-  inline = { ta, blk };
+  inline = { ta, blk, fill };
   document.body.classList.add("is-editing");
   growInline(ta);
+  positionInlineFill();
+  syncToolState();
   ta.focus();
   const pos = Math.max(0, Math.min(ta.value.length, at));
   ta.setSelectionRange(pos, pos);
   layout();
 
-  ta.addEventListener("input", () => growInline(ta));
+  ta.addEventListener("input", () => {
+    growInline(ta);
+    layout();
+  });
   ta.addEventListener("blur", () => { if (inline && inline.ta === ta) closeInline(); });
   ta.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
@@ -2435,6 +2882,7 @@ function openBlockEditor(blk, x, y, caretAt) {
       const t = ta.selectionEnd;
       ta.setRangeText("  ", s, t, "end");
       growInline(ta);
+      layout();
       return;
     }
     if (!e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey &&
@@ -2450,14 +2898,15 @@ function openBlockEditor(blk, x, y, caretAt) {
     }
     if ((e.ctrlKey || e.metaKey) && !e.altKey) {
       const k = e.key.toLowerCase();
-      if (k === "b") { e.preventDefault(); wrapInline("**", "**"); }
-      else if (k === "i") { e.preventDefault(); wrapInline("*", "*"); }
-      else if (k === "k") { e.preventDefault(); wrapInline("[", "](https://)"); }
+      if (k === "b") { e.preventDefault(); applyCommand("bold"); }
+      else if (k === "i") { e.preventDefault(); applyCommand("italic"); }
+      else if (k === "k") { e.preventDefault(); applyCommand("link"); }
     }
   });
 }
 
 function editVisibleBlock() {
+  if (state.mode !== "inline" || state.running || !state.report) return;
   const pane = $("docpane");
   const prect = pane.getBoundingClientRect();
   const block = [...$("paper").querySelectorAll(".blk")].find((b) => {
@@ -2478,7 +2927,7 @@ function bindInlineEditor() {
     down = { x: e.clientX, y: e.clientY };
   });
   paper.addEventListener("click", (e) => {
-    if (state.running) return;
+    if (state.mode !== "inline" || state.running) return;
     if (e.target.closest("a, button, .inline-edit, .gmarks")) return;
     if (down) {
       const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
@@ -2494,6 +2943,12 @@ function bindInlineEditor() {
 }
 
 function showFront(focus) {
+  if (inline) {
+    inline.ta.remove();
+    if (inline.fill) inline.fill.remove();
+    inline = null;
+    document.body.classList.remove("is-editing");
+  }
   state.report = "";
   state.name = "";
   state.running = false;
@@ -2512,6 +2967,10 @@ function showFront(focus) {
   $("paper").replaceChildren();
   $("paper").hidden = true;
   $("front").hidden = false;
+  $("docbar").hidden = true;
+  $("sourceview").hidden = true;
+  $("source").value = "";
+  sourceDirty = false;
   $("docwrap").classList.remove("has-doc");
   $("docname").hidden = true;
   $("new").hidden = true;
@@ -2523,6 +2982,7 @@ function showFront(focus) {
   updateCount();
   frontError("");
   stoneEmpty();
+  syncToolState();
   setProvenance("Zero tokens until you run.");
   $("docpane").scrollTop = 0;
   placeStone();
@@ -2594,6 +3054,74 @@ function stepCard(dir) {
 
 function bindEvents() {
   bindInlineEditor();
+  const docbar = $("docbar");
+  docbar.addEventListener("pointerdown", (e) => {
+    if (e.target.closest("#md-tools button")) e.preventDefault();
+  });
+  docbar.addEventListener("click", (e) => {
+    const mode = e.target.closest("button[data-mode]");
+    if (mode) {
+      e.preventDefault();
+      setMode(mode.dataset.mode);
+      return;
+    }
+    if (e.target.closest("#modebtn")) {
+      const menu = $("modemenu");
+      const open = menu.hidden;
+      closeHeadingMenu();
+      menu.hidden = !open;
+      $("modebtn").setAttribute("aria-expanded", String(open));
+      return;
+    }
+    if (e.target.closest("#headingbtn")) {
+      const menu = $("headingmenu");
+      const open = menu.hidden;
+      closeModeMenu();
+      menu.hidden = !open;
+      $("headingbtn").setAttribute("aria-expanded", String(open));
+      return;
+    }
+    const tool = e.target.closest("#md-tools button[data-cmd]");
+    if (tool) {
+      e.preventDefault();
+      closeHeadingMenu();
+      applyCommand(tool.dataset.cmd);
+    }
+  });
+  $("source").addEventListener("input", onSourceInput);
+  $("source").addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeModeMenu();
+      closeHeadingMenu();
+    }
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && !e.altKey) {
+      const key = e.key.toLowerCase();
+      if (key === "b" || key === "i" || key === "k") {
+        e.preventDefault();
+        e.stopPropagation();
+        applyCommand(key === "b" ? "bold" : key === "i" ? "italic" : "link");
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+        if (commitSource()) runAudit();
+        return;
+      }
+    }
+    if (e.key === "Tab") {
+      e.preventDefault();
+      const s = e.target.selectionStart;
+      const t = e.target.selectionEnd;
+      e.target.setRangeText("  ", s, t, "end");
+      onSourceInput();
+    }
+  });
+  document.addEventListener("pointerdown", (e) => {
+    if (!e.target.closest("#modebtn, #modemenu")) closeModeMenu();
+    if (!e.target.closest("#headingbtn, #headingmenu")) closeHeadingMenu();
+  });
   $("theme").addEventListener("click", toggleTheme);
   $("textsize").addEventListener("click", (e) => { e.stopPropagation(); toggleTextMenu(); });
   $("textmenu").addEventListener("click", (e) => {
@@ -2737,7 +3265,11 @@ function bindEvents() {
     pending = true;
     requestAnimationFrame(() => { pending = false; layout(); });
   });
-  window.addEventListener("resize", () => { placeStone(); layout(); });
+  window.addEventListener("resize", () => {
+    placeStone();
+    if (state.mode === "edit") growSource();
+    layout();
+  });
   if (narrow.addEventListener) narrow.addEventListener("change", placeStone);
 
   document.addEventListener("keydown", (e) => {
@@ -2769,6 +3301,11 @@ function bindEvents() {
     if (!mod && !e.altKey && e.key.toLowerCase() === "e" && state.report && !state.running) {
       e.preventDefault();
       editVisibleBlock();
+      return;
+    }
+    if (e.key === "Escape") {
+      closeModeMenu();
+      closeHeadingMenu();
       return;
     }
     if (e.key === "?") { e.preventDefault(); $("shortcuts").showModal(); return; }
@@ -2813,6 +3350,7 @@ function init() {
   updateCount();
   setMatchedVisible(!state.hideOk);
   showFront(false);
+  applyModeUI();
   placeStone();
   layout();
 }
