@@ -848,7 +848,6 @@ function layout() {
     c.mark.style.top = `${Math.max(0, Math.min(h - 8, Math.round(y)))}px`;
   }
   top.hidden = !scrollable;
-  top.classList.toggle("low", pane.scrollTop < ch * 0.5);
   paintPager();
   positionInlineFill();
 }
