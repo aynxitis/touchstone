@@ -3,11 +3,14 @@
 "use strict";
 
 const MAX_CHARS = 20000;
+// One tone per label. The signal triple stays green / amber / red; the states
+// that are not a verdict on the claim each keep a hue of their own. Keep this
+// in step with the "Other outcomes" key in index.html.
 const TONES = {
   "SOURCED": "green", "PARTIAL": "yellow", "COULDN'T CONFIRM": "yellow",
   "UNSUPPORTED": "yellow", "CONTRADICTED": "red",
-  "UNVERIFIED": "blue", "OPINION": "blue", "SOURCE UNREACHABLE": "grey",
-  "NO SOURCE GIVEN": "grey", "NOT CHECKED": "grey", "ERROR": "grey",
+  "UNVERIFIED": "blue", "OPINION": "violet", "SOURCE UNREACHABLE": "teal",
+  "NO SOURCE GIVEN": "brown", "NOT CHECKED": "grey", "ERROR": "error",
 };
 // Summary order and wording: "9 sourced, 3 partial, 1 contradicted, 2 unreachable"
 const SUMMARY = [
