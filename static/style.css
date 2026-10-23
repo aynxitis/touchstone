@@ -294,6 +294,8 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,236,234,.1
 .dot-green{background:var(--ok)}
 .dot-yellow{background:var(--warn)}
 .dot-red{background:var(--fail)}
+.dot-half{background:linear-gradient(90deg,var(--warn) 50%,transparent 50%);
+  box-shadow:inset 0 0 0 1px var(--warn)}
 .dot-blue{background:var(--info)}
 .dot-grey{background:var(--grey)}
 .cnt .dot-green{background:var(--ok-on)}
@@ -301,6 +303,8 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,236,234,.1
 .cnt .dot-red{background:var(--fail-on)}
 .cnt .dot-blue{background:var(--info-on)}
 .cnt .dot-grey{background:var(--on-stone-muted)}
+.cnt .dot-half{background:linear-gradient(90deg,var(--warn-on) 50%,transparent 50%);
+  box-shadow:inset 0 0 0 1px var(--warn-on)}
 .runrow{display:flex;align-items:center;gap:10px;margin-top:13px;flex-wrap:wrap}
 .runbtn{background:var(--gold);color:var(--gold-ink);border:1px solid var(--gold);
   padding:7px 15px;font:500 14px var(--sans)}
@@ -338,6 +342,18 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,236,234,.1
 .legend div{display:flex;gap:10px;align-items:baseline}
 .legend dt{display:flex;align-items:center;gap:7px;width:108px;flex:none;color:var(--ink);font-size:13.5px}
 .legend dd{margin:0;color:var(--muted);font-size:13px}
+.legend-more{margin-top:14px}
+.legend-more summary{display:flex;align-items:center;min-height:26px;cursor:pointer;
+  font:12px var(--mono);letter-spacing:.02em;color:var(--muted)}
+.legend-more summary:hover{color:var(--ink)}
+.legend-more summary::after{content:"";width:5px;height:5px;margin-left:7px;
+  border-right:1px solid currentColor;border-bottom:1px solid currentColor;
+  transform:rotate(45deg);transition:transform .15s}
+.legend-more[open] summary::after{transform:rotate(-135deg)}
+.legend-more[open] summary{margin-bottom:9px;color:var(--ink)}
+.legend-edge{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.legend-edge li{display:flex;align-items:baseline;gap:7px;font-size:12.5px;line-height:1.45;color:var(--muted)}
+.legend-edge b{font-weight:500;color:var(--ink)}
 
 /* recent assays */
 .recent{margin-top:22px;border-top:1px solid var(--rule);padding-top:13px}
@@ -465,12 +481,16 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,236,234,.1
 .more li b{color:var(--ink);font-weight:600}
 
 /* replay + no-links */
-.replay{flex:none;margin:12px 12px 0;padding:9px 11px;border-left:2px solid var(--brass);
-  background:var(--paper);font:12.5px/1.5 var(--sans);color:var(--muted)}
+.replay{margin:12px 12px 0;padding:12px 13px 13px;border:1px solid var(--rule-strong);
+  border-radius:6px;background:var(--soft);font:12.5px/1.5 var(--sans);color:var(--muted)}
 .replay[hidden]{display:none}
-.replay p{margin:0 0 3px}
-.replay-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:3px}
-.replay .linkish{margin-top:0}
+.replay-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:5px}
+.replay-title{margin:0;font:600 11.5px var(--mono);letter-spacing:.06em;
+  text-transform:uppercase;color:var(--ink)}
+.replay-date{font:11px var(--mono);color:var(--faint);white-space:nowrap}
+.replay-copy{margin:0;max-width:62ch}
+.replay-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:11px}
+.replay-btn{min-height:32px;padding:7px 11px;font-size:11.5px}
 .nolinks{margin:12px 12px 0;padding:12px 14px;border:1px solid var(--warn);
   background:var(--warn-bg);color:var(--ink);font-size:13.5px}
 .nolinks[hidden]{display:none}
@@ -615,6 +635,8 @@ html[data-theme="dark"] .drop{background:rgba(17,18,20,.92)}
   .stone.in-doc .cnt .dot-red{background:var(--fail)}
   .stone.in-doc .cnt .dot-blue{background:var(--info)}
   .stone.in-doc .cnt .dot-grey{background:var(--grey)}
+  .stone.in-doc .cnt .dot-half{background:linear-gradient(90deg,var(--warn) 50%,transparent 50%);
+    box-shadow:inset 0 0 0 1px var(--warn)}
   .stone.in-doc .runbtn{background:var(--gold);color:var(--gold-ink);border-color:var(--gold)}
   .stone.in-doc .scope{color:var(--muted)}
   .stone.in-doc .progress{background:var(--rule)}
@@ -752,7 +774,7 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
 .trow .twhy{font-size:12px}
 .more summary{font-size:12px}
 .more li{font-size:13.5px}
-.replay{font-size:13px;padding:11px 13px}
+.replay{font-size:13px;padding:12px 13px 13px}
 .nolinks{font-size:14px}
 .prompt-text{font-size:12.5px}
 .prompt-box .secondary{font-size:12px}

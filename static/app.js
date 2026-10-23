@@ -796,10 +796,9 @@ function layout() {
   const bar = $("docbar");
   const barH = bar && !bar.hidden ? bar.offsetHeight : 0;
   if (bar) bar.style.top = strip ? `${strip}px` : "";
-  const barTop = bar && !bar.hidden
-    ? Math.max(0, bar.getBoundingClientRect().top - pane.getBoundingClientRect().top)
-    : 0;
-  const topOffset = barTop + barH;
+  // Anchor the rail to the sticky bar's resting edge, not its live position.
+  // Measuring the bar as it sticks made the whole rail jump on the first scroll.
+  const topOffset = strip + barH;
   ovr.style.top = topOffset ? `${topOffset}px` : "";
   if (mm) mm.style.top = topOffset ? `${topOffset}px` : "";
   const sh = pane.scrollHeight;
@@ -1409,7 +1408,9 @@ function renderCounts(counts) {
     btn.setAttribute("aria-pressed", "false");
     btn.setAttribute("aria-label", labelText(k, counts));
     btn.title = labelText(k, counts);
-    btn.append(el("span", `dot dot-${TONES[k] || "grey"}`));
+    // Partial is a half-filled dot in the key, so its count uses the same mark.
+    const tone = k === "PARTIAL" ? "half" : (TONES[k] || "grey");
+    btn.append(el("span", `dot dot-${tone}`));
     btn.append(el("span", "", SUMMARY_WORDS.get(k) || k.toLowerCase()));
     btn.append(el("b", "", String(counts[k])));
     btn.addEventListener("click", () => applyFilter(state.filter === k ? null : k));
@@ -2174,11 +2175,14 @@ async function replay(run, opts = {}) {
   const view = resultsView(run.report);
   const events = runEvents(run);
   const date = new Date(run.created).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  $("replay-title").textContent = opts.example ? "Saved example" : "Saved run";
+  $("replay-date").textContent = date;
   $("replay-msg").textContent = opts.example
     ? `Saved example from ${date}. A real Perplexity answer, extended with more from the same sources; `
       + "one figure (Samsung 18% → 19%) is changed to show a catch."
     : `Saved run from ${date}. Replayed from this browser; no tokens spent.`;
   $("replay").hidden = false;
+  $("railbody").scrollTop = 0;
   setProvenance("replaying · 0 tokens");
   $("docpane").scrollTop = 0;
 
@@ -3037,7 +3041,7 @@ function setMatchedVisible(on) {
   $("docwrap").classList.toggle("hide-ok", !on);
   const btn = $("showmatched");
   btn.setAttribute("aria-pressed", String(on));
-  btn.textContent = on ? "Hide matched" : "Show matched";
+  btn.textContent = on ? "Hide sourced" : "Show sourced";
 }
 
 function stepCard(dir) {

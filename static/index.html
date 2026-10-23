@@ -156,15 +156,19 @@
         <div class="progress" id="progress" hidden><span id="bar"></span></div>
       </div>
 
-      <div id="replay" class="replay" hidden>
-        <p id="replay-msg"></p>
-        <div class="replay-actions">
-          <button id="run-live" class="linkish" type="button">Run it live</button>
-          <button id="playback" class="linkish" type="button">Play it back</button>
-        </div>
-      </div>
-
       <div class="railbody" id="railbody">
+        <div id="replay" class="replay" hidden aria-labelledby="replay-title">
+          <div class="replay-head">
+            <h2 class="replay-title" id="replay-title">Saved example</h2>
+            <span class="replay-date" id="replay-date"></span>
+          </div>
+          <p id="replay-msg" class="replay-copy"></p>
+          <div class="replay-actions">
+            <button id="playback" class="primary replay-btn" type="button">Play it back</button>
+            <button id="run-live" class="secondary replay-btn" type="button" title="Runs a live check and uses API tokens">Run it live</button>
+          </div>
+        </div>
+
         <div id="nolinks" class="nolinks" hidden>
           <p id="nolinks-msg" class="nolinks-msg"></p>
           <p>Use your AI tool's copy button, not download (downloads often drop the links).</p>
@@ -179,10 +183,23 @@
           <p class="empty-k">How it works</p>
           <p>Each claim lands here with the line the source actually wrote.</p>
           <dl class="legend">
-            <div><dt><span class="dot dot-green"></span>Matched</dt><dd>the source says it</dd></div>
+            <div><dt><span class="dot dot-green"></span>Sourced</dt><dd>every fact is on the page</dd></div>
+            <div><dt><span class="dot dot-half"></span>Partial</dt><dd>some facts are on the page</dd></div>
             <div><dt><span class="dot dot-yellow"></span>Unsupported</dt><dd>no line backs it</dd></div>
             <div><dt><span class="dot dot-red"></span>Contradicted</dt><dd>the source says otherwise</dd></div>
           </dl>
+          <details class="legend-more">
+            <summary>Other outcomes</summary>
+            <ul class="legend-edge">
+              <li><span class="dot dot-yellow"></span><b>Couldn't confirm</b> a code check doubts the support</li>
+              <li><span class="dot dot-grey"></span><b>No source given</b> the text cites nothing</li>
+              <li><span class="dot dot-blue"></span><b>Unverified</b> no checkable passage on the page</li>
+              <li><span class="dot dot-blue"></span><b>Opinion</b> advice, not a fact</li>
+              <li><span class="dot dot-grey"></span><b>Source unreachable</b> the page couldn't be read</li>
+              <li><span class="dot dot-grey"></span><b>Not checked</b> over the limits or out of time</li>
+              <li><span class="dot dot-grey"></span><b>Error</b> the check failed</li>
+            </ul>
+          </details>
           <div id="recent" class="recent" hidden>
             <p class="empty-k">Recent checks</p>
             <ul id="recentlist" class="recentlist"></ul>
@@ -206,7 +223,7 @@
 
       <div class="railfoot" id="railfoot">
         <span id="provenance">Zero tokens until you run.</span>
-        <button id="showmatched" class="linkish" type="button" aria-pressed="false" hidden>Show matched</button>
+        <button id="showmatched" class="linkish" type="button" aria-pressed="false" hidden>Show sourced</button>
       </div>
     </aside>
   </div>
