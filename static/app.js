@@ -2181,8 +2181,8 @@ async function replay(run, opts = {}) {
   $("replay-title").textContent = opts.example ? "Saved example" : "Saved run";
   $("replay-date").textContent = date;
   $("replay-msg").textContent = opts.example
-    ? `Saved example from ${date}. A real Perplexity answer, extended with more from the same sources; `
-      + "one figure (Samsung 18% → 19%) is changed to show a catch."
+    ? `Saved example from ${date}. This is a real Perplexity answer; we changed `
+      + "one figure (Samsung 18% → 19%) to show a catch."
     : `Saved run from ${date}. Replayed from this browser; no tokens spent.`;
   $("replay").hidden = false;
   $("railbody").scrollTop = 0;
