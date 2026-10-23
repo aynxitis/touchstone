@@ -325,6 +325,31 @@ program). Real users by Oct 15, 2026; final deadline late Oct 2026.
    Ooredoo reaches Railway only intermittently). The railway.app URL is never shared.
    Strips client copies of the two X-Touchstone headers, sets them from CF-Connecting-IP and env.PROXY_SECRET; 500 "misconfigured" without ORIGIN_HOST/PROXY_SECRET.
    The Railway hostname is never in the repo: only in the Worker's ORIGIN_HOST variable.
+   MCP_OFF=1 (optional Worker variable): 404 on /mcp at the edge (the decoded path, so "/%6dcp"
+   too; an undecodable path gets the 404 too), no Railway restart, so in-memory counters survive.
+7. mcp_server.py (2026-10-20): remote MCP server, one tool check_claims at POST /mcp inside
+   app.py's FastAPI app (Streamable HTTP, stateless, SSE). app.py imports it only with
+   MCP_ENABLED=1 and passes Shared(busy, pacer, client, provider, counting); it never imports
+   app; a failed import or build only logs "MCP disabled: <type>". Gemini only (Groq: every
+   claim NOT CHECKED OFF_STOP). Per call: 5 claims, 1-3 URLs each, 5 distinct URLs, claim <=
+   1,000 chars, body <= 64 KB, MCP_SECONDS (90, clamped 30-90) hard wall clock; checkable() drops
+   non-claims up front. Global, separate from the website's: MCP_AUDITS_PER_DAY (15, counted at
+   an audit's first model call), MCP_CALLS_PER_HOUR (12, calls that start an audit), SharePacer
+   (at most 5 x the daily cap of the shared pacer's requests, so the website keeps the rest).
+   Takes the website's busy lock (polled 3 s, never queued; its worker thread owns and releases
+   it); a cancelled call stops new fetches/model calls. Output: `reason` is always a code
+   template; page and model text only in untrusted_detail / untrusted_page_quote, sanitized
+   (clean(): control, bidi, zero-width, tag characters removed), capped at 300 chars, response
+   <= 16,000 chars, env secrets scrubbed. shape() drops the names-guard note ("Not checked: X.",
+   the event's caps entries starting with NAMES_CAP) from CONTRADICTED/UNSUPPORTED details: the
+   guard reads stated quotes only, so on red claims it listed the contradicting quote's names (a
+   fix in unchecked_names() was rejected: merge() would let a contradicting source mark a name
+   checked, a false SOURCED). Building that test exposed the merge() false-green path (fixed
+   2026-10-20: a source's verified contradicted fact that same_fact() matched to no base fact
+   now turns a merged SOURCED into COULDN'T CONFIRM "Sources disagree on ..."). /mcp/ -> 404,
+   GET -> 405 (no redirects: Location would name the origin). Tests: test_mcp.py (offline,
+   TestClient). Rollback: Worker MCP_OFF=1 first, then Railway MCP_ENABLED=0 (DEPLOY.md).
+   Public docs: README "Use it from an AI agent".
 Parsing regexes must stay linear: every repeated group starts with a literal, whitespace
 runs are capped (a nested \s* marker regex once hung the server on 20,000 spaces). Never
 put a required suffix after a repeated group in one regex run over page text: units.py's

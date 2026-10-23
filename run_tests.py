@@ -1,4 +1,4 @@
-"""Runs the five token-free test files; exits non-zero if any fails.
+"""Runs the token-free test files; exits non-zero if any fails.
 
 Run: .venv/bin/python run_tests.py
 TOUCHSTONE_OFFLINE=1 skips the parts that need the internet (CI sets it): test_security.py's
@@ -10,7 +10,8 @@ import subprocess
 import sys
 import time
 
-TESTS = ["test_parsing.py", "test_pdf.py", "test_sources.py", "test_checks.py", "test_security.py"]
+TESTS = ["test_parsing.py", "test_pdf.py", "test_sources.py", "test_checks.py", "test_security.py",
+         "test_engine_golden.py", "test_mcp.py"]
 
 here = os.path.dirname(os.path.abspath(__file__))
 failed = []

@@ -73,6 +73,7 @@ works: check the page through the Worker after any change to these variables.
 |---|---|---|
 | `ORIGIN_HOST` | Text | the service's Railway domain, `<service>.up.railway.app` (only here, never in the repo) |
 | `PROXY_SECRET` | Secret (encrypted) | the generated value |
+| `MCP_OFF` | Text (optional) | `1` = the MCP kill switch, see "MCP server" below |
 
 The Worker allows GET, HEAD and POST only, forwards with `redirect: "manual"`, and returns
 Railway's response unbuffered so the NDJSON audit stream flows line by line. During an audit
@@ -233,6 +234,37 @@ are excluded. Check the current terms for your project's region before using it 
 users, and don't switch the public site to Gemini without telling users (the on-page line
 does that). Groq's free tier has its own data terms; neither is suitable for confidential
 reports.
+
+## MCP server (optional)
+`mcp_server.py` serves one tool, `check_claims`, at `POST https://touchstone.aynx.dev/mcp` (through
+the Worker, like the website). It is off unless Railway has `MCP_ENABLED=1`, and it works only with
+`PROVIDER=gemini` (with Groq every call answers NOT CHECKED "Touchstone is not checking claims right
+now."). It shares the website's process: the busy lock (one audit at a time, MCP waits 3 s at most,
+never queues), the pacer and the Gemini key.
+
+Railway variables (all optional except the first):
+- `MCP_ENABLED`: `1` adds the route. Unset or anything else: no `/mcp` route, and the `mcp` package
+  is never imported. A failed import only logs "MCP disabled: ..."; the website starts either way.
+- `MCP_AUDITS_PER_DAY` (default `15`): MCP audits per UTC day for everyone together, counted at an
+  audit's first model call, separate from `GEMINI_AUDITS_PER_DAY`. MCP may also send at most 5 x
+  this many Gemini requests a day (75 of the pacer's 450), so the website always keeps the rest.
+- `MCP_CALLS_PER_HOUR` (default `12`): calls that start an audit, per rolling hour, everyone together.
+- `MCP_SECONDS` (default `90`, clamped to 30-90): hard wall clock per call (claude.ai allows 240 s
+  per tool call).
+
+Worker variable: `MCP_OFF` = `1` answers 404 to `/mcp` at the edge (the decoded path, so `/%6dcp`
+too) without touching Railway.
+
+All counters are in memory: a redeploy or restart resets them, like the website's.
+
+**Rollback, in this order:**
+1. Worker: set `MCP_OFF=1` (Settings -> Variables and Secrets) and deploy. It takes effect at once,
+   with no Railway restart, so the in-memory daily counters survive. Check that
+   `https://touchstone.aynx.dev/mcp` answers 404 and that the website still loads.
+2. Railway: set `MCP_ENABLED=0` (or remove it) and redeploy, so the origin has no `/mcp` route either.
+   This restarts the app and resets every in-memory counter, which is why the Worker goes first.
+
+To turn it back on, do the reverse: Railway `MCP_ENABLED=1` first, then remove `MCP_OFF` from the Worker.
 
 ## If abuse happens
 Someone with several IPs can use up the 7 daily audits on purpose; IP-based limits can't stop

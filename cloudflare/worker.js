@@ -16,6 +16,8 @@
 //                 the real value lives only in this variable, never in the repo)
 //   PROXY_SECRET  encrypted secret, the same value as Railway's PROXY_SECRET variable
 //                 (generate with: openssl rand -hex 32; never commit it or paste it anywhere)
+//   MCP_OFF       optional plain-text variable: "1" answers 404 to /mcp here (the MCP kill
+//                 switch: no Railway restart, so the in-memory daily counters survive)
 // Check https://touchstone.aynx.dev/healthz/proxy shows {"via_worker":true} before turning on
 // REQUIRE_PROXY_SECRET.
 
@@ -31,6 +33,14 @@ export default {
     }
 
     const incoming = new URL(request.url);
+    if (env.MCP_OFF === "1") {      // MCP off without touching Railway
+      // Compare the decoded path: the origin routes on it, so "/%6dcp" is /mcp there.
+      let path = null;
+      try { path = decodeURIComponent(incoming.pathname); } catch {}
+      if (path === null || path.startsWith("/mcp")) {
+        return new Response("Not found", { status: 404 });
+      }
+    }
     // Pin the host and set path/query separately: resolving the path as a relative URL would
     // turn "//evil.example/x" into https://evil.example/x and send it the secret.
     const target = new URL(`https://${env.ORIGIN_HOST}`);

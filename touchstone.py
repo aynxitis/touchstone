@@ -366,10 +366,17 @@ def audit(report, client, pages=None, max_claims=None, only=None, deadline=None,
     providers.Gemini (one call per cited page with its chosen claims, at most
     claims_per_call per call; a claim citing several pages joins each page's call). Results
     are yielded one claim at a time, in report order, each merged over its sources (combine())."""
+    yield from audit_segments(blocks_meta(report), client, pages, max_claims, only, deadline,
+                              pacer, clock, sleep, provider, max_urls)
+
+
+def audit_segments(segs, client, pages=None, max_claims=None, only=None, deadline=None,
+                   pacer=None, clock=time.monotonic, sleep=time.sleep, provider=None, max_urls=None):
+    """audit() on segments already parsed: blocks_meta()'s (text, urls, context, meta) tuples
+    (mcp_server.py builds them from its items). Same events."""
     from providers import Groq
     provider = provider or Groq(client)
     pacer = pacer or TokenPacer.for_provider(provider.name, clock=clock)
-    segs = blocks_meta(report)
     cited = [(t, us) for t, us, _, _ in segs if us]
     contexts = [c for _, us, c, _ in segs if us]
     sentences = [m.get("sentence", "") for _, us, _, m in segs if us]   # fragments: the whole sentence

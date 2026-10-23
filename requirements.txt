@@ -9,3 +9,17 @@ RapidFuzz==3.14.6
 starlette==1.7.0
 trafilatura==2.3.0
 uvicorn==0.54.0
+# MCP server (/mcp, mcp_server.py) and the packages it adds, pinned exactly
+mcp==2.3.0
+mcp-types==2.3.0
+attrs==26.1.0
+httpcore2==2.14.0
+httpx2==2.14.0
+jsonschema==4.26.0
+jsonschema-specifications==2025.9.1
+PyJWT==2.15.1
+python-multipart==0.0.32
+referencing==0.37.0
+rpds-py==2026.9.1
+sse-starlette==3.5.0
+truststore==0.10.5
