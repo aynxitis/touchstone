@@ -1167,3 +1167,94 @@ html[data-ui] .toolhint{font-size:calc(11.5px * var(--ui))}
 @media (max-width:1099px){.docpane{--doc-top:38px}}
 @media (max-width:899px){.docpane{--doc-top:32px}}
 @media (max-width:699px){.docpane{--doc-top:0px}}
+
+/* ========================================================================
+   Phones and small tablets (900px and below): one calm column, one page
+   scroll. No inner scroll areas, no bottom sheet, no fixed footer. After a
+   check the results come first and the report waits behind "Show report".
+   Above 900px nothing here applies.
+   ======================================================================== */
+.reporttoggle{display:none}
+@media (max-width:900px){
+  html,body{height:auto}
+  body{overflow:visible;overflow-x:hidden}
+  .app{height:auto;display:block}
+
+  .topbar{position:static;min-height:56px;padding:6px 16px;gap:4px;flex-wrap:wrap}
+  .wordmark{font-size:18px;min-height:44px}
+  .top-actions{gap:2px;flex-wrap:wrap;justify-content:flex-end}
+  .tbtn{min-height:44px;min-width:44px;padding:0 5px;font-size:12.5px;letter-spacing:.02em}
+  .icon{width:44px;height:44px}
+  .topbar #import,.topbar #export{display:inline-flex;align-items:center}
+  #textsize,#textmenu,#help{display:none !important}
+
+  .body{display:flex;flex-direction:column;min-height:0}
+  body.has-report .rail{order:-1}
+  .docwrap,.docwrap.has-doc{display:block;border:0;position:static}
+  .docpane{overflow:visible;padding:0 16px 32px;--doc-top:0px}
+  .rail{position:static;display:block;border:0;background:var(--page-2)}
+  .grip,.docbar,.pagerbar,.totop,.minimap,.ovr,.gmarks,#import2,#showmatched{display:none !important}
+  .railbody{overflow:visible}
+  .railfoot{height:auto;min-height:0;padding:8px 16px 16px;flex-wrap:wrap}
+  .railfoot #provenance{white-space:normal;overflow:visible}
+
+  /* The report, collapsed until asked for. */
+  body.has-report .reporttoggle{display:flex;align-items:center;justify-content:center;
+    width:calc(100% - 32px);min-height:44px;margin:8px 16px 16px}
+  body.has-report:not(.report-open) .docpane{display:none}
+  .paper{padding-left:0;padding-top:8px;max-width:none;overflow-wrap:anywhere}
+  .paper pre,.paper .math-block{max-width:100%;overflow-x:auto}
+
+  /* Home: the form, then the limits and notice, then the key as a section. */
+  .front{min-height:0;margin-top:0;padding:24px 0 8px}
+  .front h1{font-size:34px;margin-bottom:10px}
+  .lede{font-size:16px;margin-bottom:16px}
+  .example-row{margin:0 0 14px;gap:4px 12px}
+  .example-note{font-size:12px}
+  .sheet textarea,textarea{min-height:160px;font-size:15px}
+  .front-row{gap:8px}
+  .primary,.secondary,.runbtn{min-height:44px}
+  body:not(.has-report) .rail .stone.is-empty{display:none}
+  body:not(.has-report) .legend dd{display:block}
+  .emptystate{padding:20px 16px 8px;border-top:1px solid var(--rule)}
+  .emptystate p{max-width:none}
+  .legend dt{width:112px}
+  .legend-more summary{min-height:44px}
+
+  /* Summary and results. */
+  .stone{padding:16px}
+  .verdict{font-size:19px;line-height:1.3}
+  .counts{flex-wrap:wrap;overflow:visible;gap:6px}
+  .cnt{min-height:44px;padding:0 12px}
+  .stonelink{min-height:44px;display:inline-flex;align-items:center}
+  .cards{padding:12px 16px;gap:10px}
+  .card{max-width:100%;overflow-wrap:anywhere}
+  .card-head{flex-wrap:wrap;row-gap:0}
+  .cardlink{min-height:44px;display:inline-flex;align-items:center}
+  .card .source{display:flex;align-items:center;min-height:44px;margin-top:4px}
+  .card[data-label="CONTRADICTED"],.card[data-label="UNSUPPORTED"]{order:-2}
+  .card[data-label="PARTIAL"],.card[data-label="COULDN'T CONFIRM"]{order:-1}
+  .matched,.tray{padding:0 16px 12px}
+  .mhead,.mrow{min-height:44px}
+  .more{margin:0 16px 12px}
+  .more summary{min-height:44px;display:flex;align-items:center}
+  .replay{margin:12px 16px 0;padding:12px}
+  .replay-actions{gap:8px}
+  .replay-btn{min-height:44px;flex:1 1 140px}
+  .nolinks{margin:12px 16px 0}
+  .prompt-box .secondary{min-height:44px}
+  .dlgx{width:44px;height:44px;display:grid;place-items:center;top:0;right:0}
+
+  /* Tables stack, as they already did under 700px. */
+  .paper table,.paper tbody{display:block}
+  .paper thead{display:none}
+  .paper tr{display:block;padding:10px 0 8px;border-bottom:1px solid var(--rule)}
+  .paper td{display:grid;grid-template-columns:86px minmax(0,1fr);gap:8px;
+    padding:2px 0;border:0;position:static}
+  .paper td::before{content:attr(data-l);font:10.5px/1.5 var(--mono);letter-spacing:.03em;
+    text-transform:uppercase;color:var(--muted)}
+  .paper td:first-child{grid-column:1/-1;font-weight:600;border-bottom:1px solid var(--rule);
+    padding:0 0 5px;margin-bottom:4px;position:relative}
+  .paper td:first-child::before{display:none}
+  .paper td{text-align:left}
+}

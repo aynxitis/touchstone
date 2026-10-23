@@ -884,6 +884,7 @@ function selectClaim(no, scroll) {
   // in the last-used mode). Selecting a claim still needs the rendered page,
   // so bring Preview back without touching the checked source.
   if (scroll && claim.unit && $("paper").hidden && state.mode === "edit" && !setMode("preview")) return;
+  if (scroll && claim.unit && phone.matches) setReportOpen(true);
   state.selected = claim.no;
   for (const node of document.querySelectorAll(".paper .is-sel, .card.is-sel, .mrow.is-sel")) {
     node.classList.remove("is-sel");
@@ -893,7 +894,9 @@ function selectClaim(no, scroll) {
   if (claim.row) claim.row.classList.add("is-sel");
   if (scroll && claim.unit) {
     claim.unit.el.scrollIntoView({ block: "center", behavior: motion() });
-    if (claim.card) claim.card.scrollIntoView({ block: "nearest", behavior: motion() });
+    // On phones the card sits above the report in the same page scroll, so
+    // scrolling it into view would cancel the scroll to the claim.
+    if (claim.card && !phone.matches) claim.card.scrollIntoView({ block: "nearest", behavior: motion() });
     if (claim.row && !$("matched").hidden) {
       setMatchedOpen(true);
       claim.row.scrollIntoView({ block: "nearest", behavior: motion() });
@@ -1768,6 +1771,7 @@ function setBusy(busy) {
 
 function resetRunView() {
   stopWaiting();
+  setReportOpen(false);
   state.lastRun = null;
   state.lastRunExample = false;
   state.retryPlayback = false;
@@ -2019,10 +2023,10 @@ function waitWhileBusy(message, since) {
 
 async function runAudit() {
   if (state.running) return;
-  if (state.mode === "edit" && !commitSource()) return;
+  if (viewMode() === "edit" && !commitSource()) return;
   // A check is read against the rendered page; do not leave the reader in a
   // raw source view where the claim marks and cards cannot point anywhere.
-  if (state.mode === "edit" && !setMode("preview")) return;
+  if (viewMode() === "edit" && !setMode("preview")) return;
   const report = state.report;
   if (!report.trim()) { showFront(); frontError("Paste a report first."); return; }
   if (report.length > MAX_CHARS) {
@@ -2538,10 +2542,16 @@ function syncToolState() {
   }
 }
 
+// The mode the page shows. Phones hide the mode switch and always read the
+// rendered report; the saved mode is left alone for wider screens.
+function viewMode() {
+  return phone.matches ? "preview" : state.mode;
+}
+
 function applyModeUI() {
   const has = !!state.report;
-  const edit = has && state.mode === "edit";
-  document.body.dataset.mode = state.mode;
+  const edit = has && viewMode() === "edit";
+  document.body.dataset.mode = viewMode();
   $("docbar").hidden = !has;
   $("paper").hidden = !has || edit;
   $("sourceview").hidden = !edit;
@@ -2811,7 +2821,7 @@ function closeInline() {
 }
 
 function openBlockEditor(blk, x, y, caretAt) {
-  if (state.mode !== "inline" || state.running || !blk || !blk.__src || !blk.isConnected) return;
+  if (viewMode() !== "inline" || state.running || !blk || !blk.__src || !blk.isConnected) return;
   if (inline) {
     const committed = closeInline();
     // A rejected edit stays open and must keep its focus. A committed edit
@@ -2911,7 +2921,7 @@ function openBlockEditor(blk, x, y, caretAt) {
 }
 
 function editVisibleBlock() {
-  if (state.mode !== "inline" || state.running || !state.report) return;
+  if (viewMode() !== "inline" || state.running || !state.report) return;
   const pane = $("docpane");
   const prect = pane.getBoundingClientRect();
   const block = [...$("paper").querySelectorAll(".blk")].find((b) => {
@@ -2932,7 +2942,7 @@ function bindInlineEditor() {
     down = { x: e.clientX, y: e.clientY };
   });
   paper.addEventListener("click", (e) => {
-    if (state.mode !== "inline" || state.running) return;
+    if (viewMode() !== "inline" || state.running) return;
     if (e.target.closest("a, button, .inline-edit, .gmarks")) return;
     if (down) {
       const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
@@ -3002,7 +3012,9 @@ function openFromFront() {
     $("report").focus();
     return;
   }
-  loadReport(text, reportName(text));
+  // Phones have no edit step between opening and checking: run straight away,
+  // through the same path as the Run check button.
+  if (loadReport(text, reportName(text)) && phone.matches) $("run").click();
 }
 
 async function importFile(file) {
@@ -3022,6 +3034,8 @@ async function importFile(file) {
 }
 
 const narrow = window.matchMedia("(max-width: 699px)");
+// Phones get one read-only column: no edit modes, no sheet, results first.
+const phone = window.matchMedia("(max-width: 900px)");
 const sheetMQ = window.matchMedia("(max-width: 1099px)");
 let sheetDrag = null;
 let sheetRestore = null;
@@ -3057,7 +3071,7 @@ function setGripValue(height) {
 function applySheetHeight(height, { snap = false } = {}) {
   const body = bench();
   const rail = $("rail");
-  if (!body || !rail || !sheetMQ.matches) return;
+  if (!body || !rail || !sheetMQ.matches || phone.matches) return;
   const min = sheetMin();
   const max = Math.max(min, sheetMax());
   let h = Math.round(Math.max(min, Math.min(max, height)));
@@ -3096,7 +3110,7 @@ function syncSheet() {
   const body = bench();
   const rail = $("rail");
   if (!body || !rail) return;
-  if (!sheetMQ.matches) {
+  if (!sheetMQ.matches || phone.matches) {
     body.style.removeProperty("--sheet-h");
     rail.classList.remove("is-collapsed", "is-dragging");
     sheetDrag = null;
@@ -3196,7 +3210,7 @@ function placeStone() {
   const rail = $("rail");
   const docpane = $("docpane");
   const grip = $("grip");
-  if (narrow.matches) {
+  if (narrow.matches && !phone.matches) {
     if (stone.parentElement !== docpane) docpane.insertBefore(stone, docpane.firstChild);
     stone.classList.add("in-doc");
   } else if (stone.parentElement !== rail) {
@@ -3204,6 +3218,21 @@ function placeStone() {
     stone.classList.remove("in-doc");
   }
   layout();
+}
+
+function setReportOpen(open) {
+  const btn = $("showreport");
+  document.body.classList.toggle("report-open", open);
+  btn.setAttribute("aria-expanded", String(open));
+  btn.textContent = open ? "Hide report" : "Show report";
+  if (open) requestAnimationFrame(layout);
+}
+
+function onPhoneChange() {
+  if (phone.matches && inline) closeInline();
+  applyModeUI();
+  placeStone();
+  syncSheet();
 }
 
 function setMatchedVisible(on) {
@@ -3320,6 +3349,8 @@ function bindEvents() {
   $("export").addEventListener("click", downloadRun);
   $("help").addEventListener("click", () => $("shortcuts").showModal());
   $("check").addEventListener("click", openFromFront);
+  $("showreport").addEventListener("click", () =>
+    setReportOpen(!document.body.classList.contains("report-open")));
   $("example").addEventListener("click", loadExample);
   $("run").addEventListener("click", () => {
     if (state.retryPlayback && state.lastRun) {
@@ -3446,6 +3477,7 @@ function bindEvents() {
     layout();
   });
   if (narrow.addEventListener) narrow.addEventListener("change", placeStone);
+  if (phone.addEventListener) phone.addEventListener("change", onPhoneChange);
   if (sheetMQ.addEventListener) sheetMQ.addEventListener("change", syncSheet);
 
   document.addEventListener("keydown", (e) => {
