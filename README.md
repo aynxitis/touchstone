@@ -6,7 +6,7 @@ Live: https://touchstone.aynx.dev. "Try an example" replays a saved run instantl
 
 ## The problem
 
-We built this after hitting the problem ourselves. While doing market research for a project this week, I asked ChatGPT for gaps in a market; it answered confidently, with sources that were years out of date or didn't say what it claimed. Checking each link by hand is exactly the work Touchstone does for you.
+We built this after hitting the problem ourselves. While doing market research for a project in October 2026, I asked ChatGPT for gaps in a market; it answered confidently, with sources that were years out of date or didn't say what it claimed. Checking each link by hand is exactly the work Touchstone does for you.
 
 Students use ChatGPT, Perplexity and Gemini for research. The citations in those reports often don't support the claim they sit next to, and checking every link by hand is slow, so most people don't.
 
@@ -26,7 +26,7 @@ The model reports, the code decides.
 4. Code verifies that each quote exists verbatim on the page (or as a near-exact match with identical numbers), then checks numbers (rounding, units, locale formats, qualifiers like "over" or "nearly"), table columns, periods (Q2, H1), years and names.
 5. Code assigns the label.
 
-Code alone never accuses: a red label needs the model's judgement plus a conflicting value verified on the page. When only a code check doubts a fact, the result is amber (COULDN'T CONFIRM), not red.
+Red always rests on a conflicting value found on the page: either the model's quote, confirmed word for word, gives a different figure or date, or the claim's own row and period column in a table on the page gives a different figure. When the model finds a fact stated and only a code check doubts it, the result is amber (COULDN'T CONFIRM), never red.
 
 ## Labels
 
@@ -144,6 +144,7 @@ Deployment: the app runs on Railway (EU region) behind a Cloudflare Worker. The 
 - MCP: a quote-supplied mode, where the agent sends the quote it relies on with each claim and Touchstone verifies it on the page with code checks only, at no model cost.
 - Bring your own Gemini key on the website, kept in the browser for one session and never stored.
 - Arabic support.
+- A larger held-out test: fresh reports, labels written before running, so the accuracy figure rests on more than 11 claims.
 
 ## AI use
 
@@ -154,8 +155,8 @@ Deployment: the app runs on Railway (EU region) behind a Cloudflare Worker. The 
 
 ## Team
 
-- Mohamed Anis Belamri (aynxitis): checking engine, evaluation, deployment and the current interface.
-- TechyTails (VCoder18) is building the redesigned interface and saved-audit history; this section will credit that work once it is merged.
+- Mohamed Anis Belamri (aynxitis): checking engine, evaluation, deployment (Railway, Cloudflare Worker), MCP server, the first interface and the phone layout.
+- TechyTails (VCoder18): the redesigned interface (two-pane review workspace, document modes and Markdown tools, outcome key) and the demo video.
 
 ## License
 
