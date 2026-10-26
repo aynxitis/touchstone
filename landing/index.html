@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Touchstone — Does the source say it?</title>
+<meta name="description" content="Paste an AI research report with its links. Touchstone opens every page it cites and checks each claim against the line the source actually wrote.">
+<meta name="color-scheme" content="light">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/newsreader-latin-2.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/archivo-latin-1.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="landing.css">
+<script src="landing.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the content</a>
+<div class="progress" aria-hidden="true"><span></span></div>
+
+<header class="bar">
+  <div class="wrap bar-in">
+    <a class="brand" href="#top">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="brand-name">Touchstone</span>
+      <span class="proto">Prototype</span>
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#check">The check</a>
+      <a href="#key">Verdicts</a>
+      <a href="#limits">Limits</a>
+    </nav>
+    <a class="btn btn-sm" href="https://touchstone.aynx.dev/">Open the app</a>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ── hero ─────────────────────────────────────────────────────────── -->
+  <section class="hero" id="top">
+    <div class="wrap">
+      <h1 class="display">Does the source say&nbsp;it?</h1>
+      <p class="lead">Paste an AI research report with its links. Touchstone opens every page it
+        cites and checks each claim against the line the source actually wrote — not against
+        whether the claim sounds right.</p>
+      <div class="actions">
+        <a class="btn" href="https://touchstone.aynx.dev/">Open the app</a>
+        <a class="link" href="#check">See a real check</a>
+      </div>
+      <p class="fine">No sign-in. Up to 25 claims and 8 sources per check, 5 checks an hour.
+        The example below is a saved run: zero tokens.</p>
+
+      <figure class="sheet hero-shot">
+        <picture>
+          <source media="(max-width:700px)" srcset="shots/app-phone.webp" type="image/webp">
+          <source media="(max-width:700px)" srcset="shots/app-phone.png" type="image/png">
+          <source srcset="shots/app-results.webp" type="image/webp">
+          <img src="shots/app-results.png" width="1440" height="900" fetchpriority="high"
+               alt="The Touchstone app checking the saved example. The verdict panel reads “7 claims checked: 5 sourced, 1 unsupported, 1 contradicted”, beside a contradicted claim card that shows the quoted row from the cited page and the reason for the verdict.">
+        </picture>
+        <figcaption>The saved example, replayed in the app: seven claims — five sourced,
+          one unsupported, one contradicted.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ── the problem ──────────────────────────────────────────────────── -->
+  <section class="band" id="problem">
+    <div class="wrap band-in">
+      <h2 class="h2">A citation is a promise.<br>We checked three assistants’.</h2>
+      <div class="band-body">
+        <p class="band-lead">On 14 October 2026 we put the same question — internet access and the
+          digital economy in Algeria — to Gemini, Perplexity and ChatGPT, then opened the pages
+          they cited.</p>
+        <dl class="findings">
+          <div>
+            <dt>Gemini</dt>
+            <dd><span class="num">18</span> citations. Of the <span class="num">13</span> we could
+              check, at most <span class="num">2</span> were backed by the cited page: a 2024 edition
+              cited for 2026 figures, UNCTAD figures credited to the World Bank, bare homepages.</dd>
+          </div>
+          <div>
+            <dt>Perplexity</dt>
+            <dd>Cited a page for figures that page doesn’t contain.</dd>
+          </div>
+          <div>
+            <dt>ChatGPT</dt>
+            <dd>Mostly accurate — but the text you copy out has site icons where its inline links
+              were, so the sources have to be put back before anything can be checked.</dd>
+          </div>
+        </dl>
+        <p class="fine">Our own small test, not a study: one question, one day.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── the check ────────────────────────────────────────────────────── -->
+  <section class="check" id="check">
+    <div class="wrap">
+      <div class="check-head">
+        <h2 class="h2">Claim in, evidence out.</h2>
+        <p class="lead-sm">Every claim is checked on its own, against the page it cites.</p>
+      </div>
+
+      <div class="check-grid">
+        <figure class="sheet check-figure">
+          <picture>
+            <source media="(max-width:700px)" srcset="shots/app-card-phone.webp" type="image/webp">
+            <source media="(max-width:700px)" srcset="shots/app-card-phone.png" type="image/png">
+            <source srcset="shots/app-card.webp" type="image/webp">
+            <img src="shots/app-card.png" width="824" height="700" loading="lazy"
+                 alt="A claim card from the app. The claim is “Brand / group: Samsung; Q2 2025 shipment share: 19%; Annual trend: +3% year over year”. Under it, the contradicted fact shows the page’s own row — “| Samsung | 3.4 | 18% | 3.3 | 19% | +3% |” — with 18% picked out, and the reason: “The page gives 18% for Q2 2025; 19% is its Q2 2024 figure.”">
+          </picture>
+          <figcaption>Claim 3 in the app: the claim, the quoted row from the cited page, and the
+            reason for the verdict.</figcaption>
+        </figure>
+
+        <div class="beats">
+          <span class="hairline" aria-hidden="true"></span>
+          <div class="beat reveal">
+            <h3>The page is opened</h3>
+            <p>Each link the claim cites is fetched — HTML or PDF, public addresses only. A page
+              that blocks the checker is reported as unreachable, never judged.</p>
+          </div>
+          <div class="beat reveal">
+            <h3>The quote is verified</h3>
+            <p>The model proposes the line that backs the claim; code then proves it. The quote
+              must exist on the page exactly, or near-exactly with identical numbers. Numbers,
+              units, currencies, periods, years and names are checked against that same line.</p>
+          </div>
+          <div class="beat reveal">
+            <h3>The label follows</h3>
+            <p>Code assigns the verdict. Red needs the model’s judgement <em>and</em> a conflicting
+              figure verified on the page; when only a code check doubts a fact, the result is
+              amber, never red.</p>
+          </div>
+        </div>
+      </div>
+
+      <figure class="strip reveal">
+        <picture>
+          <source srcset="shots/app-table.webp" type="image/webp">
+          <img src="shots/app-table.png" width="1488" height="338" loading="lazy"
+               alt="A table from the report as the app shows it, with a red mark in the left margin against the Samsung row at 19%.">
+        </picture>
+        <figcaption>The row the claim came from stays beside it, marked in the report’s margin.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ── the key ──────────────────────────────────────────────────────── -->
+  <section class="key" id="key">
+    <div class="wrap">
+      <div class="key-in">
+      <h2 class="h2">Four verdicts, said plainly.</h2>
+      <dl class="key-list">
+        <div class="key-row">
+          <dt><span class="dot dot-ok" aria-hidden="true"></span>Sourced</dt>
+          <dd>Every fact in the claim is on the page.</dd>
+        </div>
+        <div class="key-row">
+          <dt><span class="dot dot-half" aria-hidden="true"></span>Partial</dt>
+          <dd>Some facts are on the page; others aren’t found.</dd>
+        </div>
+        <div class="key-row">
+          <dt><span class="dot dot-warn" aria-hidden="true"></span>Unsupported</dt>
+          <dd>No line on the page backs it.</dd>
+        </div>
+        <div class="key-row">
+          <dt><span class="dot dot-fail" aria-hidden="true"></span>Contradicted</dt>
+          <dd>The source says otherwise.</dd>
+        </div>
+      </dl>
+
+      <h3 class="h3">Other outcomes</h3>
+      <p class="key-note">Not every check ends in a verdict. These say why one couldn’t be given.</p>
+      <ul class="edge">
+        <li><span class="dot dot-warn" aria-hidden="true"></span><b>Couldn’t confirm</b> a code check doubts the support</li>
+        <li><span class="dot dot-brown" aria-hidden="true"></span><b>No source given</b> the text cites nothing</li>
+        <li><span class="dot dot-blue" aria-hidden="true"></span><b>Unverified</b> no checkable passage on the page</li>
+        <li><span class="dot dot-violet" aria-hidden="true"></span><b>Opinion</b> advice, not a fact</li>
+        <li><span class="dot dot-grey" aria-hidden="true"></span><b>Source unreachable</b> the page couldn’t be read</li>
+        <li><span class="dot dot-grey" aria-hidden="true"></span><b>Not checked</b> over the limits, or out of time</li>
+        <li><span class="dot dot-error" aria-hidden="true"></span><b>Error</b> the check itself failed</li>
+      </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── the limits ───────────────────────────────────────────────────── -->
+  <section class="band limits" id="limits">
+    <div class="wrap band-in">
+      <h2 class="h2">An early prototype, honestly.</h2>
+      <div class="limits-grid">
+        <dl class="spec">
+          <div><dt>Cited claims per check</dt><dd><span class="num">25</span></dd></div>
+          <div><dt>Distinct source links</dt><dd><span class="num">8</span></dd></div>
+          <div><dt>Checks per hour</dt><dd><span class="num">5</span></dd></div>
+          <div><dt>Report length</dt><dd><span class="num">20,000</span> characters</dd></div>
+        </dl>
+        <div class="honest">
+          <p><b>Don’t paste anything private.</b> Reports are processed by Google Gemini’s free
+            tier, which may use inputs to improve Google’s products.</p>
+          <p><b>It checks the page, not the truth.</b> Whether the source is right is still your
+            call.</p>
+          <p><b>Not public, not commercial.</b> Expect rough edges; your edits save on your device.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── close ────────────────────────────────────────────────────────── -->
+  <section class="close" id="close">
+    <div class="wrap close-in">
+      <div>
+        <h2 class="display-2">Bring a report.</h2>
+        <div class="actions">
+          <a class="btn" href="https://touchstone.aynx.dev/">Open Touchstone</a>
+          <a class="link" href="#top">Back to the top</a>
+        </div>
+        <p class="fine">The example is already loaded: play it back without spending a token.
+          Agents can call the same checker at <span class="mono-inline">touchstone.aynx.dev/mcp</span>.</p>
+      </div>
+      <figure class="sheet phone">
+        <picture>
+          <source srcset="shots/app-phone.webp" type="image/webp">
+          <img src="shots/app-phone.png" width="780" height="1688" loading="lazy"
+               alt="The same check on a phone: the verdict panel on top, then the saved-example notice and the contradicted claim card.">
+        </picture>
+        <figcaption>The same check on a phone.</figcaption>
+      </figure>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <span>Touchstone — prototype</span>
+    <a href="https://touchstone.aynx.dev/">touchstone.aynx.dev</a>
+  </div>
+</footer>
+</body>
+</html>
+
