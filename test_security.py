@@ -313,7 +313,8 @@ with TestClient(A.app) as tc:
     assert landing.status_code == 200 and "landing.css" in landing.text, landing.status_code
     assert landing.headers["cache-control"] == "no-cache"
     assert "script-src 'self'" in landing.headers["content-security-policy"]
-    for path in ("/landing.css", "/tokens.css", "/error.css", "/landing.js", "/favicon.svg",
+    for path in ("/landing.css", "/tokens.css", "/error.css", "/error.js", "/landing.js",
+                 "/favicon.svg", "/logo.svg", "/logo-app.svg",
                  "/fonts/archivo-latin-1.woff2", "/vendor/motion.js",
                  "/privacy.html", "/terms.html"):
         r = tc.get(path)

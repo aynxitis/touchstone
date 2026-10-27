@@ -7,27 +7,60 @@
 <meta name="robots" content="noindex">
 <meta name="color-scheme" content="light">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/fonts/newsreader-latin-2.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/archivo-latin-1.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/tokens.css">
+<link rel="stylesheet" href="/landing.css">
 <link rel="stylesheet" href="/error.css">
+<script src="/error.js" defer></script>
 </head>
 <body>
-  <header class="top">
-    <a class="wordmark" href="/"><span class="dot" aria-hidden="true"></span>Touchstone</a>
-  </header>
+<a class="skip" href="#main">Skip to the content</a>
 
-  <main class="err">
+<!-- The shell is the landing page's own (landing.css): same bar, same footer,
+     same tokens. Hrefs are absolute because this page is served at any path. -->
+<header class="bar">
+  <div class="wrap bar-in">
+    <a class="brand" href="/">
+      <img class="brand-logo" src="/logo.svg" alt="" width="20" height="26" loading="eager" decoding="async">
+      <span class="brand-name">Touchstone</span>
+    </a>
+    <nav class="nav" id="site-nav" aria-label="Sections">
+      <a href="/#check">The Check</a>
+      <a href="/#key">Verdicts</a>
+      <a href="/#limits">Limits</a>
+    </nav>
+    <a class="btn btn-sm btn-light" href="/app">Open the app</a>
+    <button class="burger" id="nav-burger" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu" title="Menu">
+      <svg class="ic" viewBox="0 0 18 14" aria-hidden="true" focusable="false"><path d="M1 1.5h16M1 7h16M1 12.5h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="main" class="err">
+  <div class="err-in">
     <p class="code"><!--code-->404<!--/code--></p>
     <h1 class="title"><!--title-->This page doesn’t exist.<!--/title--></h1>
     <p class="line"><!--line-->The link may be old, or the page may have moved.<!--/line--></p>
     <div class="acts">
-      <a class="btn dark" href="/">Back to the landing page</a>
-      <a class="btn" href="/app">Open the app</a>
+      <a class="btn" href="/">Back to the landing page</a>
+      <a class="link" href="/app">Open the app</a>
     </div>
-  </main>
+  </div>
+</main>
 
-  <footer class="foot">
-    <span>Touchstone</span>
-    <span>A prototype, not yet public.</span>
-  </footer>
+<footer class="foot">
+  <div class="wrap foot-in">
+    <div class="foot-id">
+      <a class="foot-brand" href="/"><img class="foot-logo" src="/logo.svg" alt="" width="18" height="23" loading="eager" decoding="async">Touchstone</a>
+      <p class="foot-copy">© 2026 Touchstone <span aria-hidden="true">·</span> Supervised by Thirduni</p>
+    </div>
+    <nav class="foot-nav" aria-label="Footer">
+      <a href="/privacy.html">Privacy policy</a>
+      <a href="/terms.html">Terms of service</a>
+      <a class="btn btn-sm btn-light foot-cta" href="/app">Open the app</a>
+    </nav>
+  </div>
+</footer>
 </body>
 </html>

@@ -1,74 +1,68 @@
-/* The error page: one number, one sentence, a way back. Same paper, ink and
-   type as the landing page, so a dead end still looks like Touchstone. */
+/* The error page — the landing page's shell (landing.css: bar, footer, tokens)
+   with the error stack centred between them. The three together fill exactly
+   one viewport: no more, no less. */
 
-*,*::before,*::after{box-sizing:border-box}
-html{height:100%}
+/* The shell is the landing's; this page only adds the height contract. */
 body{
-  min-height:100%;margin:0;display:flex;flex-direction:column;
-  background:var(--paper);color:var(--ink);
-  font-family:var(--sans);-webkit-font-smoothing:antialiased;
-  text-rendering:optimizeLegibility;
+  /* exactly the viewport — height, not min-height, so a short stack of
+     sections can never spill a scroll onto a dead end */
+  height:100vh;height:100svh;
+  display:flex;flex-direction:column;
 }
-
-.top{padding:clamp(20px,3vw,34px) clamp(20px,5vw,64px)}
-.wordmark{
-  display:inline-flex;align-items:center;gap:10px;color:var(--ink);
-  text-decoration:none;font:600 21px/1 var(--sans);letter-spacing:-.02em;
-}
-.wordmark .dot{width:9px;height:9px;background:var(--gold);flex:none}
-.wordmark:hover .dot{background:var(--gold-hover)}
-
 .err{
-  flex:1;display:flex;flex-direction:column;justify-content:center;
-  width:100%;max-width:1120px;margin:0 auto;
-  padding:clamp(16px,3vw,40px) clamp(20px,6vw,96px) clamp(44px,7vw,88px);
+  flex:1;min-height:0;display:flex;overflow:auto;
+}
+/* margin:auto centres in both axes and, when a window is too short for the
+   stack, falls back to start alignment — the content stays reachable. */
+.err-in{
+  margin:auto;width:100%;max-width:1120px;
+  padding:clamp(16px,3vw,40px) clamp(20px,5vw,64px);
+  text-align:center;
 }
 
+/* the number, in the page's own gold */
 .code{
   margin:0;font:400 clamp(128px,23vw,330px)/0.8 var(--serif);
-  letter-spacing:-.055em;color:var(--ink);
+  letter-spacing:-.055em;color:var(--gold);
   font-variant-numeric:lining-nums;
 }
 
 .title{
-  margin:clamp(20px,3vw,36px) 0 0;max-width:18ch;
+  margin:clamp(20px,3vw,36px) auto 0;max-width:18ch;
   font:600 clamp(28px,4.4vw,58px)/1.04 var(--sans);
   letter-spacing:-.035em;
 }
 
 .line{
-  margin:clamp(12px,1.7vw,20px) 0 0;max-width:44ch;
+  margin:clamp(12px,1.7vw,20px) auto 0;max-width:44ch;
   font:400 clamp(16px,1.55vw,19px)/1.6 var(--sans);color:var(--muted);
 }
 
-.acts{display:flex;flex-wrap:wrap;gap:12px;margin-top:clamp(28px,4.2vw,46px)}
-
-.btn{
-  display:inline-flex;align-items:center;justify-content:center;
-  min-height:46px;padding:11px 20px;border:1px solid var(--rule-strong);
-  background:transparent;color:var(--ink);text-decoration:none;
-  font:500 14.5px/1 var(--sans);letter-spacing:.01em;
-  transition:background-color .25s var(--ease),color .25s var(--ease),
-    border-color .25s var(--ease);
+.acts{
+  display:flex;flex-wrap:wrap;justify-content:center;align-items:center;
+  gap:12px 24px;margin-top:clamp(28px,4.2vw,46px);
 }
-.btn:hover{border-color:var(--ink)}
-.btn.dark{background:var(--stone);border-color:var(--stone);color:var(--on-stone)}
-.btn.dark:hover{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
-
-.foot{
-  display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px 24px;
-  padding:18px clamp(20px,5vw,64px);
-  border-top:1px solid var(--rule);
-  font:400 11.5px/1.5 var(--mono);letter-spacing:.08em;text-transform:uppercase;
-  color:var(--muted);
-}
+.acts .link{font:500 15px var(--sans)}
 
 @media (max-width:600px){
   .code{font-size:clamp(112px,34vw,180px)}
   .title{font-size:clamp(26px,7.4vw,34px);margin-top:30px}
   .acts{gap:10px}
-  .btn{flex:1 1 100%;min-height:48px}
+  /* scoped to the stack — a bare .btn would also match the bar's CTA and
+     stretch it across the navbar (error.css loads after landing.css) */
+  .acts .btn{flex:1 1 100%;min-height:48px}
+  .acts .link{flex:1 1 100%;justify-content:center}
+}
+/* a short window: the number yields to the viewport's HEIGHT before the stack
+   overflows the middle region. The fit is 0.8*font ≤ svh − (bar 65 + foot 155 +
+   non-code stack 241 + err padding 77) — the calc expresses it exactly, so the
+   stack stays centred all the way down to ~660px-tall windows */
+@media (max-height:820px) and (min-width:601px){
+  .code{font-size:clamp(112px,min(23vw,calc((100svh - 538px)/0.8)),330px)}
+}
+@media (max-height:820px) and (max-width:600px){
+  .code{font-size:clamp(96px,min(34vw,calc((100svh - 542px)/0.8)),180px)}
 }
 @media (prefers-reduced-motion:reduce){
-  .btn{transition:none}
+  .btn,.link::before{transition:none}
 }

@@ -830,7 +830,9 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
 /* in-place editing: the document itself is the editor. The source surface is
    a separate fill layer, so the highlight can breathe without moving text. */
 body[data-mode="inline"] .paper .blk{cursor:text}
-body[data-mode="preview"] .paper .blk{cursor:default}
+/* preview is a rendered document the reader can select — the I-beam says so;
+   the arrow here hid that the text is selectable at all */
+body[data-mode="preview"] .paper .blk{cursor:text}
 .paper .blk a,.paper .blk .gmark{cursor:pointer}
 .inline-fill{position:absolute;z-index:0;pointer-events:none;border-radius:6px;
   background:var(--edit-bg);box-shadow:var(--edit-shadow)}

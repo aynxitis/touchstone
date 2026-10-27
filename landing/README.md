@@ -197,11 +197,27 @@ when the label lands.
 
 ## A dead end looks like the product
 
-`error.html` + `error.css` are the 404/500 page: the code itself set in
-Newsreader at `clamp(128px, 23vw, 330px)` (330px at 1440, 132.6px at 390), then a
-plain sentence — "This page doesn't exist. / The link may be old, or the page may
-have moved." — and two buttons (back to the landing page, open the app). One
-screen, no scroll, same paper and ink as the page it belongs to.
+`error.html` + `error.css` are the 404/500 page, and the shell is the landing
+page's own — the same `<header class="bar">` (gem, section links, Open-the-app
+button, hamburger), the same `<footer class="foot">`, the same `landing.css` —
+so a dead end is unmistakably Touchstone. Between them, one centred stack: the
+code itself in Newsreader and the page's own gold (`--gold`), at
+`clamp(128px, 23vw, 330px)` (330px at 1440, 132.6px at 390); then a plain
+sentence — "This page doesn't exist. / The link may be old, or the page may have
+moved." — and two buttons in the landing's vocabulary (an ink `.btn` back to the
+landing page, a quiet `.link` to the app).
+
+The three parts fill **exactly one viewport** — `height:100svh` (not
+min-height), bar at the top, footer at the bottom, the stack centred in the
+middle by `margin:auto`. Below 820px of height the number yields first, with
+the fit solved exactly: `0.8 × font ≤ svh − (bar + footer + non-code stack +
+padding)`, written as `clamp(112px, min(23vw, calc((100svh - 538px)/0.8)),
+330px)` — so the stack stays dead-centred down to ~660px-tall windows instead
+of overflowing. In a window too short to fit the stack at all (a 420px-tall
+one), `margin:auto` falls back to start alignment and the middle region scrolls
+its content internally: the page itself still never scrolls, and nothing is
+unreachable. Measured at 1440×900, 1280×720, 390×844, 500×420: scrollHeight
+equals innerHeight everywhere, deltas 0.
 
 `app.py` wires it up: `error_page(code)` reads `error.html` per request and
 replaces the `<!--code-->`, `<!--title-->`, `<!--line-->` runs from `ERROR_COPY`,
@@ -212,10 +228,17 @@ Starlette's own handler, so JSON stays JSON and `GET /mcp` keeps its
 `405 · Allow: POST`. An unhandled exception gets the 500 copy and is logged. `/error`
 (e.g. `/error?code=500`) previews the page as a 200 without breaking a link first.
 
-The page uses no inline style or script — only `/tokens.css` and `/error.css` —
-so it renders under the app's `style-src 'self'` CSP whether it came from the
-app or from a static host. The URLs are absolute for the same reason the page can
-be served at any path: a 404 at `/foo/bar` must still find its stylesheet.
+`landing.js` is deliberately **not** loaded on this page: it binds `#report`,
+`#counts` and friends, which don't exist here, and would throw on load. The
+shell's one behaviour — `js` marker + hamburger (click, Escape, link-click
+close) — lives in a tiny `error.js` that mirrors `landing.js`'s burger block.
+No-JS is fine: the section links simply stay visible.
+
+The page uses no inline style or script — only `/tokens.css`, `/landing.css` and
+`/error.css` — so it renders under the app's `style-src 'self'` CSP whether it
+came from the app or from a static host. The URLs are absolute for the same
+reason the page can be served at any path: a 404 at `/foo/bar` must still find
+its stylesheet.
 
 ## Motion
 

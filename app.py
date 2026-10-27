@@ -357,7 +357,7 @@ def index():
 # landing.css, tokens.css, landing.js, favicon.svg at the root, fonts/ and vendor/ mounted above).
 # Listed explicitly rather than mounted at "/", so the app's own routes keep their behaviour
 # (e.g. GET /mcp stays 405 with Allow: POST) and nothing else in landing/ becomes public.
-LANDING_ROOT_FILES = ("landing.css", "tokens.css", "error.css", "landing.js", "favicon.svg",
+LANDING_ROOT_FILES = ("landing.css", "tokens.css", "error.css", "error.js", "landing.js", "favicon.svg",
                       "logo.svg", "logo-app.svg",
                       "privacy.html", "terms.html")
 
