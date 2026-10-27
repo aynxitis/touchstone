@@ -1,0 +1,74 @@
+/* The error page: one number, one sentence, a way back. Same paper, ink and
+   type as the landing page, so a dead end still looks like Touchstone. */
+
+*,*::before,*::after{box-sizing:border-box}
+html{height:100%}
+body{
+  min-height:100%;margin:0;display:flex;flex-direction:column;
+  background:var(--paper);color:var(--ink);
+  font-family:var(--sans);-webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+
+.top{padding:clamp(20px,3vw,34px) clamp(20px,5vw,64px)}
+.wordmark{
+  display:inline-flex;align-items:center;gap:10px;color:var(--ink);
+  text-decoration:none;font:600 21px/1 var(--sans);letter-spacing:-.02em;
+}
+.wordmark .dot{width:9px;height:9px;background:var(--gold);flex:none}
+.wordmark:hover .dot{background:var(--gold-hover)}
+
+.err{
+  flex:1;display:flex;flex-direction:column;justify-content:center;
+  width:100%;max-width:1120px;margin:0 auto;
+  padding:clamp(16px,3vw,40px) clamp(20px,6vw,96px) clamp(44px,7vw,88px);
+}
+
+.code{
+  margin:0;font:400 clamp(128px,23vw,330px)/0.8 var(--serif);
+  letter-spacing:-.055em;color:var(--ink);
+  font-variant-numeric:lining-nums;
+}
+
+.title{
+  margin:clamp(20px,3vw,36px) 0 0;max-width:18ch;
+  font:600 clamp(28px,4.4vw,58px)/1.04 var(--sans);
+  letter-spacing:-.035em;
+}
+
+.line{
+  margin:clamp(12px,1.7vw,20px) 0 0;max-width:44ch;
+  font:400 clamp(16px,1.55vw,19px)/1.6 var(--sans);color:var(--muted);
+}
+
+.acts{display:flex;flex-wrap:wrap;gap:12px;margin-top:clamp(28px,4.2vw,46px)}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:46px;padding:11px 20px;border:1px solid var(--rule-strong);
+  background:transparent;color:var(--ink);text-decoration:none;
+  font:500 14.5px/1 var(--sans);letter-spacing:.01em;
+  transition:background-color .25s var(--ease),color .25s var(--ease),
+    border-color .25s var(--ease);
+}
+.btn:hover{border-color:var(--ink)}
+.btn.dark{background:var(--stone);border-color:var(--stone);color:var(--on-stone)}
+.btn.dark:hover{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
+
+.foot{
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px 24px;
+  padding:18px clamp(20px,5vw,64px);
+  border-top:1px solid var(--rule);
+  font:400 11.5px/1.5 var(--mono);letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted);
+}
+
+@media (max-width:600px){
+  .code{font-size:clamp(112px,34vw,180px)}
+  .title{font-size:clamp(26px,7.4vw,34px);margin-top:30px}
+  .acts{gap:10px}
+  .btn{flex:1 1 100%;min-height:48px}
+}
+@media (prefers-reduced-motion:reduce){
+  .btn{transition:none}
+}

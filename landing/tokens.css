@@ -25,6 +25,7 @@
   --topbar-fg:#f0f0ed;
   --topbar-muted:#a6a7a4;
   --topbar-line:#3a3b3d;
+  --rule-on:rgba(240,240,237,.16);   /* a rule on the graphite panel */
 
   /* one accent */
   --gold:#c9a227;
@@ -34,14 +35,30 @@
   --accent-on:#e3c476;
   --sel:rgba(201,162,39,.24);
 
-  /* verdict marks — the app's own label colours */
+  /* verdict colours — the app's own label colours. They are used only where the product
+     itself speaks (the example panel's badges, dots and marks); the page's own chrome
+     stays paper, ink and gold. */
   --ok:#3c6b4e;
   --warn:#8a6100;
   --fail:#a63a26;
+  --info:#5b5d5f;
   --grey:#636568;
   --brown:#6d5741;
   --blue:#33607f;
   --violet:#6c5891;
+  --ok-on:#8fb39b;
+  --warn-on:#d9a44b;
+  --fail-on:#e09a86;
+  --brown-on:#d5c1a4;
+  --blue-on:#9dc0d8;
+  --violet-on:#c3b6de;
+  --ok-bg:#e6efe8;
+  --warn-bg:#f4ecd7;
+  --fail-bg:#f6e4df;
+  --grey-bg:#ededeb;
+  --brown-bg:#f1e9dd;
+  --blue-bg:#e3ecf2;
+  --violet-bg:#ece6f2;
 
   /* type */
   --sans:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;

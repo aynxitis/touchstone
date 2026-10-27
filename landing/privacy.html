@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy policy — Touchstone</title>
+<meta name="description" content="What Touchstone does with a report, what stays in your browser, and what the language model provider sees.">
+<meta name="color-scheme" content="light">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/newsreader-latin-2.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/archivo-latin-1.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="landing.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to the content</a>
+
+<header class="bar">
+  <div class="wrap bar-in">
+    <a class="brand" href="./">
+      <img class="brand-logo" src="logo.svg" alt="" width="20" height="26" loading="eager" decoding="async">
+      <span class="brand-name">Touchstone</span>
+    </a>
+    <nav class="nav" aria-label="Back">
+      <a href="./">Back to the landing page</a>
+    </nav>
+    <a class="btn btn-sm btn-light" href="/app">Open the app</a>
+  </div>
+</header>
+
+<main id="main" class="legal">
+  <div class="wrap">
+    <div class="legal-in">
+      <p class="eyebrow"><span class="mark" aria-hidden="true"></span>Privacy policy</p>
+      <h1>What happens to a report.</h1>
+      <p class="legal-meta">Last updated 26 October 2026</p>
+
+      <p>Touchstone is a prototype that checks whether an AI-written report is backed by the
+        pages it cites. This page describes what it does with what you paste. It is written to
+        be read, not to hide behind.</p>
+
+      <h2>What you send</h2>
+      <p>You paste a report and the links it cites. No account is required, and the service
+        does not ask for a name or an email address. Do not paste anything private or
+        confidential: a prototype is not the place for it.</p>
+
+      <h2>Who processes it</h2>
+      <p>Reports are processed by the language model configured for this deployment — currently
+        Google Gemini’s free tier. Google may use inputs sent on the free tier to improve its
+        products. The pages the report cites are fetched directly by this service; no page
+        content is sent to any other third party.</p>
+
+      <h2>What is kept</h2>
+      <ul>
+        <li><strong>On the server:</strong> nothing. Reports and results are streamed back to
+          your browser and not written to disk. Per-address rate-limit counters live in memory
+          for about an hour, then are pruned.</li>
+        <li><strong>In your browser:</strong> the app keeps up to three recent runs, your theme
+          and a few interface sizes in local storage on your device, so the example can be
+          replayed without spending a token. Clearing site data removes them.</li>
+        <li><strong>Server logs:</strong> the host may record ordinary request logs (time,
+          status, address) to run and secure the service.</li>
+      </ul>
+
+      <h2>Cookies</h2>
+      <p>Touchstone sets no cookies. Nothing here is used for advertising or analytics.</p>
+
+      <h2>Your choices</h2>
+      <p>You can clear the browser’s site data at any time, and you can simply not paste a
+        report. Since there is no account, there is no profile to delete. If you believe a
+        deployment of this prototype is handling data badly, contact the person operating that
+        deployment.</p>
+
+      <h2>Changes</h2>
+      <p>This is an early prototype and the policy will change with it. The date above is the
+        date of the last change.</p>
+
+      <p><a href="./">Back to Touchstone</a></p>
+    </div>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <div class="foot-id">
+      <a class="foot-brand" href="./">Touchstone</a>
+      <p class="foot-copy">© 2026 Touchstone <span aria-hidden="true">·</span> Supervised by Thirduni</p>
+    </div>
+    <nav class="foot-nav" aria-label="Footer">
+      <a href="privacy.html" aria-current="page">Privacy policy</a>
+      <a href="terms.html">Terms of service</a>
+      <a class="btn btn-sm btn-light foot-cta" href="/app">Open the app</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

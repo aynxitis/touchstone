@@ -11,6 +11,7 @@
 <link rel="preload" href="fonts/archivo-latin-1.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="landing.css">
+<script src="vendor/motion.js" defer></script>
 <script src="landing.js" defer></script>
 </head>
 <body>
@@ -19,17 +20,19 @@
 
 <header class="bar">
   <div class="wrap bar-in">
-    <a class="brand" href="#top">
-      <span class="mark" aria-hidden="true"></span>
+    <a class="brand" href="./">
+      <img class="brand-logo" src="logo.svg" alt="" width="20" height="26" loading="eager" decoding="async">
       <span class="brand-name">Touchstone</span>
-      <span class="proto">Prototype</span>
     </a>
-    <nav class="nav" aria-label="Sections">
-      <a href="#check">The check</a>
+    <nav class="nav" id="site-nav" aria-label="Sections">
+      <a href="#check">The Check</a>
       <a href="#key">Verdicts</a>
       <a href="#limits">Limits</a>
     </nav>
-    <a class="btn btn-sm" href="https://touchstone.aynx.dev/">Open the app</a>
+    <a class="btn btn-sm btn-light" href="/app">Open the app</a>
+    <button class="burger" id="nav-burger" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu" title="Menu">
+      <svg class="ic" viewBox="0 0 18 14" aria-hidden="true" focusable="false"><path d="M1 1.5h16M1 7h16M1 12.5h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </button>
   </div>
 </header>
 
@@ -38,58 +41,138 @@
   <!-- ── hero ─────────────────────────────────────────────────────────── -->
   <section class="hero" id="top">
     <div class="wrap">
-      <h1 class="display">Does the source say&nbsp;it?</h1>
+      <p class="eyebrow"><span class="mark" aria-hidden="true"></span>A prototype, not yet public, no sign-up</p>
+      <h1 class="display">Does the <span class="u-source">source</span> say&nbsp;it?</h1>
       <p class="lead">Paste an AI research report with its links. Touchstone opens every page it
         cites and checks each claim against the line the source actually wrote — not against
         whether the claim sounds right.</p>
       <div class="actions">
-        <a class="btn" href="https://touchstone.aynx.dev/">Open the app</a>
-        <a class="link" href="#check">See a real check</a>
+        <a class="btn" href="/app">Try the example</a>
+        <a class="link" href="#check">See how it works</a>
       </div>
-      <p class="fine">No sign-in. Up to 25 claims and 8 sources per check, 5 checks an hour.
-        The example below is a saved run: zero tokens.</p>
+    </div>
 
-      <figure class="sheet hero-shot">
-        <picture>
-          <source media="(max-width:700px)" srcset="shots/app-phone.webp" type="image/webp">
-          <source media="(max-width:700px)" srcset="shots/app-phone.png" type="image/png">
-          <source srcset="shots/app-results.webp" type="image/webp">
-          <img src="shots/app-results.png" width="1440" height="900" fetchpriority="high"
-               alt="The Touchstone app checking the saved example. The verdict panel reads “7 claims checked: 5 sourced, 1 unsupported, 1 contradicted”, beside a contradicted claim card that shows the quoted row from the cited page and the reason for the verdict.">
-        </picture>
-        <figcaption>The saved example, replayed in the app: seven claims — five sourced,
-          one unsupported, one contradicted.</figcaption>
-      </figure>
+    <!-- The live example: the report and the checker side by side. Every state and quote
+         below comes from examples/demo_run.json — the same saved run the app replays. -->
+    <div class="wrap wide">
+      <section class="demo" id="example" aria-labelledby="demo-title">
+        <header class="demo-bar">
+          <h2 class="demo-title" id="demo-title"><span class="mark" aria-hidden="true"></span>
+            Example — Africa smartphone market</h2>
+          <p class="demo-note">Saved run<span class="dotsep" aria-hidden="true">·</span>
+            <span id="demo-tokens">0 tokens</span></p>
+          <button class="demo-replay" id="replay" type="button">
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 6a4.5 4.5 0 1 0 1.4-3.3M1 1.4V4h2.6" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
+            Replay
+          </button>
+        </header>
+
+        <div class="demo-body">
+          <!-- the report, as pasted. Click a line to see its verdict. -->
+          <div class="report" id="report">
+            <div class="report-bar"><span>Report</span><span>Markdown</span></div>
+            <div class="report-doc">
+              <p class="rline" data-claim="1">For full-year 2025, <b>Transsion</b>—the parent of
+                TECNO, Infinix, and itel—led Africa’s smartphone market with about <b>48% of
+                shipments</b>, according to Omdia data.</p>
+
+              <h3 class="rhead">2025 brand shares</h3>
+              <table class="rtable">
+                <thead>
+                  <tr><th scope="col">Brand / group</th><th scope="col">Q2 2025 share</th>
+                    <th scope="col">Trend</th></tr>
+                </thead>
+                <tbody>
+                  <tr data-claim="2"><th scope="row">Transsion (TECNO, Infinix, itel)</th>
+                    <td>51%</td><td>+6%</td>
+                    <td class="rail"><span class="rmark" data-for="2" data-tone="green" aria-hidden="true"></span></td></tr>
+                  <tr data-claim="3"><th scope="row">Samsung</th><td>19%</td><td>+3%</td>
+                    <td class="rail"><span class="rmark" data-for="3" data-tone="red" aria-hidden="true"></span></td></tr>
+                  <tr data-claim="4"><th scope="row">Xiaomi (incl. Redmi, POCO)</th>
+                    <td>14%</td><td>+32%</td>
+                    <td class="rail"><span class="rmark" data-for="4" data-tone="green" aria-hidden="true"></span></td></tr>
+                </tbody>
+              </table>
+
+              <p class="rline" data-claim="7">Note: figures based on <b>shipments</b> differ from
+                “usage” statistics; Samsung can lead usage-based estimates even while Transsion
+                leads new shipments.</p>
+
+              <p class="rline rline-more" data-claim="5">Samsung was the strongest challenger,
+                with Q4 shipments up 27%, helped by the Galaxy A series.</p>
+              <p class="rline rline-more" data-claim="6">Devices priced below $200 made up
+                <b>81% of African smartphone shipments</b> in 2025.</p>
+            </div>
+            <p class="report-foot">Click a line to see its verdict.</p>
+            <span class="scan" id="scan" aria-hidden="true"></span>
+          </div>
+
+          <!-- the checker's side -->
+          <div class="result">
+            <div class="result-top">
+              <p class="result-kicker">Checked<span class="dotsep" aria-hidden="true">·</span>
+                <span id="n-checked">7 claims</span></p>
+              <p class="result-line" id="summary">Five sourced, one unsupported, one contradicted.</p>
+              <div class="counts" id="counts" role="group" aria-label="Show a verdict">
+                <button class="cnt" type="button" data-label="SOURCED" aria-pressed="false">
+                  <span class="dot dot-green" aria-hidden="true"></span><span>sourced</span>
+                  <b data-count="SOURCED">5</b></button>
+                <button class="cnt" type="button" data-label="UNSUPPORTED" aria-pressed="false">
+                  <span class="dot dot-yellow" aria-hidden="true"></span><span>unsupported</span>
+                  <b data-count="UNSUPPORTED">1</b></button>
+                <button class="cnt" type="button" data-label="CONTRADICTED" aria-pressed="false">
+                  <span class="dot dot-red" aria-hidden="true"></span><span>contradicted</span>
+                  <b data-count="CONTRADICTED">1</b></button>
+              </div>
+            </div>
+            <div class="card-host" id="example-card" aria-live="polite">
+              <noscript><p class="card-void">The example card is rendered live.
+                <a href="/app">Open the app</a> to see it.</p></noscript>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   </section>
 
   <!-- ── the problem ──────────────────────────────────────────────────── -->
   <section class="band" id="problem">
-    <div class="wrap band-in">
-      <h2 class="h2">A citation is a promise.<br>We checked three assistants’.</h2>
-      <div class="band-body">
+    <div class="wrap">
+      <div class="band-head">
+        <h2 class="h2">A citation is a promise.</h2>
         <p class="band-lead">On 14 October 2026 we put the same question — internet access and the
-          digital economy in Algeria — to Gemini, Perplexity and ChatGPT, then opened the pages
+          digital economy in Algeria — to Gemini, ChatGPT and Perplexity, then opened the pages
           they cited.</p>
-        <dl class="findings">
-          <div>
-            <dt>Gemini</dt>
-            <dd><span class="num">18</span> citations. Of the <span class="num">13</span> we could
-              check, at most <span class="num">2</span> were backed by the cited page: a 2024 edition
-              cited for 2026 figures, UNCTAD figures credited to the World Bank, bare homepages.</dd>
-          </div>
-          <div>
-            <dt>Perplexity</dt>
-            <dd>Cited a page for figures that page doesn’t contain.</dd>
-          </div>
-          <div>
-            <dt>ChatGPT</dt>
-            <dd>Mostly accurate — but the text you copy out has site icons where its inline links
-              were, so the sources have to be put back before anything can be checked.</dd>
-          </div>
-        </dl>
-        <p class="fine">Our own small test, not a study: one question, one day.</p>
       </div>
+
+      <dl class="findings">
+        <div>
+          <dt>
+            <svg class="model-logo" viewBox="0 0 24 24" aria-hidden="true"><path d="M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81"/></svg>
+            Gemini
+          </dt>
+          <dd><span class="num">18</span> citations. Of the <span class="num">13</span> we could
+            check, at most <span class="num">2</span> were backed by the cited page: a 2024 edition
+            cited for 2026 figures, UNCTAD figures credited to the World Bank, bare homepages.</dd>
+        </div>
+        <div>
+          <dt>
+            <svg class="model-logo" viewBox="0 0 24 24" aria-hidden="true"><path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/></svg>
+            ChatGPT
+          </dt>
+          <dd>Mostly accurate — but the text you copy out has site icons where its inline links
+            were, so the sources have to be put back before anything can be checked.</dd>
+        </div>
+        <div>
+          <dt>
+            <svg class="model-logo" viewBox="0 0 24 24" aria-hidden="true"><path d="M22.3977 7.0896h-2.3106V.0676l-7.5094 6.3542V.1577h-1.1554v6.1966L4.4904 0v7.0896H1.6023v10.3976h2.8882V24l6.932-6.3591v6.2005h1.1554v-6.0469l6.9318 6.1807v-6.4879h2.8882V7.0896zm-3.4657-4.531v4.531h-5.355l5.355-4.531zm-13.2862.0676 4.8691 4.4634H5.6458V2.6262zM2.7576 16.332V8.245h7.8476l-6.1149 6.1147v1.9723H2.7576zm2.8882 5.0404v-3.8852h.0001v-2.6488l5.7763-5.7764v7.0111l-5.7764 5.2993zm12.7086.0248-5.7766-5.1509V9.0618l5.7766 5.7766v6.5588zm2.8882-5.0652h-1.733v-1.9723L13.3948 8.245h7.8478v8.087z"/></svg>
+            Perplexity
+          </dt>
+          <dd>Cited a page for figures that page doesn’t contain.</dd>
+        </div>
+      </dl>
+
+      <p class="fine band-fine">Our own small test, not a study: one question, one day.</p>
     </div>
   </section>
 
@@ -97,147 +180,180 @@
   <section class="check" id="check">
     <div class="wrap">
       <div class="check-head">
+        <p class="eyebrow"><span class="mark" aria-hidden="true"></span>The Check</p>
         <h2 class="h2">Claim in, evidence out.</h2>
-        <p class="lead-sm">Every claim is checked on its own, against the page it cites.</p>
+        <p class="lead-sm">One claim, three moves: open the page, verify the line, assign the label.
+          Scroll through them, or pick one.</p>
       </div>
 
-      <div class="check-grid">
-        <figure class="sheet check-figure">
-          <picture>
-            <source media="(max-width:700px)" srcset="shots/app-card-phone.webp" type="image/webp">
-            <source media="(max-width:700px)" srcset="shots/app-card-phone.png" type="image/png">
-            <source srcset="shots/app-card.webp" type="image/webp">
-            <img src="shots/app-card.png" width="824" height="700" loading="lazy"
-                 alt="A claim card from the app. The claim is “Brand / group: Samsung; Q2 2025 shipment share: 19%; Annual trend: +3% year over year”. Under it, the contradicted fact shows the page’s own row — “| Samsung | 3.4 | 18% | 3.3 | 19% | +3% |” — with 18% picked out, and the reason: “The page gives 18% for Q2 2025; 19% is its Q2 2024 figure.”">
-          </picture>
-          <figcaption>Claim 3 in the app: the claim, the quoted row from the cited page, and the
-            reason for the verdict.</figcaption>
-        </figure>
-
-        <div class="beats">
-          <span class="hairline" aria-hidden="true"></span>
-          <div class="beat reveal">
-            <h3>The page is opened</h3>
-            <p>Each link the claim cites is fetched — HTML or PDF, public addresses only. A page
-              that blocks the checker is reported as unreachable, never judged.</p>
-          </div>
-          <div class="beat reveal">
-            <h3>The quote is verified</h3>
-            <p>The model proposes the line that backs the claim; code then proves it. The quote
-              must exist on the page exactly, or near-exactly with identical numbers. Numbers,
-              units, currencies, periods, years and names are checked against that same line.</p>
-          </div>
-          <div class="beat reveal">
-            <h3>The label follows</h3>
-            <p>Code assigns the verdict. Red needs the model’s judgement <em>and</em> a conflicting
-              figure verified on the page; when only a code check doubts a fact, the result is
-              amber, never red.</p>
+      <div class="story">
+        <div class="story-side">
+          <div class="story-card">
+            <div class="card-host" id="story-card">
+              <noscript><p class="card-void">The check card is rendered live.
+                <a href="/app">Open the app</a> to see it.</p></noscript>
+            </div>
+            <div class="story-meter" aria-hidden="true">
+              <span class="story-bar" id="story-bar"></span>
+            </div>
+            <p class="story-caption" id="story-caption">The page is opened</p>
           </div>
         </div>
-      </div>
 
-      <figure class="strip reveal">
-        <picture>
-          <source srcset="shots/app-table.webp" type="image/webp">
-          <img src="shots/app-table.png" width="1488" height="338" loading="lazy"
-               alt="A table from the report as the app shows it, with a red mark in the left margin against the Samsung row at 19%.">
-        </picture>
-        <figcaption>The row the claim came from stays beside it, marked in the report’s margin.</figcaption>
-      </figure>
+        <ol class="steps" id="steps">
+          <li class="step" data-step="1">
+            <button type="button" aria-current="true">
+              <span class="step-no">01</span>
+              <span class="step-body">
+                <span class="step-title">The page is opened</span>
+                <span class="step-text">Each link the claim cites is fetched — HTML or PDF, public
+                  addresses only. A page that blocks the checker is reported as unreachable, never
+                  judged.</span>
+              </span>
+            </button>
+          </li>
+          <li class="step" data-step="2">
+            <button type="button">
+              <span class="step-no">02</span>
+              <span class="step-body">
+                <span class="step-title">The quote is verified</span>
+                <span class="step-text">The model proposes the line that backs the claim; code then
+                  proves it. The quote must exist on the page exactly, or near-exactly with
+                  identical numbers. Numbers, units, periods, years and names are checked against
+                  that same line.</span>
+              </span>
+            </button>
+          </li>
+          <li class="step" data-step="3">
+            <button type="button">
+              <span class="step-no">03</span>
+              <span class="step-body">
+                <span class="step-title">The label follows</span>
+                <span class="step-text">Code assigns the verdict. Red needs the model’s judgement
+                  <em>and</em> a conflicting figure verified on the page; when only a code check
+                  doubts a fact, the result is amber, never red.</span>
+              </span>
+            </button>
+          </li>
+        </ol>
+      </div>
     </div>
   </section>
 
   <!-- ── the key ──────────────────────────────────────────────────────── -->
-  <section class="key" id="key">
+  <section class="band key" id="key">
     <div class="wrap">
       <div class="key-in">
-      <h2 class="h2">Four verdicts, said plainly.</h2>
-      <dl class="key-list">
-        <div class="key-row">
-          <dt><span class="dot dot-ok" aria-hidden="true"></span>Sourced</dt>
-          <dd>Every fact in the claim is on the page.</dd>
-        </div>
-        <div class="key-row">
-          <dt><span class="dot dot-half" aria-hidden="true"></span>Partial</dt>
-          <dd>Some facts are on the page; others aren’t found.</dd>
-        </div>
-        <div class="key-row">
-          <dt><span class="dot dot-warn" aria-hidden="true"></span>Unsupported</dt>
-          <dd>No line on the page backs it.</dd>
-        </div>
-        <div class="key-row">
-          <dt><span class="dot dot-fail" aria-hidden="true"></span>Contradicted</dt>
-          <dd>The source says otherwise.</dd>
-        </div>
-      </dl>
+        <p class="eyebrow"><span class="mark" aria-hidden="true"></span>Verdicts</p>
+        <h2 class="h2">Four verdicts, said plainly.</h2>
 
-      <h3 class="h3">Other outcomes</h3>
-      <p class="key-note">Not every check ends in a verdict. These say why one couldn’t be given.</p>
-      <ul class="edge">
-        <li><span class="dot dot-warn" aria-hidden="true"></span><b>Couldn’t confirm</b> a code check doubts the support</li>
-        <li><span class="dot dot-brown" aria-hidden="true"></span><b>No source given</b> the text cites nothing</li>
-        <li><span class="dot dot-blue" aria-hidden="true"></span><b>Unverified</b> no checkable passage on the page</li>
-        <li><span class="dot dot-violet" aria-hidden="true"></span><b>Opinion</b> advice, not a fact</li>
-        <li><span class="dot dot-grey" aria-hidden="true"></span><b>Source unreachable</b> the page couldn’t be read</li>
-        <li><span class="dot dot-grey" aria-hidden="true"></span><b>Not checked</b> over the limits, or out of time</li>
-        <li><span class="dot dot-error" aria-hidden="true"></span><b>Error</b> the check itself failed</li>
-      </ul>
+        <div class="verdicts">
+          <div class="vr">
+            <span class="vr-tick" aria-hidden="true"></span>
+            <span class="vr-dot vr-dot-green" aria-hidden="true"></span>
+            <span class="vr-name">Sourced</span>
+          </div>
+          <div class="vr">
+            <span class="vr-tick" aria-hidden="true"></span>
+            <span class="vr-dot vr-dot-half" aria-hidden="true"></span>
+            <span class="vr-name">Partial</span>
+          </div>
+          <div class="vr">
+            <span class="vr-tick" aria-hidden="true"></span>
+            <span class="vr-dot vr-dot-yellow" aria-hidden="true"></span>
+            <span class="vr-name">Unsupported</span>
+          </div>
+          <div class="vr">
+            <span class="vr-tick" aria-hidden="true"></span>
+            <span class="vr-dot vr-dot-red" aria-hidden="true"></span>
+            <span class="vr-name">Contradicted</span>
+          </div>
+        </div>
+
+        <h3 class="h3">Other outcomes</h3>
+        <p class="key-note">Not every check ends in a verdict. These say why one couldn’t be given.</p>
+        <ul class="edge">
+          <li><span class="edge-dot" data-tone="yellow" aria-hidden="true"></span>
+            <b>Couldn’t confirm</b></li>
+          <li><span class="edge-dot" data-tone="brown" aria-hidden="true"></span>
+            <b>No source given</b></li>
+          <li><span class="edge-dot" data-tone="blue" aria-hidden="true"></span>
+            <b>Unverified</b></li>
+          <li><span class="edge-dot" data-tone="violet" aria-hidden="true"></span>
+            <b>Opinion</b></li>
+          <li><span class="edge-dot" data-tone="grey" aria-hidden="true"></span>
+            <b>Source unreachable</b></li>
+          <li><span class="edge-dot" data-tone="grey" aria-hidden="true"></span>
+            <b>Not checked</b></li>
+          <li><span class="edge-dot" data-tone="error" aria-hidden="true"></span>
+            <b>Error</b></li>
+        </ul>
       </div>
     </div>
   </section>
 
   <!-- ── the limits ───────────────────────────────────────────────────── -->
-  <section class="band limits" id="limits">
-    <div class="wrap band-in">
+  <section class="limits" id="limits">
+    <div class="wrap">
       <h2 class="h2">An early prototype, honestly.</h2>
       <div class="limits-grid">
         <dl class="spec">
-          <div><dt>Cited claims per check</dt><dd><span class="num">25</span></dd></div>
-          <div><dt>Distinct source links</dt><dd><span class="num">8</span></dd></div>
-          <div><dt>Checks per hour</dt><dd><span class="num">5</span></dd></div>
-          <div><dt>Report length</dt><dd><span class="num">20,000</span> characters</dd></div>
+          <div>
+            <dt>Cited claims per check</dt>
+            <dd><span class="num">25</span></dd>
+            <dd class="spec-body"><b>Don’t paste anything private.</b> Reports are processed by
+              Google Gemini’s free tier, which may use inputs to improve Google’s products.</dd>
+          </div>
+          <div>
+            <dt>Distinct source links</dt>
+            <dd><span class="num">8</span></dd>
+            <dd class="spec-body"><b>It checks the page, not the truth.</b> Whether the source is
+              right is still your call.</dd>
+          </div>
+          <div>
+            <dt>Checks per hour</dt>
+            <dd><span class="num">5</span></dd>
+            <dd class="spec-body"><b>Not public, not commercial.</b> Expect rough edges; your edits
+              save on your device.</dd>
+          </div>
         </dl>
-        <div class="honest">
-          <p><b>Don’t paste anything private.</b> Reports are processed by Google Gemini’s free
-            tier, which may use inputs to improve Google’s products.</p>
-          <p><b>It checks the page, not the truth.</b> Whether the source is right is still your
-            call.</p>
-          <p><b>Not public, not commercial.</b> Expect rough edges; your edits save on your device.</p>
-        </div>
+        <p class="spec-note">Only the first ones, in report order, are checked.</p>
       </div>
-    </div>
-  </section>
-
-  <!-- ── close ────────────────────────────────────────────────────────── -->
-  <section class="close" id="close">
-    <div class="wrap close-in">
-      <div>
-        <h2 class="display-2">Bring a report.</h2>
-        <div class="actions">
-          <a class="btn" href="https://touchstone.aynx.dev/">Open Touchstone</a>
-          <a class="link" href="#top">Back to the top</a>
-        </div>
-        <p class="fine">The example is already loaded: play it back without spending a token.
-          Agents can call the same checker at <span class="mono-inline">touchstone.aynx.dev/mcp</span>.</p>
-      </div>
-      <figure class="sheet phone">
-        <picture>
-          <source srcset="shots/app-phone.webp" type="image/webp">
-          <img src="shots/app-phone.png" width="780" height="1688" loading="lazy"
-               alt="The same check on a phone: the verdict panel on top, then the saved-example notice and the contradicted claim card.">
-        </picture>
-        <figcaption>The same check on a phone.</figcaption>
-      </figure>
     </div>
   </section>
 </main>
 
-<footer class="foot">
-  <div class="wrap foot-in">
-    <span>Touchstone — prototype</span>
-    <a href="https://touchstone.aynx.dev/">touchstone.aynx.dev</a>
-  </div>
-</footer>
+<!-- ── close + footer: one full screen, the page's last panel ───────────── -->
+<div class="endcap">
+  <section class="close" id="close">
+    <div class="wrap close-in">
+      <img class="close-logo" src="logo-app.svg" alt="" width="130" height="139" loading="eager" decoding="async">
+      <h2 class="display-2">Bring a report.</h2>
+      <div class="actions">
+        <a class="btn btn-gold" href="/app">Open Touchstone</a>
+        <a class="link" href="#top">Back to the top</a>
+      </div>
+      <p class="close-fine">The example is already loaded: play it back without spending a token.
+        Agents can call the same checker at <button class="copy-url" id="copy-url" type="button"
+          data-copy="touchstone.aynx.dev/mcp" title="Copy the MCP endpoint"
+          aria-label="Copy the MCP endpoint, touchstone.aynx.dev/mcp">touchstone.aynx.dev/mcp</button><span
+          class="copy-flag" id="copy-flag" role="status" aria-live="polite"></span>.</p>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <div class="wrap foot-in">
+      <div class="foot-id">
+        <a class="foot-brand" href="./"><img class="foot-logo" src="logo.svg" alt="" width="18" height="23" loading="lazy" decoding="async">Touchstone</a>
+        <p class="foot-copy">© 2026 Touchstone <span aria-hidden="true">·</span> Supervised by Thirduni</p>
+      </div>
+      <nav class="foot-nav" aria-label="Footer">
+        <a href="privacy.html">Privacy policy</a>
+        <a href="terms.html">Terms of service</a>
+        <a class="btn btn-sm btn-light foot-cta" href="/app">Open the app</a>
+      </nav>
+    </div>
+  </footer>
+</div>
 </body>
 </html>
-
