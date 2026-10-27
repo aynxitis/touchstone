@@ -69,11 +69,11 @@ p,dd,li{text-wrap:pretty}
   transform:translateY(-2.5px)}
 .brand-name{font:400 22px/1 var(--serif);letter-spacing:-.01em}
 .nav{display:flex;align-items:center;gap:4px;margin-left:auto}
-.nav a{
+.nav > a:not(.btn){
   padding:8px 10px;font:500 13.5px var(--sans);color:var(--topbar-muted);text-decoration:none;
   transition:color .2s var(--ease);
 }
-.nav a:hover{color:var(--topbar-fg)}
+.nav > a:not(.btn):hover{color:var(--topbar-fg)}
 /* the CTA is the last item in the nav; pin it to the right edge on wide
    screens so it doesn't ride on the links' 4px gap */
 .nav > .btn-sm{margin-left:24px}
@@ -591,11 +591,11 @@ p,dd,li{text-wrap:pretty}
     align-items:stretch;gap:0;margin:0;background:var(--topbar);
     border-bottom:1px solid var(--topbar-line);padding:4px 0 8px;
     box-shadow:0 22px 34px rgba(10,10,8,.22)}
-  .js .bar-in.menu-open .nav a{padding:13px clamp(20px,4vw,24px);font-size:15px}
+  .js .bar-in.menu-open .nav a:not(.btn){padding:13px clamp(20px,4vw,24px);font-size:15px}
   .js .bar-in.menu-open .nav a + a{border-top:1px solid var(--topbar-line)}
-  .js .bar-in.menu-open .nav a:hover,
-  .js .bar-in.menu-open .nav a:active,
-  .js .bar-in.menu-open .nav a:focus-visible{color:var(--topbar-fg);
+  .js .bar-in.menu-open .nav a:not(.btn):hover,
+  .js .bar-in.menu-open .nav a:not(.btn):active,
+  .js .bar-in.menu-open .nav a:not(.btn):focus-visible{color:var(--topbar-fg);
     background:rgba(255,255,255,.06)}
   .js .burger{display:inline-flex}
   .bar-in{gap:14px}
