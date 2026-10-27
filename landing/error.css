@@ -1,19 +1,21 @@
 /* The error page — the landing page's shell (landing.css: bar, footer, tokens)
    with the error stack centred between them. The three together fill exactly
-   one viewport: no more, no less. */
+   one viewport: no more, no less, and nothing ever scrolls. */
 
-/* The shell is the landing's; this page only adds the height contract. */
 body{
-  /* exactly the viewport — height, not min-height, so a short stack of
-     sections can never spill a scroll onto a dead end */
+  /* exactly the viewport — height, not min-height, so the page itself can
+     never spill a scroll onto a dead end */
   height:100vh;height:100svh;
   display:flex;flex-direction:column;
 }
 .err{
-  flex:1;min-height:0;display:flex;overflow:auto;
+  flex:1;min-height:0;display:flex;
+  /* safety valve only: the height tiers below keep the stack small enough
+     that this never engages in a real window */
+  overflow:auto;
 }
-/* margin:auto centres in both axes and, when a window is too short for the
-   stack, falls back to start alignment — the content stays reachable. */
+/* margin:auto centres in both axes; in a window too short even for the
+   compressed stack it falls back to start alignment — content stays reachable */
 .err-in{
   margin:auto;width:100%;max-width:1120px;
   padding:clamp(16px,3vw,40px) clamp(20px,5vw,64px);
@@ -53,16 +55,38 @@ body{
   .acts .btn{flex:1 1 100%;min-height:48px}
   .acts .link{flex:1 1 100%;justify-content:center}
 }
-/* a short window: the number yields to the viewport's HEIGHT before the stack
-   overflows the middle region. The fit is 0.8*font ≤ svh − (bar 65 + foot 155 +
-   non-code stack 241 + err padding 77) — the calc expresses it exactly, so the
-   stack stays centred all the way down to ~660px-tall windows */
-@media (max-height:820px) and (min-width:601px){
-  .code{font-size:clamp(112px,min(23vw,calc((100svh - 538px)/0.8)),330px)}
+
+/* A short window: everything compresses with the viewport's HEIGHT — number,
+   headline, sentence, buttons and air — so the stack keeps fitting between
+   bar and footer instead of spilling an internal scrollbar. The number's fit
+   is 0.8·font ≤ svh − (bar + footer + compressed non-code stack); the calc
+   states it exactly, the media order below lets the narrow-window constant
+   refine the wide one, and the extreme tiers drop the sentence entirely. */
+@media (max-height:820px){
+  .err-in{padding-block:clamp(8px,2.2svh,40px)}
+  .title{font-size:clamp(18px,min(4.4vw,5.2svh),44px);margin-top:clamp(10px,2.4svh,24px)}
+  .line{font-size:clamp(12px,min(1.55vw,2.5svh),16px);margin-top:clamp(8px,1.8svh,12px)}
+  .acts{margin-top:clamp(14px,3svh,32px)}
+  .acts .btn{min-height:clamp(38px,6svh,48px)}
+  .code{font-size:clamp(88px,min(23vw,calc((100svh - 400px)/0.8)),330px)}
 }
 @media (max-height:820px) and (max-width:600px){
-  .code{font-size:clamp(96px,min(34vw,calc((100svh - 542px)/0.8)),180px)}
+  .code{font-size:clamp(72px,min(34vw,calc((100svh - 470px)/0.8)),180px)}
+}
+@media (max-height:460px){
+  .line{display:none}
+  .foot-nav{display:none}
+  .title{font-size:16px;margin-top:6px}
+  .acts{margin-top:8px}
+  .acts .btn{min-height:32px}
+  .err-in{padding-block:6px}
+  .code{font-size:clamp(88px,min(23vw,calc((100svh - 283px)/0.8)),330px)}
+}
+@media (max-height:460px) and (max-width:600px){
+  .acts .btn{flex:0 1 auto;min-height:32px}
+  .acts .link{flex:0 1 auto}
+  .code{font-size:clamp(64px,min(34vw,calc((100svh - 290px)/0.8)),180px)}
 }
 @media (prefers-reduced-motion:reduce){
-  .btn,.link::before{transition:none}
+  .btn,.link{transition:none}
 }

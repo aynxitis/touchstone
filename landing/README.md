@@ -173,9 +173,9 @@ when the label lands.
   with JS off the links simply stay visible (wrapped under the brand), so
   navigation never depends on the script. Section links (and back-to-top) scroll
   smoothly, gated behind `prefers-reduced-motion`. The nav CTA is paper-white and
-  turns gold on hover; "See how it works" keeps one grey hairline at rest and the
-  gold rule slides in **over it** on hover — one line at rest, one gold on
-  hover, never two. The gem and the name share one optical centre: Newsreader's
+  turns gold on hover; "See how it works" keeps one grey hairline at rest that
+  simply turns gold and thickens (1px -> 2px) on hover — no slide, no second
+  line. The gem and the name share one optical centre: Newsreader's
   line box carries descent space the glyphs don't use ("Touchstone" has no
   descenders), so plain box-centring left the gem 2.5px low — both navbar and
   footer nudge the gem up 2.5px to the name's ink centre (measured, delta 0
@@ -330,8 +330,8 @@ timing: the reveal pass, the scan line, the mark pops, the card fade.
   (panel top 64 vs bar bottom 65), `aria-expanded` flips, picking a link closes
   it, Escape closes it, and with JS disabled the three section links stay
   visible on mobile. The dash rule reports `background-size: 10% 5px`. The link
-  hover shows exactly one line: grey `::after` 1px at `bottom:0`, gold `::before`
-  2px at `bottom:0`. Endcap + footer sum 900/720/844 at the three viewports with
+  hover shows one line: grey 1px at rest, gold 2px on hover (border-bottom
+  colour + width). Endcap + footer sum 900/720/844 at the three viewports with
   the close logo at 180/144/169px wide and no content overflow (the lap height
   needed the close's air to go from `7vw` to `10svh` — 747 → 720 at 1280×720).
   The gem's centre and the wordmark's ink centre measure equal (delta 0) in the

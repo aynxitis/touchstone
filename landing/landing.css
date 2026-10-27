@@ -74,10 +74,13 @@ p,dd,li{text-wrap:pretty}
   transition:color .2s var(--ease);
 }
 .nav a:hover{color:var(--topbar-fg)}
+/* the CTA is the last item in the nav; pin it to the right edge on wide
+   screens so it doesn't ride on the links' 4px gap */
+.nav > .btn-sm{margin-left:24px}
 /* the hamburger: hidden on wide screens, shown by JS (html.js) on narrow ones */
 .burger{display:none;appearance:none;background:none;border:1px solid var(--topbar-line);
   color:var(--topbar-fg);padding:0;min-width:40px;height:40px;cursor:pointer;
-  align-items:center;justify-content:center;flex:none;
+  align-items:center;justify-content:center;flex:none;margin-left:auto;
   transition:border-color .2s var(--ease),color .2s var(--ease)}
 .burger:hover{border-color:var(--gold);color:var(--gold)}
 .burger .ic{display:block;width:18px;height:14px}
@@ -90,28 +93,22 @@ p,dd,li{text-wrap:pretty}
 }
 .btn:hover{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
 .btn-sm{min-height:40px;padding:0 16px;font-size:13.5px;margin-left:auto}
-.nav + .btn-sm{margin-left:0}
 /* a button that sits on graphite: paper white at rest, the one gold under the pointer */
 .btn-light{background:var(--on-stone);border-color:var(--on-stone);color:var(--ink)}
 .btn-light:hover{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
 .btn-gold{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
 .btn-gold:hover{background:var(--ink);border-color:var(--ink);color:var(--paper)}
-/* a quiet link with a hairline that stays; on hover the gold rule slides in over it,
-   covering the grey — one line at rest, one gold line on hover, never two */
+/* a quiet link with one hairline; on hover the grey simply becomes gold —
+   no slide, no second line, no pseudo-elements */
 .link{
-  position:relative;display:inline-flex;align-items:center;min-height:32px;
+  display:inline-flex;align-items:center;box-sizing:border-box;min-height:32px;
   font:500 15px var(--sans);color:var(--ink);text-decoration:none;
+  border-bottom:1px solid var(--rule-strong);
+  transition:border-color .2s var(--ease), border-bottom-width .2s var(--ease);
 }
-.link::after{
-  content:"";position:absolute;left:0;right:0;bottom:0;height:1px;
-  background:var(--rule-strong);
+.link:hover,.link:focus-visible{
+  border-bottom:2px solid var(--gold);
 }
-.link::before{
-  content:"";position:absolute;left:0;bottom:0;width:100%;height:2px;
-  background:var(--gold);transform:scaleX(0);transform-origin:left;
-  transition:transform .42s var(--ease);
-}
-.link:hover::before,.link:focus-visible::before{transform:scaleX(1)}
 
 /* ── hero ────────────────────────────────────────────────────────────── */
 .hero{padding:clamp(52px,7vw,92px) 0 clamp(44px,5vw,64px)}
@@ -527,16 +524,16 @@ p,dd,li{text-wrap:pretty}
 
 /* ── footer: the page's last word, not a footnote ─────────────────────── */
 .foot{background:var(--stone);color:var(--on-stone-muted);
-  padding:clamp(30px,4vw,46px) 0}
+  padding:clamp(22px,3vw,34px) 0}
 .foot-in{display:flex;justify-content:space-between;align-items:center;
-  gap:22px 40px;flex-wrap:wrap}
+  gap:18px 40px;flex-wrap:wrap}
 .foot-brand{display:inline-flex;align-items:center;gap:9px;font:400 24px/1 var(--serif);
   color:var(--on-stone);text-decoration:none;letter-spacing:-.01em}
 /* same optical nudge as the navbar (the footer's wordmark is an anonymous flex
    item, so the correction lives on the img) */
 .foot-logo{display:block;height:23px;width:auto;flex:none;
   transform:translateY(-2.5px)}
-.foot-copy{margin-top:10px;font:400 14px/1.5 var(--sans);color:var(--on-stone-muted)}
+.foot-copy{margin-top:8px;font:400 14px/1.5 var(--sans);color:var(--on-stone-muted)}
 .foot-nav{display:flex;align-items:center;gap:clamp(14px,2.2vw,26px);flex-wrap:wrap}
 .foot-nav > a:not(.btn){
   font:600 14px var(--sans);color:var(--on-stone);text-decoration:none;
@@ -596,11 +593,20 @@ p,dd,li{text-wrap:pretty}
     box-shadow:0 22px 34px rgba(10,10,8,.22)}
   .js .bar-in.menu-open .nav a{padding:13px clamp(20px,4vw,24px);font-size:15px}
   .js .bar-in.menu-open .nav a + a{border-top:1px solid var(--topbar-line)}
+  .js .bar-in.menu-open .nav a:hover,
+  .js .bar-in.menu-open .nav a:active,
+  .js .bar-in.menu-open .nav a:focus-visible{color:var(--topbar-fg);
+    background:rgba(255,255,255,.06)}
   .js .burger{display:inline-flex}
   .bar-in{gap:14px}
   html:not(.js) .bar-in{flex-wrap:wrap;row-gap:6px}
   html:not(.js) .nav{order:4;flex-basis:100%;justify-content:flex-start}
-  .btn-sm{margin-left:auto}
+  /* CTA is now the last item inside the nav, so it rides the dropdown;
+     no separate margin needed here */
+  .js .bar-in.menu-open .nav .btn-sm{
+    width:100%;margin:8px 0 4px;padding:12px clamp(20px,4vw,24px);
+    box-sizing:border-box;justify-content:center;margin-left:0;
+  }
   .display{font-size:clamp(40px,11vw,56px);max-width:8em}
   .demo-bar{padding:10px 14px;gap:10px 12px}
   .demo-title{flex-basis:100%}
