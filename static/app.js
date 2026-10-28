@@ -3018,9 +3018,9 @@ function openFromFront() {
     $("report").focus();
     return;
   }
-  // Phones have no edit step between opening and checking: run straight away,
-  // through the same path as the Run check button.
-  if (loadReport(text, reportName(text)) && phone.matches) $("run").click();
+  // The button opens the report and runs the check on every screen size, through
+  // the same path as the Run check button (limits, busy retries, tokens).
+  if (loadReport(text, reportName(text))) $("run").click();
 }
 
 async function importFile(file) {
