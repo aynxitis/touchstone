@@ -630,6 +630,20 @@ p,dd,li{text-wrap:pretty}
   .spec dt{grid-row:3;padding-top:18px;max-width:14ch;font-size:23px}
   .spec dd{grid-row:1;font-size:clamp(76px,20vw,96px)}
   .foot-nav{width:100%;justify-content:flex-start}
+
+  /* touch targets: 44px for everything a thumb aims at. Boxes grow where the layout
+     has room; links inside a line of text keep their look and grow an invisible hit
+     area instead (the app's .cardlink trick). */
+  .burger{min-width:44px;height:44px}
+  .btn-sm{min-height:44px}
+  .link{min-height:44px}
+  .nav > a:not(.btn){display:inline-flex;align-items:center;min-height:44px}
+  .demo-replay{min-height:44px;padding:0 14px}
+  .cnt{min-height:44px;padding:0 12px}
+  .copy-url,.foot-nav > a:not(.btn),.foot-brand,.card-host .source{position:relative}
+  .copy-url::after,.foot-nav > a:not(.btn)::after,.foot-brand::after{
+    content:"";position:absolute;inset:-13px -6px}
+  .card-host .source::after{content:"";position:absolute;inset:-6px 0}
 }
 
 /* ── legal pages (privacy, terms) ────────────────────────────────────── */
