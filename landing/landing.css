@@ -299,7 +299,7 @@ p,dd,li{text-wrap:pretty}
 .step button:focus-visible{outline:2px solid var(--accent-on);outline-offset:3px}
 .step-no{
   font:400 clamp(34px,4.4vw,58px)/.9 var(--sans);letter-spacing:-.045em;
-  color:rgba(240,240,237,.22);font-variant-numeric:tabular-nums;
+  color:rgba(240,240,237,.42);font-variant-numeric:tabular-nums;
   transition:color .3s var(--ease);
 }
 .step-title{display:block;font:500 clamp(21px,1.9vw,26px)/1.2 var(--sans);
