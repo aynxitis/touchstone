@@ -1251,18 +1251,18 @@ html[data-ui] .toolhint{font-size:calc(11.5px * var(--ui))}
   .prompt-box .secondary{min-height:44px}
   .dlgx{width:44px;height:44px;display:grid;place-items:center;top:0;right:0}
 
-  /* Tables stack, as they already did under 700px. */
+  /* Tables stack: each cell is a block with its header as a small label above it.
+     Blocks, not a grid: a cell's text, link and marks are separate grid items, so a
+     grid put the row name in the label column and the source link on a row of its own. */
   .paper table,.paper tbody{display:block}
   .paper thead{display:none}
   .paper tr{display:block;padding:10px 0 8px;border-bottom:1px solid var(--rule)}
-  .paper td{display:grid;grid-template-columns:86px minmax(0,1fr);gap:8px;
-    padding:2px 0;border:0;position:static}
-  .paper td::before{content:attr(data-l);font:10.5px/1.5 var(--mono);letter-spacing:.03em;
-    text-transform:uppercase;color:var(--muted)}
-  .paper td:first-child{grid-column:1/-1;font-weight:600;border-bottom:1px solid var(--rule);
-    padding:0 0 5px;margin-bottom:4px;position:relative}
+  .paper td,.paper td.n{display:block;padding:3px 0;border:0;position:static;text-align:left}
+  .paper td::before{content:attr(data-l);display:block;font:10.5px/1.5 var(--mono);
+    letter-spacing:.03em;text-transform:uppercase;color:var(--muted)}
+  .paper td:first-child{font-weight:600;border-bottom:1px solid var(--rule);
+    padding:0 0 6px;margin-bottom:4px;position:relative}
   .paper td:first-child::before{display:none}
-  .paper td{text-align:left}
 }
 
 /* ========================================================================
