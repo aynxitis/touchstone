@@ -128,7 +128,7 @@ textarea{width:100%;min-height:250px;resize:vertical;padding:14px 16px;
   font:14px/1.6 var(--mono);color:var(--ink);background:var(--paper);
   border:1px solid var(--rule-strong);border-radius:0}
 .sheet{margin:0 0 2px;border:1px solid var(--rule-strong);background:var(--paper)}
-.sheet:focus-within{border-color:var(--ink)}
+.sheet:focus-within{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
 .sheet-head{display:flex;align-items:center;justify-content:space-between;
   padding:6px 10px;border-bottom:1px solid var(--rule);
   font:11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
