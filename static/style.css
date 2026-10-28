@@ -19,9 +19,8 @@
   --ok-bg:#e6efe8; --warn-bg:#f4ecd7; --fail-bg:#f6e4df; --info-bg:#ececea; --grey-bg:#ededeb;
   /* Edge outcomes. The states that are not a verdict on the claim each keep a
      muted hue of their own, so the key and the card badges stay tellable apart;
-     none of them is a signal triple colour (green / amber / vermillion). The two
-     ways a check can fail to complete — the page couldn't be read, the check
-     itself failed — share the vermillion ring. */
+     none of them is a signal triple colour (green / amber / vermillion). Red means
+     only Contradicted: a check that failed (Error) is grey, a hollow grey ring. */
   --brown:#6d5741; --blue:#33607f; --violet:#6c5891;
   --brown-on:#d5c1a4; --blue-on:#9dc0d8; --violet-on:#c3b6de;
   --brown-bg:#f1e9dd; --blue-bg:#e3ecf2; --violet-bg:#ece6f2;
@@ -288,7 +287,6 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,236,234,.1
 .stonelink::after{content:"";position:absolute;inset:-8px -6px}
 .verdict{margin:0;font:500 24px/1.28 var(--sans);letter-spacing:-.02em;color:var(--on-stone);
   text-wrap:pretty}
-.stone.is-error .verdict{color:var(--fail-on)}
 .stone.is-empty .verdict{color:var(--on-stone-muted);font-size:17px;font-style:normal}
 .counts{display:flex;flex-wrap:wrap;gap:5px;margin-top:13px}
 .cnt{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;cursor:pointer;
@@ -308,10 +306,10 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,236,234,.1
 .dot-grey{background:var(--grey)}
 .dot-brown{background:var(--brown)}
 .dot-violet{background:var(--violet)}
-/* Error is a failure of the check, never a verdict on the claim: vermillion as
-   a ring, so it stays distinct from a filled Contradicted dot. A source that
-   couldn't be read is the same kind of dead end, so it wears the same ring. */
-.dot-error{background:transparent;box-shadow:inset 0 0 0 1.5px var(--fail)}
+/* Error is a failure of the check, never a verdict on the claim, so it is grey,
+   not red (red means only Contradicted). A ring, not a dot, so it stays distinct
+   from the filled grey of Source unreachable / Not checked. */
+.dot-error{background:transparent;box-shadow:inset 0 0 0 1.5px var(--grey)}
 .cnt .dot-green{background:var(--ok-on)}
 .cnt .dot-yellow{background:var(--warn-on)}
 .cnt .dot-red{background:var(--fail-on)}
@@ -319,7 +317,7 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,236,234,.1
 .cnt .dot-grey{background:var(--on-stone-muted)}
 .cnt .dot-brown{background:var(--brown-on)}
 .cnt .dot-violet{background:var(--violet-on)}
-.cnt .dot-error{background:transparent;box-shadow:inset 0 0 0 1.5px var(--fail-on)}
+.cnt .dot-error{background:transparent;box-shadow:inset 0 0 0 1.5px var(--on-stone-muted)}
 .cnt .dot-half{background:linear-gradient(90deg,var(--warn-on) 50%,transparent 50%);
   box-shadow:inset 0 0 0 1px var(--warn-on)}
 .runrow{display:flex;align-items:center;gap:10px;margin-top:13px;flex-wrap:wrap}
@@ -420,7 +418,7 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,236,234,.1
 .badge.tone-grey{--tone:var(--grey);--tone-bg:var(--grey-bg)}
 .badge.tone-brown{--tone:var(--brown);--tone-bg:var(--brown-bg)}
 .badge.tone-violet{--tone:var(--violet);--tone-bg:var(--violet-bg)}
-.badge.tone-error{--tone:var(--fail);--tone-bg:var(--fail-bg)}
+.badge.tone-error{--tone:var(--grey);--tone-bg:var(--grey-bg)}
 .cno{font:11.5px var(--mono);color:var(--muted);letter-spacing:.04em}
 .cardlink{position:relative;margin-left:auto;background:none;border:0;padding:2px 0;cursor:pointer;
   font:11.5px var(--mono);letter-spacing:.02em;color:var(--muted);text-decoration:underline;
@@ -651,7 +649,6 @@ html[data-theme="dark"] .drop{background:rgba(17,18,20,.92)}
   .stone.in-doc .stonelink{color:var(--muted)}
   .stone.in-doc .verdict{color:var(--ink);font-size:16px;line-height:1.35}
   .stone.in-doc.is-empty .verdict{color:var(--muted)}
-  .stone.in-doc.is-error .verdict{color:var(--fail)}
   .stone.in-doc.is-wait .verdict{color:var(--warn)}
   .stone.in-doc .counts{margin-top:6px;flex-wrap:nowrap;overflow-x:auto}
   .stone.in-doc .cnt{border-color:var(--rule-strong);color:var(--muted)}
@@ -665,7 +662,7 @@ html[data-theme="dark"] .drop{background:rgba(17,18,20,.92)}
   .stone.in-doc .cnt .dot-grey{background:var(--grey)}
   .stone.in-doc .cnt .dot-brown{background:var(--brown)}
   .stone.in-doc .cnt .dot-violet{background:var(--violet)}
-  .stone.in-doc .cnt .dot-error{background:transparent;box-shadow:inset 0 0 0 1.5px var(--fail)}
+  .stone.in-doc .cnt .dot-error{background:transparent;box-shadow:inset 0 0 0 1.5px var(--grey)}
   .stone.in-doc .cnt .dot-half{background:linear-gradient(90deg,var(--warn) 50%,transparent 50%);
     box-shadow:inset 0 0 0 1px var(--warn)}
   .stone.in-doc .runbtn{background:var(--gold);color:var(--gold-ink);border-color:var(--gold)}

@@ -432,7 +432,7 @@ p,dd,li{text-wrap:pretty}
 .edge li:has(.edge-dot[data-tone="blue"])::before{background:var(--blue-on)}
 .edge li:has(.edge-dot[data-tone="violet"])::before{background:var(--violet-on)}
 .edge li:has(.edge-dot[data-tone="grey"])::before{background:var(--on-stone-muted)}
-.edge li:has(.edge-dot[data-tone="error"])::before{background:var(--fail-on)}
+.edge li:has(.edge-dot[data-tone="error"])::before{background:var(--on-stone-muted)}
 .edge b{font:500 clamp(17px,1.55vw,20px)/1.3 var(--sans);color:var(--on-stone);
   transition:transform .45s var(--ease)}
 .edge li:hover b{transform:translateX(8px)}
@@ -443,7 +443,7 @@ p,dd,li{text-wrap:pretty}
 .edge-dot[data-tone="violet"]{background:var(--violet-on)}
 .edge-dot[data-tone="grey"]{background:var(--on-stone-muted)}
 .edge-dot[data-tone="error"]{background:transparent;
-  box-shadow:inset 0 0 0 1.5px var(--fail-on)}
+  box-shadow:inset 0 0 0 1.5px var(--on-stone-muted)}
 
 /* ── limits: graphite cards on paper, the numbers large ──────────────── */
 .limits{background:var(--paper);border-top:1px solid var(--rule);
