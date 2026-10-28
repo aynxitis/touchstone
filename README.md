@@ -2,7 +2,7 @@
 
 Paste an AI research report (ChatGPT, Perplexity, Gemini). Touchstone opens every cited page and checks whether it actually says what the report claims — and shows the exact quote as proof.
 
-Live: https://touchstone.aynx.dev. "Try an example" replays a saved run instantly (no model call, no wait).
+Live: the landing page is at https://touchstone.aynx.dev and the app at https://touchstone.aynx.dev/app. "Try the example" replays a saved run (no model call).
 
 ## The problem
 

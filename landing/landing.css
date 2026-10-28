@@ -376,6 +376,7 @@ p,dd,li{text-wrap:pretty}
 .findings dd{color:var(--on-stone-muted);font-size:14.5px;line-height:1.58;max-width:60ch}
 .findings .num{color:var(--on-stone)}
 .band-fine{margin-top:clamp(20px,2.4vw,28px)}
+.demo-caption{margin-top:12px}
 @media (hover:hover) and (prefers-reduced-motion: no-preference){
   .findings:hover > div{transform:scale(.975);opacity:.72}
   .findings > div:hover{

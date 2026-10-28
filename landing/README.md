@@ -143,7 +143,7 @@ when the label lands.
   the number top-left and the label bottom-left: numbers up to 132px, labels
   20–27px in sans (not footnote grey). The caveat belongs **inside** each card:
   a bold lead (Don't paste anything private / It checks the page, not the truth /
-  Not public, not commercial) and the sentence under it, as a `.spec-body` `<dd>`
+  Free, not commercial) and the sentence under it, as a `.spec-body` `<dd>`
   in the same `<dl>`. The only text that stays on the paper is the gloss —
   "Only the first ones, in report order, are checked." — as a `.spec-note`
   `<p>` after the `</dl>`. All three cards are `grid-row: span 4` items of one
@@ -190,8 +190,8 @@ when the label lands.
   gem at 26px and the same 2.5px optical nudge, so the brand mark is identical
   on both surfaces. The app's UI-scale feature keeps working off the same base
   (`calc(22px * var(--ui))`).
-  The footer is a graphite band: serif wordmark, `© 2026 Touchstone · Supervised
-  by Thirdun`, privacy and terms links, and a white "Open the app" button. Both
+  The footer is a graphite band: serif wordmark, `© 2026 Touchstone · Built in
+  the Thirduni program`, privacy and terms links, and a white "Open the app" button. Both
   legal pages are ordinary files served from the landing root, so they work on
   the app and on a plain static host.
 
