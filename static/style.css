@@ -428,6 +428,7 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,236,234,.1
 .cardlink:hover{color:var(--ink);text-decoration-color:var(--ink)}
 .cardlink::after{content:"";position:absolute;inset:-6px -4px}
 .cardlink.is-off{text-decoration:none;color:var(--faint);cursor:default}
+.cardlink + .cardlink{margin-left:14px}
 .claim{margin:9px 0 0;font:16px/1.5 var(--serif);color:var(--ink);text-wrap:pretty}
 .claim .diff{background:var(--fail-bg);color:var(--fail);padding:0 2px;
   text-decoration:underline;text-decoration-color:var(--fail);text-underline-offset:2px}
@@ -1237,6 +1238,11 @@ html[data-ui] .toolhint{font-size:calc(11.5px * var(--ui))}
   .card{max-width:100%;overflow-wrap:anywhere}
   .card-head{flex-wrap:wrap;row-gap:0}
   .cardlink{min-height:44px;display:inline-flex;align-items:center}
+  /* The links get a row of their own under the badge, so a long label never
+     strands one of them at the end of a wrapped line. */
+  .card-head:has(.cardlink)::after{content:"";flex-basis:100%;order:2}
+  .card-head .cardlink{order:3;margin-left:0}
+  .card-head .cardlink + .cardlink{margin-left:20px}
   .card .source{display:flex;align-items:center;min-height:44px;margin-top:4px}
   .card[data-label="CONTRADICTED"],.card[data-label="UNSUPPORTED"]{order:-2}
   .card[data-label="PARTIAL"],.card[data-label="COULDN'T CONFIRM"]{order:-1}
