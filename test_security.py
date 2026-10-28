@@ -295,11 +295,12 @@ css = lambda html: re.search(r'href="/static/style\.css\?v=([0-9a-f]{12})"', htm
 assert js(v1) != js(v2) and css(v1) == css(v2)
 assert 'src="/static/missing.js"' in v1                                # unknown file: left alone
 with TestClient(A.app) as tc:
-    page = tc.get("/")
+    page = tc.get("/app")
     assert page.headers["cache-control"] == "no-cache"
     assert "script-src 'self'" in page.headers["content-security-policy"]
     refs = re.findall(r'(?:src|href)="(/static/[^"]+)"', page.text)
-    assert len(refs) == 2 and all(re.search(r"\?v=[0-9a-f]{12}$", r) for r in refs), refs
+    # 3 refs: style.css, app.js and the wordmark's logo.svg
+    assert len(refs) == 3 and all(re.search(r"\?v=[0-9a-f]{12}$", r) for r in refs), refs
     for ref in refs:
         r = tc.get(ref)
         assert r.status_code == 200 and r.headers["cache-control"] == "public, max-age=31536000, immutable", ref
@@ -307,6 +308,35 @@ with TestClient(A.app) as tc:
         assert bare.headers["cache-control"] == "no-cache" and bare.content == r.content
         assert tc.get(ref.split("?")[0] + "?v=000000000000").headers["cache-control"] == "no-cache"
     assert tc.get("/static/nope.js?v=").status_code == 404
+    # "/" is the landing page now; the app is /app. Its own assets must resolve from the root.
+    landing = tc.get("/")
+    assert landing.status_code == 200 and "landing.css" in landing.text, landing.status_code
+    assert landing.headers["cache-control"] == "no-cache"
+    assert "script-src 'self'" in landing.headers["content-security-policy"]
+    for path in ("/landing.css", "/tokens.css", "/error.css", "/error.js", "/landing.js",
+                 "/favicon.svg", "/logo.svg", "/logo-app.svg",
+                 "/fonts/archivo-latin-1.woff2", "/vendor/motion.js",
+                 "/privacy.html", "/terms.html"):
+        r = tc.get(path)
+        assert r.status_code == 200 and r.headers["cache-control"] == "no-cache", path
+    assert "Privacy policy" in tc.get("/privacy.html").text
+    assert "Terms of service" in tc.get("/terms.html").text
+    assert tc.get("/README.md").status_code == 404          # the landing folder's notes stay private
+    assert "/static/" not in landing.text                   # no app assets leak into the landing page
+    # A dead link is a page, not a bare body: one giant number and one plain sentence. The
+    # machine surfaces keep their JSON, and /error previews any code in the copy table.
+    for path in ("/no-such-page", "/no-such-page/deeper"):
+        r = tc.get(path)
+        assert r.status_code == 404 and "text/html" in r.headers["content-type"], path
+        assert 'class="code"' in r.text and ">404<" in r.text, r.text[:400]
+        assert "doesn’t exist." in r.text and "link may be old" in r.text
+        assert r.headers["cache-control"] == "no-cache"
+    assert ">500<" in tc.get("/error?code=500").text and "broke on our side" in tc.get("/error?code=500").text
+    assert ">404<" in tc.get("/error?code=999").text                   # unknown code: the 404 copy
+    preview = tc.get("/error")
+    assert preview.status_code == 200 and "text/html" in preview.headers["content-type"]
+    api = tc.get("/api/nope")
+    assert api.status_code == 404 and "application/json" in api.headers["content-type"], api.text
 
 # 12. Groq per-minute pacing (pacing.py): fake client and fake clock, no real sleeping.
 import pacing

@@ -2,7 +2,7 @@
 
 Paste an AI research report (ChatGPT, Perplexity, Gemini). Touchstone opens every cited page and checks whether it actually says what the report claims — and shows the exact quote as proof.
 
-Live: https://touchstone.aynx.dev. "Try an example" replays a saved run instantly (no model call, no wait).
+Live: the landing page is at https://touchstone.aynx.dev and the app at https://touchstone.aynx.dev/app. "Try the example" replays a saved run (no model call).
 
 ## The problem
 
@@ -88,18 +88,24 @@ Requires Python 3.14.
 ```
 git clone https://github.com/aynxitis/touchstone.git touchstone
 cd touchstone
-python -m venv .venv
-.venv/bin/pip install -r requirements.txt
-cp .env.example .env
+python dev.py
 ```
 
-Edit `.env`: set `PROVIDER` (`gemini` or `groq`) and the matching key (`GEMINI_API_KEY` or `GROQ_API_KEY`).
+That is the whole setup: `dev.py` creates `.venv` and installs `requirements.txt` on the first
+run, then starts the same entry point as production (`uvicorn app:app`) with `--reload`.
 
-Start the web app (same command as production, on a local port):
+- `http://127.0.0.1:8031/` — the landing page (`landing/`)
+- `http://127.0.0.1:8031/app` — the app itself
 
-```
-.venv/bin/uvicorn app:app --host 127.0.0.1 --port 8000 --workers 1 --no-proxy-headers
-```
+Options: `python dev.py --port 9000`, `python dev.py --no-reload`. Without a `.env` the app
+starts on the default provider and the "Try an example" replay works (no key, no model call);
+real checks need `GEMINI_API_KEY` or `GROQ_API_KEY`. Copy `.env.example` to `.env` and set
+`PROVIDER` to match.
+
+Production sets the provider the same way and runs
+`uvicorn app:app --host 0.0.0.0 --port $PORT --workers 1 --no-proxy-headers` (see
+`railpack.json`); there is deliberately no `package.json`, so Railway's builder keeps
+detecting a Python app.
 
 Run the tests (no model calls, no keys needed):
 
@@ -119,7 +125,8 @@ The optional second argument re-runs only those claim numbers. `--cache` stores 
 
 ## Architecture
 
-- `app.py`: FastAPI app: serves the page, streams audit events, rate limits, proxy-secret check.
+- `app.py`: FastAPI app: serves the landing page at `/` and the app at `/app`, streams audit events, rate limits, proxy-secret check.
+- `dev.py`: the one command for local runs: bootstraps `.venv`, then starts `uvicorn app:app` with `--reload`.
 - `mcp_server.py`: the remote MCP server (`check_claims` at `POST /mcp`), on only with `MCP_ENABLED=1`.
 - `touchstone.py`: the audit pipeline: claim selection, fetching, model calls, deadlines, multi-source merge.
 - `check_numbers.py`: report parsing: claims, links, footnotes, Source lines, tables, stat blocks.

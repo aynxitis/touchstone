@@ -1,0 +1,648 @@
+/* Touchstone — landing page.
+   Paper, ink, one gold for the chrome. The product's own verdict colours (green, amber,
+   red) are used where the page explains a verdict or shows one: the live example's
+   badges, the verdict key's dots, the report's margin marks. Nothing else is coloured. */
+
+@font-face{
+  font-family:"Newsreader";
+  src:url("fonts/newsreader-latin-2.woff2") format("woff2");
+  font-weight:200 800;font-style:normal;font-display:swap;
+}
+@font-face{
+  font-family:"Archivo";
+  src:url("fonts/archivo-latin-1.woff2") format("woff2");
+  font-weight:100 900;font-style:normal;font-display:swap;
+}
+
+html{-webkit-text-size-adjust:100%}
+@media (prefers-reduced-motion: no-preference){html{scroll-behavior:smooth}}
+body{
+  margin:0;background:var(--page);color:var(--ink);
+  font:400 16.5px/1.65 var(--sans);
+  -webkit-font-smoothing:antialiased;
+}
+img{max-width:100%;height:auto}
+::selection{background:var(--sel);color:var(--ink)}
+:focus-visible{outline:2px solid var(--brass);outline-offset:3px}
+.band :focus-visible,.foot :focus-visible,.bar :focus-visible{outline-color:var(--accent-on)}
+h1,h2,h3,p,figure,dl,dd,ul{margin:0}
+ul{padding:0}
+p,dd,li{text-wrap:pretty}
+
+.wrap{max-width:var(--wrap);margin-inline:auto;padding-inline:clamp(20px,4vw,24px)}
+.wrap.wide{max-width:1240px}
+[id]{scroll-margin-top:calc(var(--bar) + 20px)}
+.mono{font-family:var(--mono)}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:.94em;letter-spacing:-.01em}
+.mono-inline{font-family:var(--mono);font-size:.92em}
+.dotsep{color:var(--rule-strong);margin:0 .45em}
+
+/* the page's one ornament: an 8px gold square, the app's own mark */
+.mark{display:inline-block;width:8px;height:8px;background:var(--gold);flex:none}
+
+.skip{
+  position:fixed;left:14px;top:-60px;z-index:80;background:var(--ink);color:var(--paper);
+  padding:12px 18px;font:500 14px var(--sans);text-decoration:none;transition:top .2s var(--ease);
+}
+.skip:focus{top:14px}
+
+.progress{position:fixed;inset:0 0 auto;height:2px;z-index:60;pointer-events:none}
+.progress span{display:block;height:100%;background:var(--gold);
+  transform:scaleX(0);transform-origin:0 50%}
+@media (prefers-reduced-motion: no-preference){
+  @supports (animation-timeline: scroll()){
+    .progress span{animation:pg linear both;animation-timeline:scroll(root)}
+  }
+}
+@keyframes pg{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+
+/* ── top bar ─────────────────────────────────────────────────────────── */
+.bar{position:sticky;top:0;z-index:50;background:var(--topbar);color:var(--topbar-fg);
+  border-bottom:1px solid var(--topbar-line)}
+.bar-in{display:flex;align-items:center;gap:24px;min-height:var(--bar)}
+.brand{display:flex;align-items:center;gap:10px;min-height:44px;
+  color:var(--topbar-fg);text-decoration:none}
+/* the gem sits dead-centre in its box, but Newsreader's line box carries descent
+   space the glyphs don't use ("Touchstone" has no descenders), so box-centring
+   leaves the gem 2.5px low against the name's ink (measured) — nudge it up */
+.brand-logo{display:block;height:26px;width:auto;flex:none;
+  transform:translateY(-2.5px)}
+.brand-name{font:400 22px/1 var(--serif);letter-spacing:-.01em}
+.nav{display:flex;align-items:center;gap:4px;margin-left:auto}
+.nav > a:not(.btn){
+  padding:8px 10px;font:500 13.5px var(--sans);color:var(--topbar-muted);text-decoration:none;
+  transition:color .2s var(--ease);
+}
+.nav > a:not(.btn):hover{color:var(--topbar-fg)}
+/* the CTA is the last item in the nav; pin it to the right edge on wide
+   screens so it doesn't ride on the links' 4px gap */
+.nav > .btn-sm{margin-left:24px}
+/* the hamburger: hidden on wide screens, shown by JS (html.js) on narrow ones */
+.burger{display:none;appearance:none;background:none;border:1px solid var(--topbar-line);
+  color:var(--topbar-fg);padding:0;min-width:40px;height:40px;cursor:pointer;
+  align-items:center;justify-content:center;flex:none;margin-left:auto;
+  transition:border-color .2s var(--ease),color .2s var(--ease)}
+.burger:hover{border-color:var(--gold);color:var(--gold)}
+.burger .ic{display:block;width:18px;height:14px}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 24px;
+  background:var(--ink);color:var(--paper);border:1px solid var(--ink);
+  font:500 14px var(--sans);letter-spacing:.01em;text-decoration:none;
+  transition:background .22s var(--ease),color .22s var(--ease),border-color .22s var(--ease);
+}
+.btn:hover{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
+.btn-sm{min-height:40px;padding:0 16px;font-size:13.5px;margin-left:auto}
+/* a button that sits on graphite: paper white at rest, the one gold under the pointer */
+.btn-light{background:var(--on-stone);border-color:var(--on-stone);color:var(--ink)}
+.btn-light:hover{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
+.btn-gold{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
+.btn-gold:hover{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+/* a quiet link with one hairline; on hover the grey simply becomes gold —
+   no slide, no second line, no pseudo-elements */
+.link{
+  display:inline-flex;align-items:center;box-sizing:border-box;min-height:32px;
+  font:500 15px var(--sans);color:var(--ink);text-decoration:none;
+  border-bottom:1px solid var(--rule-strong);
+  transition:border-color .2s var(--ease), border-bottom-width .2s var(--ease);
+}
+.link:hover,.link:focus-visible{
+  border-bottom:2px solid var(--gold);
+}
+
+/* ── hero ────────────────────────────────────────────────────────────── */
+.hero{padding:clamp(52px,7vw,92px) 0 clamp(44px,5vw,64px)}
+.eyebrow{
+  display:flex;align-items:center;gap:10px;
+  font:500 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--faint);
+}
+.display{
+  margin-top:22px;
+  font:400 clamp(46px,7.4vw,96px)/0.98 var(--serif);letter-spacing:-.032em;
+  max-width:11em;
+}
+/* "source" carries the page's one hand-drawn rule: long gold dashes, drawn left to right.
+   The tiles are a percentage of the word, so the run always ends on a full dash — no
+   clipped fragment hanging off the right edge on narrow screens. */
+.u-source{position:relative;white-space:nowrap}
+.u-source::after{
+  content:"";position:absolute;left:0;right:0;bottom:.03em;height:5px;
+  background-image:linear-gradient(90deg,var(--gold) 0 72%,transparent 72% 100%);
+  background-size:10% 5px;background-repeat:repeat-x;background-position:left top;
+  transform:scaleX(1);transform-origin:left;
+}
+@media (prefers-reduced-motion: no-preference){
+  .u-source::after{animation:draw-rule .85s var(--ease) .45s both}
+}
+@keyframes draw-rule{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.lead{margin-top:clamp(24px,3vw,34px);font-size:clamp(17.5px,1.6vw,20px);line-height:1.6;
+  color:var(--muted);max-width:56ch}
+.actions{display:flex;align-items:center;gap:12px 24px;flex-wrap:wrap;margin-top:clamp(26px,3vw,36px)}
+.fine{margin-top:18px;font:400 12.5px/1.6 var(--sans);color:var(--faint);max-width:66ch}
+.band .fine{color:var(--on-stone-muted)}
+
+/* ── the live example ─────────────────────────────────────────────────
+   A report on the left, the checker on the right. Rows and counts are buttons: picking
+   one swaps the card. The marks in the report's margin are the app's margin marks. */
+.demo{
+  margin-top:clamp(36px,5vw,60px);background:var(--paper);
+  border:1px solid var(--rule);box-shadow:var(--shadow);
+}
+.demo-bar{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:12px 18px;border-bottom:1px solid var(--rule);
+}
+.demo-title{display:flex;align-items:center;gap:10px;
+  font:500 11px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--muted)}
+.demo-note{margin-left:auto;font:400 11px var(--mono);color:var(--faint)}
+.demo-replay{
+  display:inline-flex;align-items:center;gap:7px;background:none;border:1px solid var(--rule);
+  padding:7px 11px;font:500 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);cursor:pointer;transition:border-color .2s,color .2s;
+}
+.demo-replay:hover{border-color:var(--ink);color:var(--ink)}
+.demo-body{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr)}
+.report{position:relative;overflow:hidden;border-right:1px solid var(--rule)}
+.report-bar{
+  display:flex;justify-content:space-between;gap:12px;
+  padding:9px 18px;border-bottom:1px solid var(--rule);
+  font:500 9.5px var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--faint);
+}
+.report-doc{padding:20px 20px 16px 26px;font-size:14px;line-height:1.6;color:var(--muted)}
+.rline{margin:0 0 12px;padding:2px 6px 2px 8px;margin-left:-8px;cursor:pointer;
+  border-left:2px solid transparent;transition:background .18s,border-color .18s,color .18s}
+.rline:hover{background:rgba(23,24,26,.045);color:var(--ink)}
+.rline:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.rline.is-sel{background:rgba(201,162,39,.13);border-left-color:var(--gold);color:var(--ink)}
+.rline b{font-weight:600;color:var(--ink)}
+.rline-more{font-size:13px;opacity:.85}
+.rhead{font:500 9.5px var(--mono);letter-spacing:.13em;text-transform:uppercase;
+  color:var(--faint);margin:18px 0 8px}
+.rtable{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+.rtable th,.rtable td{text-align:left;padding:7px 6px;border-top:1px solid var(--rule);vertical-align:middle}
+.rtable thead th{font:500 9.5px var(--mono);letter-spacing:.09em;text-transform:uppercase;
+  color:var(--faint);border-top:0;border-bottom:1px solid var(--rule)}
+.rtable thead th:nth-child(2){text-align:right}
+.rtable thead th:nth-child(3){text-align:right;width:52px}
+.rtable tbody th{font:500 13px var(--sans);color:var(--ink)}
+.rtable td:nth-child(2),.rtable td:nth-child(3){text-align:right;font-family:var(--mono);
+  font-size:12.5px;color:var(--ink)}
+.rtable tbody tr{cursor:pointer;transition:background .18s}
+.rtable tbody tr:hover{background:rgba(23,24,26,.045)}
+.rtable tbody tr:focus-visible{outline:2px solid var(--brass);outline-offset:-2px}
+.rtable tbody tr.is-sel{background:rgba(201,162,39,.13)}
+.rtable tbody tr.is-sel th:first-child{box-shadow:inset 2px 0 0 var(--gold)}
+.rtable .rail{width:18px;padding-left:0;padding-right:0;text-align:center}
+.rmark{display:inline-block;width:7px;height:7px;background:var(--rule-strong);opacity:0;
+  transform:scale(.4);transition:background .2s}
+.rmark.is-set{opacity:1;transform:none}
+.rmark[data-tone="green"]{background:var(--ok)}
+.rmark[data-tone="yellow"]{background:var(--warn)}
+.rmark[data-tone="red"]{background:var(--fail)}
+.rmark[data-tone="grey"]{background:var(--grey)}
+.report-foot{padding:10px 18px 14px;font:400 10.5px var(--mono);color:var(--faint);
+  border-top:1px solid var(--rule)}
+.scan{position:absolute;left:0;right:0;top:0;height:1px;background:var(--gold);
+  box-shadow:0 0 12px 1px rgba(201,162,39,.5);opacity:0;pointer-events:none}
+
+.result{position:relative;display:flex;flex-direction:column;background:var(--soft)}
+.result-top{padding:18px 20px 16px;border-bottom:1px solid var(--rule)}
+.result-kicker{font:500 9.5px var(--mono);letter-spacing:.13em;text-transform:uppercase;
+  color:var(--faint)}
+.result-line{margin-top:7px;font:400 clamp(19px,1.9vw,23px)/1.25 var(--serif);color:var(--ink);
+  letter-spacing:-.01em}
+.counts{display:flex;flex-wrap:wrap;gap:6px;margin-top:13px}
+.cnt{
+  display:inline-flex;align-items:center;gap:6px;padding:5px 9px;
+  background:transparent;border:1px solid var(--rule-strong);cursor:pointer;
+  font:500 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);
+  transition:background .18s,border-color .18s,color .18s;
+}
+.cnt:hover{border-color:var(--ink);color:var(--ink)}
+.cnt b{font-weight:600;font-size:11px;color:var(--ink)}
+.cnt[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.cnt[aria-pressed="true"] b{color:var(--paper)}
+.cnt[aria-pressed="true"] .dot{background:var(--paper)}
+.dot{width:6px;height:6px;border-radius:50%;flex:none;background:var(--faint)}
+.dot-green{background:var(--ok)}
+.dot-yellow{background:var(--warn)}
+.dot-red{background:var(--fail)}
+.card-host{padding:16px 20px 20px;flex:1}
+.card-void{margin:0;padding:14px 0;font:12px/1.6 var(--mono);color:var(--muted)}
+.card-void a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--rule-strong)}
+
+/* ── the claim card: the app's card, same classes, same behaviour ─────── */
+.card{background:var(--paper);border:1px solid var(--rule);padding:16px 17px 17px}
+.card-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.badge{
+  font:600 11px var(--mono);letter-spacing:.09em;text-transform:uppercase;
+  padding:3px 6px;border:1px solid var(--tone,var(--rule-strong));
+  color:var(--tone,var(--muted));background:var(--tone-bg,transparent);flex:none;
+}
+.badge.tone-red{--tone:var(--fail);--tone-bg:var(--fail-bg)}
+.badge.tone-yellow{--tone:var(--warn);--tone-bg:var(--warn-bg)}
+.badge.tone-green{--tone:var(--ok);--tone-bg:var(--ok-bg)}
+.badge.tone-grey{--tone:var(--grey);--tone-bg:var(--grey-bg)}
+.cno{font:12px var(--mono);color:var(--muted);letter-spacing:.04em}
+.claim{margin:10px 0 0;font:16.5px/1.52 var(--serif);color:var(--ink);text-wrap:pretty}
+.diff{background:var(--fail-bg);color:var(--fail);padding:0 2px;
+  text-decoration:underline;text-decoration-color:var(--fail);text-underline-offset:2px}
+.parts{list-style:none;margin:13px 0 0;padding:0;border-top:1px solid var(--rule)}
+.parts li{padding:10px 0;border-bottom:1px solid var(--rule)}
+.parts li:last-child{border-bottom:0;padding-bottom:0}
+.part-head{display:flex;flex-direction:column;gap:2px}
+.tag{font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.part-text{font:14.5px/1.5 var(--sans);color:var(--ink)}
+.parts li[data-status="contradicted"] .tag{color:var(--fail)}
+.parts li[data-status="missing"] .tag,
+.parts li[data-status="unconfirmed"] .tag{color:var(--warn)}
+.rejected .part-text{text-decoration:line-through;text-decoration-color:var(--fail);
+  color:var(--muted)}
+.quote{margin:6px 0 0;padding-left:9px;border-left:2px solid var(--rule-strong);
+  font:15px/1.55 var(--serif);color:var(--ink);overflow-wrap:anywhere}
+.quote .diff{font-style:normal}
+.part-note{margin:8px 0 0;font:13px/1.5 var(--mono);color:var(--muted)}
+.source{display:inline-block;margin-top:9px;font:12px var(--mono);color:var(--muted);
+  overflow-wrap:anywhere;text-decoration:none;border-bottom:1px solid var(--rule)}
+.source:hover{color:var(--ink);border-color:var(--ink)}
+.card .source:empty{display:none}
+
+/* ── the check: one card, three moves, scroll-driven ─────────────────── */
+.check{padding:clamp(60px,7.5vw,104px) 0}
+.check-head{max-width:64ch;margin-bottom:clamp(30px,4vw,48px)}
+.lead-sm{margin-top:14px;font-size:clamp(16.5px,1.4vw,18px);line-height:1.6;color:var(--muted);
+  max-width:58ch}
+.h2{margin-top:18px;font:400 clamp(34px,4.4vw,58px)/1.04 var(--serif);letter-spacing:-.025em}
+/* the card and the three moves share the width; each move is the card's own size */
+.story{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:clamp(32px,5vw,72px);align-items:start}
+.story-side{position:relative;align-self:stretch}
+.story-card{position:sticky;top:calc(var(--bar) + 24px);background:var(--soft);
+  border:1px solid var(--rule);padding:18px}
+.story-card .card-host{padding:0}
+.story-card .card{border-color:var(--rule-strong)}
+.story-meter{height:2px;background:var(--rule);margin-top:18px;overflow:hidden}
+.story-bar{display:block;height:100%;width:33.333%;background:var(--gold);
+  transition:width .5s var(--ease)}
+.story-caption{margin-top:10px;font:500 10.5px var(--mono);letter-spacing:.13em;
+  text-transform:uppercase;color:var(--muted)}
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:clamp(10px,1.2vw,14px)}
+.step{min-width:0}
+.step button{
+  all:unset;box-sizing:border-box;display:grid;
+  grid-template-columns:clamp(58px,6.4vw,92px) minmax(0,1fr);
+  gap:clamp(14px,2vw,28px);width:100%;padding:clamp(22px,2.6vw,34px);cursor:pointer;
+  background:var(--stone);color:var(--on-stone);border:1px solid transparent;
+  transition:background-color .25s var(--ease),border-color .25s var(--ease);
+}
+.step button:hover{background:#212225}
+.step button:focus-visible{outline:2px solid var(--accent-on);outline-offset:3px}
+.step-no{
+  font:400 clamp(34px,4.4vw,58px)/.9 var(--sans);letter-spacing:-.045em;
+  color:rgba(240,240,237,.22);font-variant-numeric:tabular-nums;
+  transition:color .3s var(--ease);
+}
+.step-title{display:block;font:500 clamp(21px,1.9vw,26px)/1.2 var(--sans);
+  letter-spacing:-.015em;color:rgba(240,240,237,.78);transition:color .3s var(--ease)}
+.step-text{display:block;margin-top:11px;font-size:clamp(16.5px,1.25vw,17.5px);line-height:1.62;
+  color:rgba(240,240,237,.66);max-width:46ch;transition:color .3s var(--ease)}
+.step-text em{font-style:italic;color:rgba(240,240,237,.8)}
+.step[aria-current="true"] .step-no{color:var(--gold)}
+.step[aria-current="true"] .step-title{color:var(--on-stone)}
+.step[aria-current="true"] .step-text{color:rgba(240,240,237,.82)}
+.step[aria-current="true"] button{background:#232427;border-color:rgba(240,240,237,.16);
+  cursor:default}
+
+/* the card's three states: the evidence arrives blurred, then sharp, then labelled */
+.card-stage .parts{opacity:.34;filter:blur(3px);transition:opacity .4s var(--ease),
+  filter .4s var(--ease),transform .4s var(--ease)}
+.card-stage .source{opacity:0;transform:translateY(6px);
+  transition:opacity .35s var(--ease),transform .35s var(--ease)}
+.card-stage[data-stage="2"] .parts,
+.card-stage[data-stage="3"] .parts{opacity:1;filter:none}
+.card-stage[data-stage="2"] .source,
+.card-stage[data-stage="3"] .source{opacity:1;transform:none}
+/* the claim's mark is part of the verdict, so it only turns red when the label lands */
+.card-stage .claim .diff,
+.card-stage .quote .diff{background:transparent;color:inherit;text-decoration:none;
+  transition:background-color .35s var(--ease),color .35s var(--ease)}
+/* and the status tags, the strike-through and the note are the verdict too */
+.card-stage .tag{opacity:0;transition:opacity .3s var(--ease)}
+.card-stage .rejected .part-text{text-decoration:none;color:var(--ink);
+  transition:color .3s var(--ease)}
+.card-stage[data-stage="3"] .claim .diff,
+.card-stage[data-stage="3"] .quote .diff{background:var(--fail-bg);color:var(--fail);
+  text-decoration:underline;text-decoration-color:var(--fail)}
+.card-stage[data-stage="3"] .tag{opacity:1}
+.card-stage[data-stage="3"] .rejected .part-text{text-decoration:line-through;
+  text-decoration-color:var(--fail);color:var(--muted)}
+.card-stage .badge{transition:color .3s var(--ease),background-color .3s var(--ease),
+  border-color .3s var(--ease)}
+.card-stage .part-note{opacity:0;transition:opacity .4s var(--ease) .1s}
+.card-stage[data-stage="3"] .part-note{opacity:1}
+.card-stage .badge.pending{--tone:var(--faint);--tone-bg:transparent}
+.source-line{display:block;margin-top:10px;font:11px var(--mono);color:var(--muted)}
+.source-line .live{color:var(--brass)}
+.source-line .live::after{content:"";display:inline-block;width:5px;height:5px;
+  margin-left:7px;background:var(--brass);vertical-align:middle;
+  animation:blink 1.2s steps(2,end) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* ── the graphite bands (the problem, the verdicts) ───────────────────── */
+.band{background:var(--stone);color:var(--on-stone);padding:clamp(60px,7.5vw,104px) 0}
+/* The problem's heading and its standfirst stack, left-aligned like every other band. */
+.band-head{display:block}
+.band .h2{max-width:13em;margin-top:18px}
+.band-head .h2{margin-top:0}
+.band .eyebrow{color:var(--on-stone-muted)}
+.band-lead{margin-top:clamp(16px,1.8vw,22px);max-width:60ch;
+  font-size:clamp(16.5px,1.4vw,18px);line-height:1.6;color:var(--on-stone)}
+/* the three assistants: one card each, scaled against its neighbours on hover */
+.findings{
+  margin-top:clamp(32px,4vw,52px);display:flex;align-items:stretch;
+  gap:clamp(10px,1.2vw,16px);
+}
+.findings > div{
+  flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:12px;
+  padding:clamp(18px,2vw,24px);background:rgba(240,240,237,.035);
+  border:1px solid var(--rule-on);transform-origin:50% 60%;
+  box-shadow:inset 0 0 0 0 var(--gold);
+  transition:transform .45s var(--ease),border-color .45s var(--ease),
+    background-color .45s var(--ease),opacity .45s var(--ease),box-shadow .45s var(--ease);
+}
+.findings dt{display:flex;align-items:center;gap:10px;font:400 20px/1.2 var(--serif);
+  color:var(--on-stone)}
+.model-logo{width:22px;height:22px;flex:none;fill:currentColor;color:var(--on-stone)}
+.findings dd{color:var(--on-stone-muted);font-size:14.5px;line-height:1.58;max-width:60ch}
+.findings .num{color:var(--on-stone)}
+.band-fine{margin-top:clamp(20px,2.4vw,28px)}
+.demo-caption{margin-top:12px}
+@media (hover:hover) and (prefers-reduced-motion: no-preference){
+  .findings:hover > div{transform:scale(.975);opacity:.72}
+  .findings > div:hover{
+    transform:scale(1.035);opacity:1;z-index:1;
+    background:rgba(240,240,237,.065);border-color:var(--gold);
+    box-shadow:inset 0 0 0 2px var(--gold);
+  }
+}
+
+/* ── verdicts: the graphite panel, the app's own label colours ────────── */
+.key{padding:clamp(60px,7.5vw,104px) 0}
+.key-in{max-width:1000px}
+.verdicts{
+  margin-top:clamp(26px,3.5vw,40px);display:grid;grid-template-columns:1fr 1fr;
+  column-gap:clamp(24px,4vw,64px);
+}
+.vr{
+  position:relative;display:grid;grid-template-columns:16px minmax(0,1fr);
+  gap:18px;align-items:center;padding:24px 0;border-bottom:1px solid var(--rule-on);
+}
+.vr-tick{position:absolute;bottom:-1px;left:0;height:2px;width:0;background:var(--on-stone-muted);
+  transition:width .55s var(--ease)}
+.vr:hover .vr-tick{width:100%}
+/* tick takes the colour of the verdict it belongs to */
+.vr:has(.vr-dot-green) .vr-tick{background:var(--ok-on)}
+.vr:has(.vr-dot-half) .vr-tick{background:var(--warn-on)}
+.vr:has(.vr-dot-yellow) .vr-tick{background:var(--warn-on)}
+.vr:has(.vr-dot-red) .vr-tick{background:var(--fail-on)}
+/* the app's dots: sourced green, partial half amber, unsupported amber, contradicted red */
+.vr-dot{width:11px;height:11px;border-radius:50%;flex:none;display:block}
+.vr-dot-green{background:var(--ok-on)}
+.vr-dot-yellow{background:var(--warn-on)}
+.vr-dot-red{background:var(--fail-on)}
+.vr-dot-half{
+  background:linear-gradient(90deg,var(--warn-on) 50%,transparent 50%);
+  box-shadow:inset 0 0 0 1.5px var(--warn-on);box-sizing:border-box;
+}
+.vr-name{font:400 clamp(26px,2.6vw,34px)/1.1 var(--serif);letter-spacing:-.01em;
+  transition:transform .45s var(--ease)}
+.vr:hover .vr-name{transform:translateX(8px)}
+.h3{margin-top:clamp(42px,5vw,60px);font:400 clamp(21px,2.1vw,27px)/1.2 var(--serif)}
+.key .h3{color:var(--on-stone)}
+.key-note{margin-top:10px;color:var(--on-stone-muted);max-width:56ch}
+.edge{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 44px;
+  margin-top:20px;list-style:none}
+.edge li{position:relative;display:flex;align-items:center;gap:12px;padding:14px 0;
+  border-bottom:1px solid var(--rule-on)}
+.edge li::before{content:'';position:absolute;left:0;bottom:-1px;height:2px;width:0;
+  background:var(--on-stone-muted);transition:width .55s var(--ease)}
+.edge li:hover::before{width:100%}
+.edge li:has(.edge-dot[data-tone="yellow"])::before{background:var(--warn-on)}
+.edge li:has(.edge-dot[data-tone="brown"])::before{background:var(--brown-on)}
+.edge li:has(.edge-dot[data-tone="blue"])::before{background:var(--blue-on)}
+.edge li:has(.edge-dot[data-tone="violet"])::before{background:var(--violet-on)}
+.edge li:has(.edge-dot[data-tone="grey"])::before{background:var(--on-stone-muted)}
+.edge li:has(.edge-dot[data-tone="error"])::before{background:var(--fail-on)}
+.edge b{font:500 clamp(17px,1.55vw,20px)/1.3 var(--sans);color:var(--on-stone);
+  transition:transform .45s var(--ease)}
+.edge li:hover b{transform:translateX(8px)}
+.edge-dot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--on-stone-muted)}
+.edge-dot[data-tone="yellow"]{background:var(--warn-on)}
+.edge-dot[data-tone="brown"]{background:var(--brown-on)}
+.edge-dot[data-tone="blue"]{background:var(--blue-on)}
+.edge-dot[data-tone="violet"]{background:var(--violet-on)}
+.edge-dot[data-tone="grey"]{background:var(--on-stone-muted)}
+.edge-dot[data-tone="error"]{background:transparent;
+  box-shadow:inset 0 0 0 1.5px var(--fail-on)}
+
+/* ── limits: graphite cards on paper, the numbers large ──────────────── */
+.limits{background:var(--paper);border-top:1px solid var(--rule);
+  padding:clamp(60px,7.5vw,104px) 0}
+.limits .h2{max-width:13em}
+.limits-grid{margin-top:clamp(28px,4vw,44px)}
+.spec{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  /* number · air · label · caveat: all four rows are shared by the three cards, so the
+     labels and the caveats sit on one line across the row. */
+  grid-template-rows:auto 1fr auto auto;
+  gap:clamp(14px,1.6vw,22px);margin:0}
+.spec > div{
+  grid-row:span 4;display:grid;grid-template-rows:subgrid;
+  min-height:clamp(250px,26vw,330px);padding:clamp(34px,3.6vw,46px) clamp(26px,2.8vw,36px)
+    clamp(26px,2.8vw,36px);
+  background:var(--stone);color:var(--on-stone);border:1px solid transparent;
+  box-shadow:inset 0 0 0 0 var(--gold);
+  transition:transform .35s var(--ease),border-color .35s var(--ease),
+    background-color .35s var(--ease),box-shadow .35s var(--ease);
+}
+/* the entrance is armed by JS, so without a script the numbers simply sit there */
+.spec.is-armed > div{opacity:0;transform:translateX(-56px)}
+.spec.is-in > div{animation:spec-in .65s var(--ease) backwards}
+.spec.is-in > div:nth-child(2){animation-delay:110ms}
+.spec.is-in > div:nth-child(3){animation-delay:220ms}
+@keyframes spec-in{
+  from{opacity:0;transform:translateX(-56px)}
+  to{opacity:1;transform:none}
+}
+.spec > div:hover{transform:translateY(-6px);border-color:var(--gold);
+  background:#202124;box-shadow:inset 0 0 0 3px var(--gold)}
+.spec dt{color:var(--on-stone);font:500 clamp(20px,2.1vw,27px)/1.22 var(--sans);
+  letter-spacing:-.015em;grid-row:3;padding-top:26px;max-width:15ch}
+.spec dd{margin:0;grid-row:1;font:400 clamp(84px,9vw,132px)/0.88 var(--serif);
+  color:var(--on-stone);font-variant-numeric:tabular-nums;letter-spacing:-.035em}
+.spec dd .num{font-family:var(--serif);font-size:1em}
+/* The caveat is part of the card: a bold lead and the sentence under it, on graphite. */
+.spec dd.spec-body{margin:12px 0 0;grid-row:4;max-width:32ch;
+  font:400 14px/1.55 var(--sans);letter-spacing:0;color:var(--on-stone-muted)}
+.spec-body b{display:block;margin-bottom:3px;font:600 14.5px/1.4 var(--sans);
+  color:var(--on-stone)}
+/* The one gloss that stays on the paper, under the cards. */
+.spec-note{margin:18px 0 0;max-width:60ch;
+  font:400 13.5px/1.55 var(--sans);color:var(--muted)}
+
+/* ── close ───────────────────────────────────────────────────────────── */
+/* The last screen: the close and the footer share one viewport height, so the page
+   ends on a full panel instead of a short band with the footer pinned under it. */
+.endcap{display:flex;flex-direction:column;min-height:100svh}
+.endcap .close{flex:1;display:flex;align-items:center}
+.endcap .close-in{width:100%}
+.close{background:var(--paper);
+  /* vertical air scales with the viewport's HEIGHT, not its width: this section's job
+     is to share exactly one screen with the footer, so a short window gives back air
+     before the icon shrinks */
+  padding:clamp(40px,10svh,88px) 0}
+.close-in{text-align:center}
+/* the app icon fronts the CTA — sized by viewport height, so the endcap keeps fitting
+   (180px wide at a 900px viewport; the headline gives way before the icon does) */
+.close-logo{display:block;width:clamp(120px,20vh,200px);height:auto;margin:0 auto 14px}
+.display-2{font:400 clamp(40px,5.6vw,80px)/1 var(--serif);letter-spacing:-.03em;
+  margin-inline:auto}
+.close .actions{justify-content:center;margin-top:clamp(28px,3.5vw,40px)}
+.close-fine{position:relative;margin:clamp(24px,3vw,32px) auto 0;max-width:58ch;
+  font:400 16.5px/1.65 var(--sans);color:var(--muted)}
+.copy-url{
+  appearance:none;background:none;border:0;border-bottom:1px solid var(--rule-strong);
+  padding:0 0 1px;margin:0;font:400 15.5px var(--mono);color:var(--ink);cursor:pointer;
+  transition:color .2s var(--ease),border-color .2s var(--ease);
+}
+.copy-url:hover{color:var(--gold);border-color:var(--gold)}
+.copy-flag{
+  position:absolute;left:50%;bottom:-1.55em;transform:translateX(-50%);
+  white-space:nowrap;font:500 10.5px var(--mono);letter-spacing:.11em;
+  text-transform:uppercase;color:var(--brass);
+  opacity:0;pointer-events:none;transition:opacity .2s var(--ease);
+}
+.copy-flag.is-on{opacity:1}
+
+/* ── footer: the page's last word, not a footnote ─────────────────────── */
+.foot{background:var(--stone);color:var(--on-stone-muted);
+  padding:clamp(22px,3vw,34px) 0}
+.foot-in{display:flex;justify-content:space-between;align-items:center;
+  gap:18px 40px;flex-wrap:wrap}
+.foot-brand{display:inline-flex;align-items:center;gap:9px;font:400 24px/1 var(--serif);
+  color:var(--on-stone);text-decoration:none;letter-spacing:-.01em}
+/* same optical nudge as the navbar (the footer's wordmark is an anonymous flex
+   item, so the correction lives on the img) */
+.foot-logo{display:block;height:23px;width:auto;flex:none;
+  transform:translateY(-2.5px)}
+.foot-copy{margin-top:8px;font:400 14px/1.5 var(--sans);color:var(--on-stone-muted)}
+.foot-nav{display:flex;align-items:center;gap:clamp(14px,2.2vw,26px);flex-wrap:wrap}
+.foot-nav > a:not(.btn){
+  font:600 14px var(--sans);color:var(--on-stone);text-decoration:none;
+  padding-bottom:2px;border-bottom:1px solid transparent;
+  transition:border-color .2s var(--ease),color .2s var(--ease);
+}
+.foot-nav > a:not(.btn):hover{border-color:var(--gold)}
+.foot-cta{margin-left:4px}
+
+/* ── motion (JS adds the classes; without JS everything is visible) ──── */
+@media (prefers-reduced-motion: no-preference){
+  .rise{opacity:1}
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.001ms !important;animation-iteration-count:1 !important;
+    transition-duration:.001ms !important}
+  .card-stage .parts,.card-stage .source,.card-stage .badge,.card-stage .part-note{
+    opacity:1 !important;transform:none !important;filter:none !important}
+  .story-card{position:static}
+}
+
+/* ── responsive ──────────────────────────────────────────────────────── */
+@media (min-width:1021px){
+  /* a scrollytelling beat: one dark card per screen-ish, the card pinned beside them.
+     --story-h is measured from the claim card in landing.js, so every move is its size. */
+  .step button{min-height:var(--story-h,clamp(420px,60vh,560px));align-content:center}
+}
+@media (max-width:1020px){
+  .story{grid-template-columns:1fr}
+  /* Phone and tablet: the card is the conclusion, not a side panel. Above the steps it
+     would scroll out before stages 2–3 land, so the payoff would never be seen. Below
+     them, it enters as the label lands and the reader scrolls straight into the result. */
+  .story-side{order:2}
+  .steps{order:1;margin-top:0}
+  .story-card{position:static}
+}
+@media (max-width:900px){
+  .demo-body{grid-template-columns:1fr}
+  .report{border-right:0;border-bottom:1px solid var(--rule)}
+  .band-head{grid-template-columns:1fr}
+  .findings{flex-direction:column}
+  /* stacked, the three cards keep their size: scaling a full-width card is noise */
+  .findings:hover > div,.findings > div:hover{
+    transform:none;opacity:1;background:rgba(240,240,237,.035);
+    border-color:var(--rule-on);box-shadow:none;
+  }
+  .foot-in{align-items:flex-start}
+}
+@media (max-width:700px){
+  /* With JS the section links collapse into a hamburger dropdown; without JS they stay
+     visible (wrapped under the brand), so the page keeps its navigation. */
+  .js .bar-in .nav{display:none}
+  .js .bar-in.menu-open .nav{
+    display:flex;position:absolute;top:100%;left:0;right:0;flex-direction:column;
+    align-items:stretch;gap:0;margin:0;background:var(--topbar);
+    border-bottom:1px solid var(--topbar-line);padding:4px 0 8px;
+    box-shadow:0 22px 34px rgba(10,10,8,.22)}
+  .js .bar-in.menu-open .nav a:not(.btn){padding:13px clamp(20px,4vw,24px);font-size:15px}
+  .js .bar-in.menu-open .nav a + a{border-top:1px solid var(--topbar-line)}
+  .js .bar-in.menu-open .nav a:not(.btn):hover,
+  .js .bar-in.menu-open .nav a:not(.btn):active,
+  .js .bar-in.menu-open .nav a:not(.btn):focus-visible{color:var(--topbar-fg);
+    background:rgba(255,255,255,.06)}
+  .js .burger{display:inline-flex}
+  .bar-in{gap:14px}
+  html:not(.js) .bar-in{flex-wrap:wrap;row-gap:6px}
+  html:not(.js) .nav{order:4;flex-basis:100%;justify-content:flex-start}
+  /* CTA is now the last item inside the nav, so it rides the dropdown;
+     no separate margin needed here */
+  .js .bar-in.menu-open .nav .btn-sm{
+    width:100%;margin:8px 0 4px;padding:12px clamp(20px,4vw,24px);
+    box-sizing:border-box;justify-content:center;margin-left:0;
+  }
+  .display{font-size:clamp(40px,11vw,56px);max-width:8em}
+  .demo-bar{padding:10px 14px;gap:10px 12px}
+  .demo-title{flex-basis:100%}
+  .demo-note{margin-left:0}
+  .demo-replay{margin-left:auto}
+  .report-doc{padding:16px 14px 12px 18px;font-size:13.5px}
+  .rtable{font-size:12.5px}
+  .rtable thead th:nth-child(3),.rtable td:nth-child(3){display:none}
+  .result-top{padding:15px 14px 13px}
+  .card-host{padding:13px 14px 16px}
+  .verdicts{grid-template-columns:1fr}
+  .vr{grid-template-columns:14px minmax(0,1fr);gap:14px;padding:20px 0}
+  .story-card{padding:14px}
+  .step button{grid-template-columns:56px minmax(0,1fr);padding:22px 20px}
+  .step-no{font-size:38px}
+  .spec{grid-template-columns:1fr;grid-template-rows:none}
+  /* stacked: each card keeps the same number · air · label · caveat composition */
+  .spec > div{grid-row:auto;grid-template-rows:auto 1fr auto auto;
+    min-height:300px;padding:32px 24px 24px}
+  .spec dt{grid-row:3;padding-top:18px;max-width:14ch;font-size:23px}
+  .spec dd{grid-row:1;font-size:clamp(76px,20vw,96px)}
+  .foot-nav{width:100%;justify-content:flex-start}
+}
+
+/* ── legal pages (privacy, terms) ────────────────────────────────────── */
+.legal{padding:clamp(48px,7vw,88px) 0 clamp(56px,7vw,96px)}
+.legal-in{max-width:740px}
+.legal .eyebrow{margin-bottom:14px}
+.legal h1{font:400 clamp(36px,4.6vw,58px)/1.04 var(--serif);letter-spacing:-.025em}
+.legal-meta{margin-top:14px;font:400 12.5px var(--mono);color:var(--faint)}
+.legal h2{margin:34px 0 10px;font:400 clamp(21px,2.2vw,27px)/1.2 var(--serif)}
+.legal p,.legal li{color:var(--muted);font-size:15.5px;line-height:1.68}
+.legal p+p{margin-top:14px}
+.legal ul{margin:10px 0 0;padding-left:20px;display:grid;gap:7px}
+.legal a{color:var(--ink);text-decoration-color:var(--rule-strong);
+  text-underline-offset:3px}
+.legal a:hover{text-decoration-color:var(--gold)}
+.legal strong{color:var(--ink);font-weight:600}

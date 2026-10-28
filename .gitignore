@@ -1,6 +1,7 @@
 .venv/
 .env
 __pycache__/
+_temp/
 fetch_results.json
 *.pages.json
 runs/

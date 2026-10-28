@@ -78,9 +78,13 @@ textarea,input{caret-color:var(--brass)}
 .app{height:100vh;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:48px minmax(0,1fr)}
 .topbar{position:relative;z-index:20;display:flex;align-items:center;gap:14px;padding:0 16px;
   background:var(--topbar);border-bottom:1px solid var(--topbar-rule)}
-.wordmark{font:600 20px/1 var(--sans);letter-spacing:-.02em;color:var(--topbar-fg);
-  text-decoration:none;flex:none;display:inline-flex;align-items:center;gap:9px}
-.wordmark::before{content:"";display:block;width:7px;height:7px;background:var(--gold)}
+/* the wordmark is the landing navbar's: Newsreader 22px/400, not the app sans —
+   one brand face on both surfaces (the topbar row is 48px, the 26px gem fits) */
+.wordmark{display:inline-flex;align-items:center;gap:10px;font:400 22px/1 var(--serif);
+  letter-spacing:-.01em;color:var(--topbar-fg);
+  text-decoration:none;flex:none}
+.wordmark-logo{display:block;height:26px;width:auto;flex:none;
+  transform:translateY(-2.5px)}
 .docname{font:12.5px var(--mono);letter-spacing:.02em;color:var(--topbar-muted);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .top-actions{margin-left:auto;display:flex;align-items:center;gap:6px;flex:none}
@@ -285,7 +289,7 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,236,234,.1
 .verdict{margin:0;font:500 24px/1.28 var(--sans);letter-spacing:-.02em;color:var(--on-stone);
   text-wrap:pretty}
 .stone.is-error .verdict{color:var(--fail-on)}
-.stone.is-empty .verdict{color:var(--on-stone-muted);font-size:17px;font-style:italic}
+.stone.is-empty .verdict{color:var(--on-stone-muted);font-size:17px;font-style:normal}
 .counts{display:flex;flex-wrap:wrap;gap:5px;margin-top:13px}
 .cnt{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;cursor:pointer;
   min-height:24px;border:1px solid rgba(240,240,237,.18);background:none;color:var(--on-stone-muted);
@@ -704,7 +708,7 @@ html[data-theme="dark"] .drop{background:rgba(17,18,20,.92)}
 body{font-size:15.5px}
 .app{grid-template-rows:54px minmax(0,1fr)}
 .topbar{gap:12px;padding:0 18px}
-.wordmark{font-size:21px}
+.wordmark{font-size:22px}
 .docname{font-size:13px}
 .tbtn{font-size:13px;min-height:32px;padding:7px 10px}
 .icon{width:32px;height:32px;font-size:15px}
@@ -826,7 +830,9 @@ textarea{font-size:15px;line-height:1.65;min-height:280px;padding:16px 18px}
 /* in-place editing: the document itself is the editor. The source surface is
    a separate fill layer, so the highlight can breathe without moving text. */
 body[data-mode="inline"] .paper .blk{cursor:text}
-body[data-mode="preview"] .paper .blk{cursor:default}
+/* preview is a rendered document the reader can select — the I-beam says so;
+   the arrow here hid that the text is selectable at all */
+body[data-mode="preview"] .paper .blk{cursor:text}
 .paper .blk a,.paper .blk .gmark{cursor:pointer}
 .inline-fill{position:absolute;z-index:0;pointer-events:none;border-radius:6px;
   background:var(--edit-bg);box-shadow:var(--edit-shadow)}
@@ -942,7 +948,7 @@ html[data-read] textarea{font-size:calc(15px * var(--read))}
   html[data-read] textarea{font-size:calc(14.5px * var(--read))}
 }
 
-html[data-ui] .wordmark{font-size:calc(21px * var(--ui))}
+html[data-ui] .wordmark{font-size:calc(22px * var(--ui))}
 html[data-ui] .docname{font-size:calc(13px * var(--ui))}
 html[data-ui] .tbtn{font-size:calc(13px * var(--ui))}
 html[data-ui] .icon{font-size:calc(15px * var(--ui))}
@@ -1257,4 +1263,55 @@ html[data-ui] .toolhint{font-size:calc(11.5px * var(--ui))}
     padding:0 0 5px;margin-bottom:4px;position:relative}
   .paper td:first-child::before{display:none}
   .paper td{text-align:left}
+}
+
+/* ========================================================================
+   The empty front door is one screen. With no document loaded the pane does
+   not scroll at all: the front fills it, centres itself, and the composer is
+   the one thing that gives when the window is short. Type, gaps and padding
+   step down with viewport height, so a 720/768/800/900-tall window never
+   pushes the buttons off the bottom. Loaded documents keep the pane's normal
+   gutter, ruler offset and scrolling.
+   ======================================================================== */
+@media (min-width:901px){
+  .docpane:has(> .front:not([hidden])){padding-bottom:0;overflow:hidden}
+  .docpane:has(> .front:not([hidden])) > .front{
+    margin-top:0;height:100%;min-height:0;
+    flex-direction:column;align-items:center;justify-content:center;
+    padding:clamp(10px,2.4vh,28px) 26px clamp(8px,1.6vh,18px);
+  }
+  .docpane:has(> .front:not([hidden])) .front-inner{
+    display:flex;flex-direction:column;justify-content:center;
+    height:100%;min-height:0;
+  }
+  .docpane:has(> .front:not([hidden])) .front-inner > *{flex:0 0 auto}
+  /* Everything but the composer is fixed-size. The sheet gets a height that
+     steps with the window, and may shrink below it when the window is short;
+     the textarea just fills whatever height the sheet ends up with. */
+  .docpane:has(> .front:not([hidden])) .front-inner > .sheet{
+    flex:0 1 auto;min-height:0;height:clamp(140px,30vh,310px);
+    display:flex;flex-direction:column;
+  }
+  .docpane:has(> .front:not([hidden])) .sheet > textarea{
+    flex:1 1 auto;min-height:0;height:100%;resize:none;
+  }
+  .docpane:has(> .front:not([hidden])) .front h1{
+    font-size:clamp(34px,min(4.6vw,7.2vh),58px);
+    margin-bottom:clamp(8px,1.8vh,18px);
+  }
+  .docpane:has(> .front:not([hidden])) .lede{margin-bottom:clamp(10px,2.2vh,26px)}
+  .docpane:has(> .front:not([hidden])) .example-row{margin-bottom:clamp(8px,1.8vh,18px)}
+  .docpane:has(> .front:not([hidden])) .front-row{margin-top:clamp(8px,1.6vh,14px)}
+}
+/* Absurdly short windows (a split pane) can still scroll rather than clip. */
+@media (min-width:901px) and (max-height:480px){
+  .docpane:has(> .front:not([hidden])){overflow:auto}
+  .docpane:has(> .front:not([hidden])) > .front{height:auto;min-height:100%}
+}
+/* At 901-1099px the rail stacks under the editor and would eat half the screen
+   before a report exists. The front door is the whole screen until one does. */
+@media (min-width:901px) and (max-width:1099px){
+  body:not(.has-report) .rail{display:none}
+  body:not(.has-report) .body{grid-template-rows:minmax(0,1fr)}
+  body:not(.has-report) .docwrap{border-bottom:0}
 }

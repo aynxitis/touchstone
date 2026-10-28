@@ -3002,7 +3002,13 @@ function showFront(focus) {
   $("docpane").scrollTop = 0;
   placeStone();
   layout();
-  if (focus) $("report").focus();
+  if (focus) {
+    // Focusing the composer must not scroll the front door: on a short window
+    // the browser pulls the textarea into view and the headline slides under
+    // the top bar.
+    $("report").focus({ preventScroll: true });
+    $("docpane").scrollTop = 0;
+  }
 }
 
 function openFromFront() {

@@ -17,9 +17,12 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, StreamingResponse
+from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse, PlainTextResponse,
+                               StreamingResponse)
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from check_numbers import segments
 from pacing import TokenPacer
@@ -103,6 +106,14 @@ PROVIDER_NOTE = {"gemini": '<p class="notice">Reports are processed by Google Ge
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 
+# The landing page lives at "/" (landing/index.html); the app itself is /app. The landing page
+# keeps its old flat layout (landing.css, tokens.css, landing.js, favicon.svg at the root,
+# fonts/ and vendor/ beside them), so its subfolders are mounted here and its root files are
+# served by landing_asset() below: no engine, no build step, and its relative URLs just work.
+LANDING = HERE / "landing"
+app.mount("/fonts", StaticFiles(directory=LANDING / "fonts"), name="landing-fonts")
+app.mount("/vendor", StaticFiles(directory=LANDING / "vendor"), name="landing-vendor")
+
 # Cache-busting: index.html references each asset as /static/<name>?v=<content hash>, so a
 # browser holding an old app.js gets the new one on the next page load. Versioned asset URLs
 # never change content, so they're cached for a year; index.html and unversioned asset URLs
@@ -128,11 +139,39 @@ def versioned_index(static_dir, versions, provider="groq"):
                          if m[2] in versions else m[0], html)
 
 
-ASSET_VERSIONS = asset_versions(HERE / "static")      # computed once at startup
-INDEX_HTML = versioned_index(HERE / "static", ASSET_VERSIONS, PROVIDER)
+# Live, not frozen at startup. uvicorn --reload only restarts on Python changes, so a
+# stylesheet edited while the server runs used to keep the startup hash: index.html stamped
+# the old ?v=, and the browser's year-long immutable copy of that URL won out over every
+# reload. Rehashing on a stat() change means a CSS edit shows up on the next page load.
+ASSET_VERSIONS = {}
+_index_state = {"sig": None, "html": ""}
+
+
+def static_versions():
+    """Current {file: hash}, rehashed only when a static file's name/mtime/size changes."""
+    files = [p for p in sorted((HERE / "static").iterdir()) if p.is_file()]
+    sig = tuple((p.name, p.stat().st_mtime_ns, p.stat().st_size) for p in files)
+    if sig != _index_state["sig"]:
+        ASSET_VERSIONS.clear()
+        ASSET_VERSIONS.update({p.name: hashlib.sha256(p.read_bytes()).hexdigest()[:12]
+                               for p in files})
+        _index_state["html"] = versioned_index(HERE / "static", ASSET_VERSIONS, PROVIDER)
+        _index_state["sig"] = sig
+    return ASSET_VERSIONS
+
+
+def current_index():
+    static_versions()
+    return _index_state["html"]
+
+
+static_versions()
 
 CSP = ("default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; "
        "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
+SECURITY_HEADERS = {"Content-Security-Policy": CSP,
+                    "X-Content-Type-Options": "nosniff",
+                    "Referrer-Policy": "no-referrer"}
 
 
 @app.middleware("http")
@@ -147,14 +186,14 @@ async def guard(request: Request, call_next):
     if int(request.headers.get("content-length") or 0) > MAX_BODY_BYTES:
         return JSONResponse({"error": "Request too large."}, status_code=413)
     response = await call_next(request)
-    response.headers["Content-Security-Policy"] = CSP
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers.update(SECURITY_HEADERS)
     path, v = request.url.path, request.query_params.get("v")
     if (path.startswith("/static/") and response.status_code == 200 and v
-            and v == ASSET_VERSIONS.get(path.removeprefix("/static/"))):
+            and v == static_versions().get(path.removeprefix("/static/"))):
         response.headers["Cache-Control"] = "public, max-age=31536000, immutable"   # hash in URL
-    elif path == "/" or path.startswith("/static/"):
+    elif (path == "/" or path == "/app" or path.startswith("/static/")
+          or path.startswith("/fonts/") or path.startswith("/vendor/")
+          or path.lstrip("/") in LANDING_ROOT_FILES):
         response.headers["Cache-Control"] = "no-cache"   # revalidate: users get updates at once
     elif path == "/mcp":
         response.headers["Cache-Control"] = "no-store, no-transform"   # no cached results, no buffered stream
@@ -302,8 +341,95 @@ def healthz_proxy(request: Request):
 
 
 @app.get("/")
+def landing():
+    """The public landing page (landing/), read per request so editing it needs no restart.
+    Its own CSS, JS, fonts and vendored motion engine are mounted beside it below; the app
+    itself is /app."""
+    return HTMLResponse((LANDING / "index.html").read_text(encoding="utf-8"))
+
+
+@app.get("/app")
 def index():
-    return HTMLResponse(INDEX_HTML)
+    return HTMLResponse(current_index())
+
+
+# The landing page's root-level files, served from landing/ as-is (it keeps its flat layout:
+# landing.css, tokens.css, landing.js, favicon.svg at the root, fonts/ and vendor/ mounted above).
+# Listed explicitly rather than mounted at "/", so the app's own routes keep their behaviour
+# (e.g. GET /mcp stays 405 with Allow: POST) and nothing else in landing/ becomes public.
+LANDING_ROOT_FILES = ("landing.css", "tokens.css", "error.css", "error.js", "landing.js", "favicon.svg",
+                      "logo.svg", "logo-app.svg",
+                      "privacy.html", "terms.html")
+
+
+def _landing_file(name):
+    def serve():
+        return FileResponse(LANDING / name)
+    serve.__doc__ = f"landing/{name}"
+    return serve
+
+
+for _name in LANDING_ROOT_FILES:
+    app.add_api_route(f"/{_name}", _landing_file(_name), include_in_schema=False,
+                      name=f"landing-{_name}")
+
+
+# A dead end should still look like the product: one giant number, one sentence that says
+# what happened in plain words. The page lives in landing/error.html and is read per
+# request (like the landing page), with the <!--marker--> runs filled in below. Its CSS is
+# landing/error.css, served by LANDING_ROOT_FILES just above; there is no inline style or
+# script, so it renders under the app's own CSP and over the landing's own tokens/fonts.
+ERROR_COPY = {
+    404: ("This page doesn’t exist.",
+          "The link may be old, or the page may have moved."),
+    405: ("That isn’t allowed here.",
+          "This address only answers a different kind of request."),
+    500: ("Something broke on our side.",
+          "The page didn’t load. Try again in a minute."),
+}
+ERROR_MARKERS = re.compile(r"<!--(code|title|line)-->(.*?)<!--/\1-->", re.S)
+
+
+def error_page(code, status=None):
+    """landing/error.html with the number and the plain-language copy filled in."""
+    title, line = ERROR_COPY.get(code, ERROR_COPY[404])
+    text = (LANDING / "error.html").read_text(encoding="utf-8")
+    values = {"code": str(code), "title": title, "line": line}
+    # The 500 path never reaches guard() (ServerErrorMiddleware is outermost), so the page
+    # carries the security headers itself; on a 404 the middleware rewrites the same values.
+    return HTMLResponse(ERROR_MARKERS.sub(lambda m: values[m[1]], text),
+                        status_code=code if status is None else status,
+                        headers={**SECURITY_HEADERS, "Cache-Control": "no-cache"})
+
+
+@app.get("/error")
+def error_preview(code: int = 404):
+    """The error page itself, for checking it without breaking a link first: a 200 page."""
+    return error_page(code if code in ERROR_COPY else 404, status=200)
+
+
+# Pages a person can land on get the page; the machine surfaces (the audit API, MCP, the
+# health checks, and static assets) keep the JSON/status/headers their clients rely on.
+# GET /mcp must stay 405 with Allow: POST, so 405 and everything else fall through to
+# Starlette's own handler untouched.
+MACHINE_PREFIXES = ("/api/", "/mcp", "/healthz", "/static/", "/fonts/", "/vendor/")
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_error(request, exc):
+    path = request.url.path
+    if exc.status_code in ERROR_COPY and not path.startswith(MACHINE_PREFIXES):
+        response = error_page(exc.status_code)
+        for name, value in (exc.headers or {}).items():
+            response.headers.setdefault(name, value)     # a 405 keeps its Allow: header
+        return response
+    return await http_exception_handler(request, exc)
+
+
+@app.exception_handler(Exception)
+async def server_error(request, exc):
+    log.error("unhandled error on %s %s", request.method, request.url.path[:200], exc_info=exc)
+    return error_page(500)
 
 
 @app.get("/api/example")
