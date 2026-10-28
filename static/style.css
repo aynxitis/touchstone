@@ -6,7 +6,7 @@
   font-weight:400 600;font-style:normal;font-display:swap}
 :root{
   --page:#e5e5e2; --page-2:#dcdcd8; --paper:#fbfbf9;
-  --ink:#17181a; --muted:#505255; --faint:#6b6d6f;
+  --ink:#17181a; --muted:#505255; --faint:#5e6062;
   --rule:#d1d1cd; --rule-strong:#a9aaa6; --soft:#ededea; --edit-bg:#e9e9e5;
   --edit-shadow:0 1px 2px rgba(23,24,26,.06);
   --stone:#1a1b1d; --on-stone:#f0f0ed; --on-stone-muted:#a6a7a4;
@@ -128,7 +128,7 @@ textarea{width:100%;min-height:250px;resize:vertical;padding:14px 16px;
   font:14px/1.6 var(--mono);color:var(--ink);background:var(--paper);
   border:1px solid var(--rule-strong);border-radius:0}
 .sheet{margin:0 0 2px;border:1px solid var(--rule-strong);background:var(--paper)}
-.sheet:focus-within{border-color:var(--ink)}
+.sheet:focus-within{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
 .sheet-head{display:flex;align-items:center;justify-content:space-between;
   padding:6px 10px;border-bottom:1px solid var(--rule);
   font:11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
@@ -428,6 +428,7 @@ html[data-theme="dark"] .minimap:hover .mm-slider{background:rgba(236,236,234,.1
 .cardlink:hover{color:var(--ink);text-decoration-color:var(--ink)}
 .cardlink::after{content:"";position:absolute;inset:-6px -4px}
 .cardlink.is-off{text-decoration:none;color:var(--faint);cursor:default}
+.cardlink + .cardlink{margin-left:14px}
 .claim{margin:9px 0 0;font:16px/1.5 var(--serif);color:var(--ink);text-wrap:pretty}
 .claim .diff{background:var(--fail-bg);color:var(--fail);padding:0 2px;
   text-decoration:underline;text-decoration-color:var(--fail);text-underline-offset:2px}
@@ -1237,6 +1238,11 @@ html[data-ui] .toolhint{font-size:calc(11.5px * var(--ui))}
   .card{max-width:100%;overflow-wrap:anywhere}
   .card-head{flex-wrap:wrap;row-gap:0}
   .cardlink{min-height:44px;display:inline-flex;align-items:center}
+  /* The links get a row of their own under the badge, so a long label never
+     strands one of them at the end of a wrapped line. */
+  .card-head:has(.cardlink)::after{content:"";flex-basis:100%;order:2}
+  .card-head .cardlink{order:3;margin-left:0}
+  .card-head .cardlink + .cardlink{margin-left:20px}
   .card .source{display:flex;align-items:center;min-height:44px;margin-top:4px}
   .card[data-label="CONTRADICTED"],.card[data-label="UNSUPPORTED"]{order:-2}
   .card[data-label="PARTIAL"],.card[data-label="COULDN'T CONFIRM"]{order:-1}
@@ -1251,18 +1257,18 @@ html[data-ui] .toolhint{font-size:calc(11.5px * var(--ui))}
   .prompt-box .secondary{min-height:44px}
   .dlgx{width:44px;height:44px;display:grid;place-items:center;top:0;right:0}
 
-  /* Tables stack, as they already did under 700px. */
+  /* Tables stack: each cell is a block with its header as a small label above it.
+     Blocks, not a grid: a cell's text, link and marks are separate grid items, so a
+     grid put the row name in the label column and the source link on a row of its own. */
   .paper table,.paper tbody{display:block}
   .paper thead{display:none}
   .paper tr{display:block;padding:10px 0 8px;border-bottom:1px solid var(--rule)}
-  .paper td{display:grid;grid-template-columns:86px minmax(0,1fr);gap:8px;
-    padding:2px 0;border:0;position:static}
-  .paper td::before{content:attr(data-l);font:10.5px/1.5 var(--mono);letter-spacing:.03em;
-    text-transform:uppercase;color:var(--muted)}
-  .paper td:first-child{grid-column:1/-1;font-weight:600;border-bottom:1px solid var(--rule);
-    padding:0 0 5px;margin-bottom:4px;position:relative}
+  .paper td,.paper td.n{display:block;padding:3px 0;border:0;position:static;text-align:left}
+  .paper td::before{content:attr(data-l);display:block;font:10.5px/1.5 var(--mono);
+    letter-spacing:.03em;text-transform:uppercase;color:var(--muted)}
+  .paper td:first-child{font-weight:600;border-bottom:1px solid var(--rule);
+    padding:0 0 6px;margin-bottom:4px;position:relative}
   .paper td:first-child::before{display:none}
-  .paper td{text-align:left}
 }
 
 /* ========================================================================
