@@ -163,8 +163,8 @@ Deployment: the app runs on Railway (EU region) behind a Cloudflare Worker. The 
 
 ## Team
 
-- Mohamed Anis Belamri (aynxitis): checking engine, evaluation, deployment (Railway, Cloudflare Worker), MCP server, the first interface and the phone layout.
-- TechyTails (VCoder18): the redesigned interface (two-pane review workspace, document modes and Markdown tools, outcome key) and the demo video.
+- Mohamed Anis Belamri (aynxitis): checking engine, evaluation, MCP server, deployment (Railway, Cloudflare Worker), the first interface and phone layout, the site copy, and the demo video.
+- Badreddine Saidani (TechyTails, VCoder18): the redesigned interface (two-pane review workspace, document modes and Markdown tools, outcome key) and the landing page with its privacy, terms and error pages.
 
 ## License
 
