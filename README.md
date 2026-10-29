@@ -78,6 +78,7 @@ Touchstone checks whether the cited source says what the report claims, not whet
 - Qualitative claims depend on the model's reading.
 - A year anywhere in a quote softens a different-date red's wording.
 - When a copied report drops some of its citations (ChatGPT's '+1' chips, possibly Perplexity), Touchstone can only check the sources that are visible.
+- A correct figure from a table can come back COULDN'T CONFIRM when its year or period appears only in the table's header, not in the row itself (seen when checking a single claim through the MCP server).
 - English and French only.
 - Limits of 25 claims and 8 sources per audit, 5 audits per hour.
 
